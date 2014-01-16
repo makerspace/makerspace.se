@@ -1,0 +1,21 @@
+id: test_block
+theme: stark
+weight: ''
+status: true
+langcode: en
+region: -1
+plugin: test_html_id
+settings:
+  label: 'Test block html id'
+  module: block_test
+  label_display: false
+  cache: true
+visibility:
+  path:
+    visibility: 0
+    pages: ''
+  role:
+    roles: {  }
+  node_type:
+    types: {  }
+  visibility__active_tab: edit-visibility-path
