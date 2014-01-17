@@ -1,20 +1,13 @@
-diff --git a/core/includes/mail.inc b/core/includes/mail.inc
-index cb5af1a..9c1f69f 100644
---- a/core/includes/mail.inc
-+++ b/core/includes/mail.inc
-@@ -169,8 +169,12 @@ function drupal_mail($module, $key, $to, $langcode, $params = array(), $from = N
-   // Invoke hook_mail_alter() to allow all modules to alter the resulting e-mail.
-   drupal_alter('mail', $message);
- 
--  // Retrieve the responsible implementation for this message.
--  $system = drupal_mail_system($module, $key);
-+  if($module == 'makerspace_shop') {
-+    $system = new Drupal\makerspace_shop\Controller\Mail;
-+  } else {
-+    // Retrieve the responsible implementation for this message.
-+    $system = drupal_mail_system($module, $key);
-+  }
- 
-   // Format the message body.
-   $message = $system->format($message);
-
+diff --git a/public_html/core/includes/theme.inc b/public_html/core/includes/theme.inc
+index 5402dae..03e719b 100644
+--- a/public_html/core/includes/theme.inc
++++ b/public_html/core/includes/theme.inc
+@@ -1153,7 +1153,7 @@ function template_preprocess_datetime(&$variables) {
+  *     displaying messages of that specific type.
+  */
+ function template_preprocess_status_messages(&$variables) {
+-  $variables['message_list'] = drupal_get_messages($variables['display']);
++  $variables['message_list'] = drupal_get_messages($variables['display'], FALSE);
+   $variables['status_headings'] = array(
+     'status' => t('Status message'),
+     'error' => t('Error message'),
