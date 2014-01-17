@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html{{ html_attributes }}>
+<head>
+    {{ head }}
+    <title>{{ head_title }}</title>
+    {{ styles }}
+    {{ scripts }}
+    <link rel="apple-touch-icon" href="/themes/makerspace/images/apple-touch-icon-152x152.png">
+</head>
+<body{{ attributes }}>
+  <div id="skip-link">
+    <a href="#main-content" class="visually-hidden focusable">
+      {{ 'Skip to main content'|t }}
+    </a>
+  </div>
+  {{ page_top }}
+  {{ page }}
+  {{ page_bottom }}
+</body>
+</html>

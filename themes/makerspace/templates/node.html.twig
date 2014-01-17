@@ -1,0 +1,37 @@
+<article id="node-{{ node.id }}" class="{{ attributes.class }} clearfix"{{ attributes }}>
+  <header>
+    {% if (not page) and label %}
+      {{ title_prefix }}
+      <h2{{ title_attributes }}><a href="{{ node_url }}">{{ label }}</a></h2>
+      {{ title_suffix }}
+    {% endif %}
+
+{#
+    {% if display_submitted %}
+      <span class="submitted">
+        {{ user_picture }}
+        {{ submitted }}
+      </span>
+    {% endif %}
+#}
+  </header>
+
+  {# Hide comments, tags, and links now so that we can render them later. #}
+  {% hide(content.comments) %}
+  {% hide(content.links) %}
+  {% hide(content.field_tags) %}
+
+  <div{{ content_attributes }}>lol
+    {{ content }}
+  </div>
+
+  {% if content.field_tags or content.links %}
+    <footer>
+      {{ content.field_tags }}
+      {{ content.links }}
+    </footer>
+  {% endif %}
+
+  {{ content.comments }}
+
+</article> <!-- /.node -->
