@@ -1,0 +1,20 @@
+diff --git a/core/includes/mail.inc b/core/includes/mail.inc
+index cb5af1a..9c1f69f 100644
+--- a/core/includes/mail.inc
++++ b/core/includes/mail.inc
+@@ -169,8 +169,12 @@ function drupal_mail($module, $key, $to, $langcode, $params = array(), $from = N
+   // Invoke hook_mail_alter() to allow all modules to alter the resulting e-mail.
+   drupal_alter('mail', $message);
+ 
+-  // Retrieve the responsible implementation for this message.
+-  $system = drupal_mail_system($module, $key);
++  if($module == 'makerspace_shop') {
++    $system = new Drupal\makerspace_shop\Controller\Mail;
++  } else {
++    // Retrieve the responsible implementation for this message.
++    $system = drupal_mail_system($module, $key);
++  }
+ 
+   // Format the message body.
+   $message = $system->format($message);
+
