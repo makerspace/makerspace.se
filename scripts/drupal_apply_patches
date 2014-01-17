@@ -1,0 +1,5 @@
+cd public_html
+git apply ../DrupalCorePatches/mail.txt
+git apply ../DrupalCorePatches/message.txt
+#git apply ../DrupalCorePatches/toolbar.txt
+

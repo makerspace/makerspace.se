@@ -1,0 +1,4 @@
+diff -qr drupal8/core public_html/core
+diff drupal8/index.php public_html/index.php
+diff drupal8/composer.json public_html/composer.json
+diff drupal8/composer.lock public_html/composer.lock

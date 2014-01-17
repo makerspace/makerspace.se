@@ -1,0 +1,15 @@
+# Remove old core
+rm -rf public_html/composer.json
+rm -rf public_html/composer.lock
+rm -rf public_html/core/
+rm -rf public_html/index.php
+
+# Load new core
+cp -r drupal8/composer.json public_html/
+cp -r drupal8/composer.lock public_html/
+cp -r drupal8/core/ public_html/
+cp -r drupal8/index.php public_html/
+
+# Check if there is a diff in robots.txt
+diff drupal8/robots.txt public_html/robots.txt
+
