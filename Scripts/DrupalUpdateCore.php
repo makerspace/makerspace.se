@@ -4,8 +4,6 @@ $drupal8     = __DIR__ .'/../Drupal8';
 $public_html = __DIR__ .'/../public_html';
 
 // Remove old core
-system("rm -rf {$public_html}/composer.json");
-system("rm -rf {$public_html}/composer.lock");
 system("rm -rf {$public_html}/core/");
 system("rm -rf {$public_html}/index.php");
 
