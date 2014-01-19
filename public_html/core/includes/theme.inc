@@ -1153,7 +1153,7 @@ function template_preprocess_datetime(&$variables) {
  *     displaying messages of that specific type.
  */
 function template_preprocess_status_messages(&$variables) {
-  $variables['message_list'] = drupal_get_messages($variables['display'], FALSE);
+  $variables['message_list'] = drupal_get_messages($variables['display']);
   $variables['status_headings'] = array(
     'status' => t('Status message'),
     'error' => t('Error message'),

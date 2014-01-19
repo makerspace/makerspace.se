@@ -1,15 +1,3 @@
-search.view:
-  path: '/search/{plugin_id}'
-  defaults:
-    _title: 'Search'
-    _content: '\Drupal\search\Controller\SearchController::view'
-    plugin_id: NULL
-    keys: ''
-  requirements:
-    keys: '.+'
-    _permission: 'search content'
-    _search_access: 'TRUE'
-
 search.settings:
   path: '/admin/config/search/settings'
   defaults:
