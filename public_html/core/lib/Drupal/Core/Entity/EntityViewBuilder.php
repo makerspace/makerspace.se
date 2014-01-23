@@ -7,7 +7,9 @@
 
 namespace Drupal\Core\Entity;
 
+use Drupal\Core\Cache\Cache;
 use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Language\Language;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -15,7 +17,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /**
  * Base class for entity view controllers.
  */
-class EntityViewBuilder implements EntityControllerInterface, EntityViewBuilderInterface {
+class EntityViewBuilder extends EntityControllerBase implements EntityControllerInterface, EntityViewBuilderInterface {
 
   /**
    * The type of entities for which this controller is instantiated.
@@ -260,10 +262,10 @@ class EntityViewBuilder implements EntityControllerInterface, EntityViewBuilderI
         $tags[$this->entityType][$id] = $id;
         $tags[$this->entityType . '_view_' . $entity->bundle()] = TRUE;
       }
-      \Drupal::cache($this->cacheBin)->deleteTags($tags);
+      Cache::deleteTags($tags);
     }
     else {
-      \Drupal::cache($this->cacheBin)->deleteTags(array($this->entityType . '_view' => TRUE));
+      Cache::deleteTags(array($this->entityType . '_view' => TRUE));
     }
   }
 
