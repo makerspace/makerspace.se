@@ -1,0 +1,15 @@
+id: node.field_startdate
+uuid: 2250a345-959b-426f-ae04-4a4b6eab7fc2
+status: true
+langcode: sv
+name: field_startdate
+entity_type: node
+type: datetime
+settings:
+  datetime_type: datetime
+module: datetime
+active: true
+locked: false
+cardinality: '1'
+translatable: false
+indexes: {  }

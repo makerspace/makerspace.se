@@ -1,0 +1,32 @@
+menu_link:
+  main:
+    language:
+      default_configuration:
+        langcode: site_default
+        language_show: 0
+  footer:
+    language:
+      default_configuration:
+        langcode: site_default
+        language_show: 0
+  account:
+    language:
+      default_configuration:
+        langcode: site_default
+        language_show: 0
+node:
+  '':
+    language:
+      default_configuration:
+        langcode: site_default
+        language_show: 0
+  page:
+    language:
+      default_configuration:
+        langcode: site_default
+        language_show: 0
+  article:
+    language:
+      default_configuration:
+        langcode: site_default
+        language_show: 0

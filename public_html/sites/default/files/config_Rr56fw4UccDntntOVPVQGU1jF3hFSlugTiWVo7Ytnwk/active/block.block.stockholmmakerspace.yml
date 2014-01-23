@@ -1,0 +1,28 @@
+id: stockholmmakerspace
+uuid: e8521361-dcf2-4593-9c00-f93608027798
+weight: '-8'
+status: true
+langcode: sv
+theme: bootstrap
+region: footer2
+plugin: 'custom_block:4dd02e69-2092-42b4-ad08-8e9a41a879f2'
+settings:
+  status: true
+  info: ''
+  view_mode: full
+  label: 'Stockholm Makerspace'
+  module: custom_block
+  label_display: visible
+  cache: -1
+visibility:
+  path:
+    visibility: '0'
+    pages: ''
+  role:
+    roles: {  }
+  node_type:
+    types:
+      article: 0
+      event: 0
+      page: 0
+  visibility__active_tab: edit-visibility-path

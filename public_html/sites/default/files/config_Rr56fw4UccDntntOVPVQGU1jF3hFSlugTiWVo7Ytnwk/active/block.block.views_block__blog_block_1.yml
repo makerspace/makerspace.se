@@ -1,0 +1,26 @@
+id: views_block__blog_block_1
+uuid: fcf6501a-1760-4e1c-9f00-0e099512ae5a
+weight: '-9'
+status: true
+langcode: sv
+theme: bootstrap
+region: content_bottom
+plugin: 'views_block:blog-block_1'
+settings:
+  items_per_page: none
+  label: ''
+  module: views
+  label_display: visible
+  cache: -1
+visibility:
+  path:
+    visibility: '1'
+    pages: "<front>\r\nnewfrontpage"
+  role:
+    roles: {  }
+  node_type:
+    types:
+      article: 0
+      event: 0
+      page: 0
+  visibility__active_tab: edit-visibility-path

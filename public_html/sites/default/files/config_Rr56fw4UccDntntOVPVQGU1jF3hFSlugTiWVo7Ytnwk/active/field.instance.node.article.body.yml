@@ -1,0 +1,16 @@
+id: node.article.body
+uuid: 50ab4d6e-6e8e-4045-a00c-12bdf11a613f
+status: true
+langcode: sv
+field_uuid: 2fdf426b-d4fa-4562-bc00-eb3c848704e4
+entity_type: node
+bundle: article
+label: Body
+description: ''
+required: false
+default_value: {  }
+default_value_function: ''
+settings:
+  display_summary: true
+  text_processing: '1'
+field_type: text_with_summary

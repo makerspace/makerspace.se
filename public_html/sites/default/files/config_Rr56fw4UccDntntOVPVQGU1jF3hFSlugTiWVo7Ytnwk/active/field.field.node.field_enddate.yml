@@ -1,0 +1,15 @@
+id: node.field_enddate
+uuid: 98f6b217-4d2f-46c3-a800-a79ffac17e40
+status: true
+langcode: sv
+name: field_enddate
+entity_type: node
+type: datetime
+settings:
+  datetime_type: datetime
+module: datetime
+active: true
+locked: false
+cardinality: '1'
+translatable: false
+indexes: {  }

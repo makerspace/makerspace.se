@@ -1,0 +1,23 @@
+id: contact_message.field_contactcategory
+uuid: 39bbbaa9-4e5c-40bd-8507-7e531feabfa8
+status: true
+langcode: sv
+name: field_contactcategory
+entity_type: contact_message
+type: list_text
+settings:
+  allowed_values:
+    'Allmänna frågor': 'Allmänna frågor'
+    IT-gruppen: IT-gruppen
+    'Medlems- och Lokalhantering': 'Medlems- och Lokalhantering'
+    'Maskiner och Verktyg': 'Maskiner och Verktyg'
+    'Sponsring och PR': 'Sponsring och PR'
+    Fastighetsgruppen: Fastighetsgruppen
+    Eventgruppen: Eventgruppen
+  allowed_values_function: ''
+module: options
+active: true
+locked: false
+cardinality: '1'
+translatable: false
+indexes: {  }

@@ -1,0 +1,13 @@
+id: authenticated
+uuid: 515250c9-46bd-4611-ba06-6b8cfd63f1a7
+label: 'Authenticated user'
+weight: 1
+permissions:
+  0: 'use text format plain_text'
+  1: 'use text format basic_html'
+  2: 'access content'
+  6: 'access site-wide contact form'
+  7: 'access user contact forms'
+  8: 'search content'
+status: true
+langcode: en

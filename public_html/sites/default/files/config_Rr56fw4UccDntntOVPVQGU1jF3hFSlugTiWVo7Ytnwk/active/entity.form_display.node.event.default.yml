@@ -1,0 +1,25 @@
+id: node.event.default
+uuid: c46a4400-94dc-44ac-a000-dc7b25571ecc
+targetEntityType: node
+bundle: event
+mode: default
+content:
+  body:
+    type: text_textarea_with_summary
+    weight: '3'
+    settings:
+      rows: '9'
+      summary_rows: '3'
+      placeholder: ''
+  field_startdate:
+    type: datetime_default
+    weight: '1'
+    settings: {  }
+  field_enddate:
+    type: datetime_default
+    weight: '2'
+    settings: {  }
+  title:
+    weight: '0'
+    visible: true
+status: true

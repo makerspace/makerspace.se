@@ -1,0 +1,12 @@
+id: contact_message.feedback.default
+uuid: 0396c5a9-a3bc-4b6d-9056-86f5e3694c3e
+targetEntityType: contact_message
+bundle: feedback
+mode: default
+content:
+  field_contactcategory:
+    weight: 0
+    label: above
+    settings: {  }
+    type: list_default
+status: true

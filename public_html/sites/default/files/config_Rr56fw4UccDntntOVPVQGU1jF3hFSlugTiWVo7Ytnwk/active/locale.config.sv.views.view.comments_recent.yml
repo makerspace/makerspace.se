@@ -1,0 +1,15 @@
+label: 'Senaste kommentarer'
+display:
+  default:
+    display_title: Huvud
+    display_options:
+      title: 'Senaste kommentarer'
+      exposed_form:
+        options:
+          submit_button: Verkställ
+          reset_button_label: Återställ
+          exposed_sorts_label: 'Sortera efter'
+  page_1:
+    display_title: Sida
+  block_1:
+    display_title: Block

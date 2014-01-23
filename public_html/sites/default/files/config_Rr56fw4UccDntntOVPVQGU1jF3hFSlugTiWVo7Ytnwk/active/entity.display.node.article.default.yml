@@ -1,0 +1,26 @@
+id: node.article.default
+uuid: 3ca9876e-7b93-48bd-8f00-b4ce293ad554
+targetEntityType: node
+bundle: article
+mode: default
+content:
+  body:
+    type: text_default
+    weight: '2'
+    settings: {  }
+    label: hidden
+  field_tags:
+    type: taxonomy_term_reference_link
+    weight: '1'
+    settings: {  }
+    label: above
+  field_image:
+    type: image
+    weight: '0'
+    settings:
+      image_style: large
+      image_link: ''
+    label: hidden
+  langcode:
+    visible: false
+status: 1

@@ -1,0 +1,8 @@
+allow_insecure_uploads: '0'
+chmod:
+  directory: '0775'
+  file: '0664'
+default_scheme: public
+path:
+  private: ''
+  temporary: /tmp

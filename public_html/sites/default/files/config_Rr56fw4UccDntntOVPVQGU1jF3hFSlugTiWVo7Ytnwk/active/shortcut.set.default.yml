@@ -1,0 +1,8 @@
+id: default
+uuid: b28b577b-1426-416c-923b-599f65f31aba
+label: Default
+links:
+  b68f0eb0-7402-4f23-8f07-0701a32c5d65: b68f0eb0-7402-4f23-8f07-0701a32c5d65
+  d1a6d827-a912-4d12-b909-9b22a714cac4: d1a6d827-a912-4d12-b909-9b22a714cac4
+status: true
+langcode: sv

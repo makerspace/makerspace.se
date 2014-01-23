@@ -1,0 +1,33 @@
+id: boardmember
+uuid: abc80f6a-d21a-4820-8f49-731eb928c34c
+label: Styrelseledamot
+weight: 3
+permissions:
+  1: 'create page content'
+  2: 'create article content'
+  3: 'edit any article content'
+  4: 'delete any article content'
+  5: 'revert article revisions'
+  6: 'create event content'
+  7: 'edit any event content'
+  8: 'delete any event content'
+  9: 'revert event revisions'
+  10: 'edit any page content'
+  11: 'delete any page content'
+  12: 'revert page revisions'
+  13: 'access toolbar'
+  14: 'administer payments'
+  16: 'access content overview'
+  17: 'edit own article content'
+  18: 'delete own article content'
+  19: 'view article revisions'
+  20: 'edit own event content'
+  21: 'delete own event content'
+  22: 'view event revisions'
+  23: 'edit own page content'
+  24: 'delete own page content'
+  25: 'view page revisions'
+  26: 'view the administration theme'
+  27: 'use text format full_html'
+status: true
+langcode: sv

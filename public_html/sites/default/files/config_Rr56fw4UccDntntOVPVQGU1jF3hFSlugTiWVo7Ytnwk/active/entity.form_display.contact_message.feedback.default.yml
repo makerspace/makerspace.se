@@ -1,0 +1,26 @@
+id: contact_message.feedback.default
+uuid: f450ccf5-3c87-4ac2-8e04-4b84a7b917fd
+targetEntityType: contact_message
+bundle: feedback
+mode: default
+content:
+  field_contactcategory:
+    type: options_select
+    weight: '0'
+    settings: {  }
+  name:
+    weight: '-50'
+    visible: true
+  mail:
+    weight: '-40'
+    visible: true
+  subject:
+    weight: '-10'
+    visible: true
+  message:
+    weight: '0'
+    visible: true
+  copy:
+    weight: '50'
+    visible: true
+status: true
