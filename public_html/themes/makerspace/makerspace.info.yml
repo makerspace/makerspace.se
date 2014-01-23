@@ -26,6 +26,8 @@ stylesheets:
     - css/bootstrap.min.css
     - css/bootstrap-theme.min.css
     - css/makerspace.css
+    - css/all.css
+    - css/overrides.css
 #javascript:
 #    - js/jquery.min.js
 #    - js/bootstrap.min.js
