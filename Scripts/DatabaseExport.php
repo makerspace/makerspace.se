@@ -2,7 +2,12 @@
 <?php
 include(__DIR__ . '/../public_html/sites/default/settings.php');
 
-$date = date('Y-m-dTH:i:s');
-$dumpfile = __DIR__ . "/../Database/{$date}.sql";
+$host = $databases['default']['default']['host'];
+$user = $databases['default']['default']['username'];
+$pass = $databases['default']['default']['password'];
+$db   = $databases['default']['default']['database'];
 
-echo "mysqldump --host={$databases['default']['default']['host']} --user={$databases['default']['default']['username']} --password={$databases['default']['default']['password']} {$databases['default']['default']['database']} > {$dumpfile}\n";
+$date = date('Y-m-dTH:i:s');
+$backupfile = __DIR__ . "/../Database/{$date}.sql";
+
+system("mysqldump --host={$host} --user={$user} --password={$pass} {$db} > {$backupfile}");
