@@ -38,18 +38,16 @@ function ban_permission() {
 }
 
 /**
- * Implements hook_menu().
+ * Implements hook_menu_link_defaults().
  */
-function ban_menu() {
-  $items['admin/config/people/ban'] = array(
-    'title' => 'IP address bans',
+function ban_menu_link_defaults() {
+  $links['ban.admin.config.people'] = array(
+    'link_title' => 'IP address bans',
     'description' => 'Manage banned IP addresses.',
     'route_name' => 'ban.admin_page',
     'weight' => 10,
+    'parent' => 'user.admin.config.people',
   );
-  $items['admin/config/people/ban/delete/%'] = array(
-    'title' => 'Delete IP address',
-    'route_name' => 'ban.delete',
-  );
-  return $items;
+
+  return $links;
 }

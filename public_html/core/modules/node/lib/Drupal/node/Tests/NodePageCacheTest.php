@@ -48,10 +48,18 @@ class NodePageCacheTest extends NodeTestBase {
    * Tests deleting nodes clears page cache.
    */
   public function testNodeDelete() {
-    $node_path = 'node/' . $this->drupalCreateNode()->id();
+    $author = $this->drupalCreateUser();
+    $node_id = $this->drupalCreateNode(array('uid' => $author->id()))->id();
+    $node_path = 'node/' . $node_id;
 
     // Populate page cache.
     $this->drupalGet($node_path);
+
+    // Verify the presence of the correct cache tags.
+    $cid_parts = array(url($node_path, array('absolute' => TRUE)), 'html');
+    $cid = sha1(implode(':', $cid_parts));
+    $cache_entry = \Drupal::cache('page')->get($cid);
+    $this->assertIdentical($cache_entry->tags, array('content:1', 'node_view:' . $node_id,  'node:' . $node_id, 'user:' . $author->id(), 'filter_format:plain_text'));
 
     // Login and delete the node.
     $this->drupalLogin($this->adminUser);

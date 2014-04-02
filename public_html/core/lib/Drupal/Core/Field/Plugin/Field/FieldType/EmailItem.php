@@ -18,30 +18,21 @@ use Drupal\Core\TypedData\DataDefinition;
  *   id = "email",
  *   label = @Translation("E-mail"),
  *   description = @Translation("An entity field containing an e-mail value."),
- *   configurable = FALSE
+ *   configurable = FALSE,
+ *   default_widget = "string",
+ *   default_formatter = "string"
  * )
  */
 class EmailItem extends FieldItemBase {
 
   /**
-   * Definitions of the contained properties.
-   *
-   * @see EmailItem::getPropertyDefinitions()
-   *
-   * @var array
+   * {@inheritdoc}
    */
-  static $propertyDefinitions;
+  public static function propertyDefinitions(FieldDefinitionInterface $field_definition) {
+    $properties['value'] = DataDefinition::create('email')
+      ->setLabel(t('E-mail value'));
 
-  /**
-   * Implements ComplexDataInterface::getPropertyDefinitions().
-   */
-  public function getPropertyDefinitions() {
-
-    if (!isset(static::$propertyDefinitions)) {
-      static::$propertyDefinitions['value'] = DataDefinition::create('email')
-        ->setLabel(t('E-mail value'));
-    }
-    return static::$propertyDefinitions;
+    return $properties;
   }
 
   /**

@@ -145,11 +145,11 @@ class ModuleHandler implements ModuleHandlerInterface {
    */
   public function buildModuleDependencies(array $modules) {
     foreach ($modules as $module) {
-      $graph[$module->name]['edges'] = array();
+      $graph[$module->getName()]['edges'] = array();
       if (isset($module->info['dependencies']) && is_array($module->info['dependencies'])) {
         foreach ($module->info['dependencies'] as $dependency) {
           $dependency_data = static::parseDependency($dependency);
-          $graph[$module->name]['edges'][$dependency_data['name']] = $dependency_data;
+          $graph[$module->getName()]['edges'][$dependency_data['name']] = $dependency_data;
         }
       }
     }
@@ -382,7 +382,7 @@ class ModuleHandler implements ModuleHandlerInterface {
       if (isset($theme)) {
         $theme_keys = array();
         foreach ($base_theme_info as $base) {
-          $theme_keys[] = $base->name;
+          $theme_keys[] = $base->getName();
         }
         $theme_keys[] = $theme;
         foreach ($theme_keys as $theme_key) {
@@ -599,9 +599,10 @@ class ModuleHandler implements ModuleHandlerInterface {
         $this->load($module);
         module_load_install($module);
 
-        // Flush theme info caches, since (testing) modules can implement
-        // hook_system_theme_info() to register additional themes.
-        system_list_reset();
+        // Clear the static cache of system_rebuild_module_data() to pick up the
+        // new module, since it merges the installation status of modules into
+        // its statically cached list.
+        drupal_static_reset('system_rebuild_module_data');
 
         // Update the kernel to include it.
         // This reboots the kernel to register the module's bundle and its
@@ -627,10 +628,13 @@ class ModuleHandler implements ModuleHandlerInterface {
         // Now install the module's schema if necessary.
         drupal_install_schema($module);
 
-        // Set the schema version to the number of the last update provided
-        // by the module.
+        // Set the schema version to the number of the last update provided by
+        // the module, or the minimum core schema version.
+        $version = \Drupal::CORE_MINIMUM_SCHEMA_VERSION;
         $versions = drupal_get_schema_versions($module);
-        $version = $versions ? max($versions) : SCHEMA_INSTALLED;
+        if ($versions) {
+          $version = max(max($versions), $version);
+        }
 
         // Install default configuration of the module.
         \Drupal::service('config.installer')->installDefaultConfig('module', $module);
@@ -723,11 +727,11 @@ class ModuleHandler implements ModuleHandlerInterface {
       $this->invoke($module, 'uninstall');
       drupal_uninstall_schema($module);
 
-      // Remove all configuration belonging to the module.
-      config_uninstall_default_config('module', $module);
-
       // Remove the module's entry from the config.
       $module_config->clear("enabled.$module")->save();
+
+      // Remove all configuration belonging to the module.
+      \Drupal::service('config.manager')->uninstall('module', $module);
 
       // Update the module handler to remove the module.
       // The current ModuleHandler instance is obsolete with the kernel rebuild
@@ -739,10 +743,10 @@ class ModuleHandler implements ModuleHandlerInterface {
       // Remove any potential cache bins provided by the module.
       $this->removeCacheBins($module);
 
-      // Refresh the system list to exclude the uninstalled modules.
-      // @todo Only needed to rebuild theme info.
-      // @see system_list_reset()
-      system_list_reset();
+      // Clear the static cache of system_rebuild_module_data() to pick up the
+      // new module, since it merges the installation status of modules into
+      // its statically cached list.
+      drupal_static_reset('system_rebuild_module_data');
 
       // Clear the entity info cache.
       entity_info_cache_clear();
@@ -756,6 +760,9 @@ class ModuleHandler implements ModuleHandlerInterface {
       watchdog('system', '%module module uninstalled.', array('%module' => $module), WATCHDOG_INFO);
 
       $schema_store->delete($module);
+
+      // Make sure any route data is also removed for this module.
+      \Drupal::service('router.dumper')->dump(array('provider' => $module));
     }
     drupal_get_installed_schema_version(NULL, TRUE);
 

@@ -15,7 +15,7 @@ use Drupal\user\RoleInterface;
 /**
  * Defines the user role entity class.
  *
- * @EntityType(
+ * @ConfigEntityType(
  *   id = "user_role",
  *   label = @Translation("Role"),
  *   controllers = {
@@ -28,15 +28,16 @@ use Drupal\user\RoleInterface;
  *     }
  *   },
  *   admin_permission = "administer permissions",
- *   config_prefix = "user.role",
+ *   config_prefix = "role",
  *   entity_keys = {
  *     "id" = "id",
- *     "uuid" = "uuid",
  *     "weight" = "weight",
  *     "label" = "label"
  *   },
  *   links = {
- *     "edit-form" = "user.role_edit"
+ *     "delete-form" = "user.role_delete",
+ *     "edit-form" = "user.role_edit",
+ *     "edit-permissions-form" = "user.admin_permission"
  *   }
  * )
  */

@@ -8,6 +8,7 @@
 namespace Drupal\search\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityBase;
+use Drupal\Core\Config\Entity\EntityWithPluginBagInterface;
 use Drupal\Core\Entity\EntityStorageControllerInterface;
 use Drupal\Component\Plugin\ConfigurablePluginInterface;
 use Drupal\search\Plugin\SearchIndexingInterface;
@@ -17,7 +18,7 @@ use Drupal\search\SearchPageInterface;
 /**
  * Defines a configured search page.
  *
- * @EntityType(
+ * @ConfigEntityType(
  *   id = "search_page",
  *   label = @Translation("Search page"),
  *   controllers = {
@@ -33,19 +34,22 @@ use Drupal\search\SearchPageInterface;
  *   },
  *   admin_permission = "administer search",
  *   links = {
- *     "edit-form" = "search.edit"
+ *     "edit-form" = "search.edit",
+ *     "delete-form" = "search.delete",
+ *     "enable" = "search.enable",
+ *     "disable" = "search.disable",
+ *     "set-default" = "search.set_default"
  *   },
- *   config_prefix = "search.page",
+ *   config_prefix = "page",
  *   entity_keys = {
  *     "id" = "id",
  *     "label" = "label",
- *     "uuid" = "uuid",
  *     "weight" = "weight",
  *     "status" = "status"
  *   }
  * )
  */
-class SearchPage extends ConfigEntityBase implements SearchPageInterface {
+class SearchPage extends ConfigEntityBase implements SearchPageInterface, EntityWithPluginBagInterface {
 
   /**
    * The name (plugin ID) of the search page entity.
@@ -108,17 +112,23 @@ class SearchPage extends ConfigEntityBase implements SearchPageInterface {
   /**
    * {@inheritdoc}
    */
-  public function __construct(array $values, $entity_type) {
-    parent::__construct($values, $entity_type);
-
-    $this->pluginBag = new SearchPluginBag($this->searchPluginManager(), array($this->plugin), $this->configuration, $this->id());
-  }
+  protected $pluginConfigKey = 'configuration';
 
   /**
    * {@inheritdoc}
    */
   public function getPlugin() {
-    return $this->pluginBag->get($this->plugin);
+    return $this->getPluginBag()->get($this->plugin);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getPluginBag() {
+    if (!$this->pluginBag) {
+      $this->pluginBag = new SearchPluginBag($this->searchPluginManager(), $this->plugin, $this->configuration, $this->id());
+    }
+    return $this->pluginBag;
   }
 
   /**
@@ -126,7 +136,7 @@ class SearchPage extends ConfigEntityBase implements SearchPageInterface {
    */
   public function setPlugin($plugin_id) {
     $this->plugin = $plugin_id;
-    $this->pluginBag->addInstanceID($plugin_id);
+    $this->getPluginBag()->addInstanceID($plugin_id);
   }
 
   /**
@@ -190,26 +200,9 @@ class SearchPage extends ConfigEntityBase implements SearchPageInterface {
   /**
    * {@inheritdoc}
    */
-  public function preSave(EntityStorageControllerInterface $storage_controller) {
-    parent::preSave($storage_controller);
-
-    $plugin = $this->getPlugin();
-    // If this plugin has any configuration, ensure that it is set.
-    if ($plugin instanceof ConfigurablePluginInterface) {
-      $this->set('configuration', $plugin->getConfiguration());
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function postSave(EntityStorageControllerInterface $storage_controller, $update = TRUE) {
     parent::postSave($storage_controller, $update);
-
-    $this->state()->set('menu_rebuild_needed', TRUE);
-    // @todo The above call should be sufficient, but it is not until
-    //   https://drupal.org/node/2167323 is fixed.
-    \Drupal::service('router.builder')->rebuild();
+    $this->routeBuilder()->setRebuildNeeded();
   }
 
   /**
@@ -239,19 +232,19 @@ class SearchPage extends ConfigEntityBase implements SearchPageInterface {
   }
 
   /**
-   * Wraps the state storage.
+   * Wraps the route builder.
    *
-   * @return \Drupal\Core\KeyValueStore\StateInterface
+   * @return \Drupal\Core\Routing\RouteBuilderInterface
    *   An object for state storage.
    */
-  protected function state() {
-    return \Drupal::state();
+  protected function routeBuilder() {
+    return \Drupal::service('router.builder');
   }
 
   /**
    * Wraps the config factory.
    *
-   * @return \Drupal\Core\Config\ConfigFactory
+   * @return \Drupal\Core\Config\ConfigFactoryInterface
    *   A config factory object.
    */
   protected function configFactory() {

@@ -25,7 +25,7 @@ class ConfigEntityUnitTest extends DrupalUnitTestBase {
   /**
    * The config_test entity storage controller.
    *
-   * @var \Drupal\config_test\ConfigTestStorageController
+   * @var \Drupal\Core\Config\Entity\ConfigStorageControllerInterface
    */
   protected $storage;
 
@@ -49,16 +49,16 @@ class ConfigEntityUnitTest extends DrupalUnitTestBase {
    * Tests storage controller methods.
    */
   public function testStorageControllerMethods() {
-    $info = \Drupal::entityManager()->getDefinition('config_test');
+    $entity_type = \Drupal::entityManager()->getDefinition('config_test');
 
-    $expected = $info->getConfigPrefix() . '.';
+    $expected = $entity_type->getConfigPrefix() . '.';
     $this->assertIdentical($this->storage->getConfigPrefix(), $expected);
 
     // Test the static extractID() method.
     $expected_id = 'test_id';
-    $config_name = $info->getConfigPrefix() . '.' . $expected_id;
+    $config_name = $entity_type->getConfigPrefix() . '.' . $expected_id;
     $storage = $this->storage;
-    $this->assertIdentical($storage::getIDFromConfigName($config_name, $info->getConfigPrefix()), $expected_id);
+    $this->assertIdentical($storage::getIDFromConfigName($config_name, $entity_type->getConfigPrefix()), $expected_id);
 
     // Create three entities, two with the same style.
     $style = $this->randomName(8);
@@ -77,6 +77,13 @@ class ConfigEntityUnitTest extends DrupalUnitTestBase {
       'style' => $this->randomName(9),
     ));
     $entity->save();
+
+    // Ensure that the configuration entity can be loaded by UUID.
+    $entity_loaded_by_uuid = entity_load_by_uuid($entity_type->id(), $entity->uuid());
+    // Compare UUIDs as the objects are not identical since
+    // $entity->enforceIsNew is FALSE and $entity_loaded_by_uuid->enforceIsNew
+    // is NULL.
+    $this->assertIdentical($entity->uuid(), $entity_loaded_by_uuid->uuid());
 
     $entities = $this->storage->loadByProperties();
     $this->assertEqual(count($entities), 3, 'Three entities are loaded when no properties are specified.');

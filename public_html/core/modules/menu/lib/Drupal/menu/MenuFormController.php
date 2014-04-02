@@ -113,6 +113,7 @@ class MenuFormController extends EntityFormController {
       $form['default_menu_links_language'] = array(
         '#type' => 'details',
         '#title' => t('Menu links language'),
+        '#open' => TRUE,
       );
       $form['default_menu_links_language']['default_language'] = array(
         '#type' => 'language_configuration',
@@ -205,34 +206,18 @@ class MenuFormController extends EntityFormController {
 
     $status = $menu->save();
 
-    $uri = $menu->uri();
+    $uri = $menu->urlInfo();
+    $edit_link = \Drupal::l($this->t('Edit'), $uri['route_name'], $uri['route_parameters'], $uri['options']);
     if ($status == SAVED_UPDATED) {
       drupal_set_message(t('Menu %label has been updated.', array('%label' => $menu->label())));
-      watchdog('menu', 'Menu %label has been updated.', array('%label' => $menu->label()), WATCHDOG_NOTICE, l(t('Edit'), $uri['path'] . '/edit'));
+      watchdog('menu', 'Menu %label has been updated.', array('%label' => $menu->label()), WATCHDOG_NOTICE, $edit_link);
     }
     else {
       drupal_set_message(t('Menu %label has been added.', array('%label' => $menu->label())));
-      watchdog('menu', 'Menu %label has been added.', array('%label' => $menu->label()), WATCHDOG_NOTICE, l(t('Edit'), $uri['path'] . '/edit'));
+      watchdog('menu', 'Menu %label has been added.', array('%label' => $menu->label()), WATCHDOG_NOTICE, $edit_link);
     }
 
-    $form_state['redirect_route'] = array(
-      'route_name' => 'menu.menu_edit',
-      'route_parameters' => array(
-        'menu' => $this->entity->id(),
-      ),
-    );
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function delete(array $form, array &$form_state) {
-    $form_state['redirect_route'] = array(
-      'route_name' => 'menu.delete_menu',
-      'route_parameters' => array(
-        'menu' => $this->entity->id(),
-      ),
-    );
+    $form_state['redirect_route'] = $this->entity->urlInfo('edit-form');
   }
 
   /**
@@ -250,8 +235,6 @@ class MenuFormController extends EntityFormController {
    * their form submit handler.
    */
   protected function buildOverviewForm(array &$form, array &$form_state) {
-    global $menu_admin;
-
     // Ensure that menu_overview_form_submit() knows the parents of this form
     // section.
     $form['#tree'] = TRUE;
@@ -276,10 +259,11 @@ class MenuFormController extends EntityFormController {
     $tree = menu_tree_data($links);
     $node_links = array();
     menu_tree_collect_node_links($tree, $node_links);
+
     // We indicate that a menu administrator is running the menu access check.
-    $menu_admin = TRUE;
+    $this->getRequest()->attributes->set('_menu_admin', TRUE);
     menu_tree_check_access($tree, $node_links);
-    $menu_admin = FALSE;
+    $this->getRequest()->attributes->set('_menu_admin', FALSE);
 
     $form = array_merge($form, $this->buildOverviewTreeForm($tree, $delta));
     $form['#empty_text'] = t('There are no menu links yet. <a href="@link">Add link</a>.', array('@link' => url('admin/structure/menu/manage/' . $this->entity->id() .'/add')));

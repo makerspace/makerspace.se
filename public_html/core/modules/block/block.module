@@ -7,7 +7,6 @@
 
 use Drupal\block\BlockInterface;
 use Drupal\Component\Plugin\Exception\PluginException;
-use Drupal\Component\Utility\NestedArray;
 use Symfony\Cmf\Component\Routing\RouteObjectInterface;
 
 /**
@@ -94,26 +93,17 @@ function block_permission() {
 }
 
 /**
- * Implements hook_menu().
- *
- * @todo Clarify the documentation for the per-plugin block admin links.
+ * Implements hook_menu_link_defaults().
  */
-function block_menu() {
-  $items['admin/structure/block'] = array(
-    'title' => 'Block layout',
+function block_menu_link_defaults() {
+  $links['block.admin.structure'] = array(
+    'link_title' => 'Block layout',
+    'parent' => 'system.admin.structure',
     'description' => 'Configure what block content appears in your site\'s sidebars and other regions.',
     'route_name' => 'block.admin_display',
   );
-  $items['admin/structure/block/manage/%block'] = array(
-    'title' => 'Configure block',
-    'route_name' => 'block.admin_edit',
-  );
-  $items['admin/structure/block/add/%/%'] = array(
-    'title' => 'Place block',
-    'type' => MENU_VISIBLE_IN_BREADCRUMB,
-    'route_name' => 'block.admin_add',
-  );
-  return $items;
+
+  return $links;
 }
 
 /**
@@ -226,23 +216,6 @@ function _block_get_renderable_region($list = array()) {
         ),
       );
     }
-
-    // Add contextual links for this block; skip the main content block, since
-    // contextual links are basically output as tabs/local tasks already. Also
-    // skip the help block, since we assume that most users do not need or want
-    // to perform contextual actions on the help block, and the links needlessly
-    // draw attention on it.
-    if (isset($build[$key]) && !in_array($block->get('plugin'), array('system_help_block', 'system_main_block'))) {
-      $build[$key]['#contextual_links']['block'] = array(
-        'route_parameters' => array('block' => $key),
-      );
-
-      // If there are any nested contextual links, move them to the top level.
-      if (isset($build[$key]['content']['#contextual_links'])) {
-        $build[$key]['#contextual_links'] += $build[$key]['content']['#contextual_links'];
-        unset($build[$key]['content']['#contextual_links']);
-      }
-    }
   }
   return $build;
 }
@@ -278,7 +251,7 @@ function _block_rehash($theme = NULL) {
       $block->disable()->save();
     }
     // Set region to none if not enabled.
-    if (!$status) {
+    if (!$status && $region != BlockInterface::BLOCK_REGION_NONE) {
       $block->set('region', BlockInterface::BLOCK_REGION_NONE);
       $block->save();
     }
@@ -487,16 +460,6 @@ function template_preprocess_block(&$variables) {
   $variables['attributes']['class'][] = 'block';
   $variables['attributes']['class'][] = drupal_html_class('block-' . $variables['configuration']['module']);
 
-  // The block template provides a wrapping element for the content. Render the
-  // #attributes of the content on this wrapping element rather than passing
-  // them through to the content's #theme function/template. This allows the
-  // content to not require a function/template at all, or if it does use one,
-  // to not require it to output an extra wrapping element.
-  if (isset($variables['content']['#attributes'])) {
-    $variables['content_attributes'] = NestedArray::mergeDeep($variables['content_attributes'], $variables['content']['#attributes']);
-    unset($variables['content']['#attributes']);
-  }
-
   // Add default class for block content.
   $variables['content_attributes']['class'][] = 'content';
 
@@ -560,37 +523,4 @@ function block_language_delete($language) {
       $block->save();
     }
   }
-}
-
-/**
- * Implements hook_library_info().
- */
-function block_library_info() {
-  $libraries['drupal.block'] = array(
-    'title' => 'Block',
-    'version' => \Drupal::VERSION,
-    'js' => array(
-      drupal_get_path('module', 'block') . '/block.js' => array(),
-    ),
-    'dependencies' => array(
-      array('system', 'jquery'),
-      array('system', 'drupal'),
-    ),
-  );
-  $libraries['drupal.block.admin'] = array(
-    'title' => 'Block admin',
-    'version' => \Drupal::VERSION,
-    'js' => array(
-      drupal_get_path('module', 'block') . '/js/block.admin.js' => array(),
-    ),
-    'css' => array(
-      drupal_get_path('module', 'block') . '/css/block.admin.css' => array(),
-    ),
-    'dependencies' => array(
-      array('system', 'jquery'),
-      array('system', 'drupal'),
-    ),
-  );
-
-  return $libraries;
 }

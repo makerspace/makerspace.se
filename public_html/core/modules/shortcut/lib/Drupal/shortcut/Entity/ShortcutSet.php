@@ -15,7 +15,7 @@ use Drupal\shortcut\ShortcutSetInterface;
 /**
  * Defines the Shortcut configuration entity.
  *
- * @EntityType(
+ * @ConfigEntityType(
  *   id = "shortcut_set",
  *   label = @Translation("Shortcut set"),
  *   controllers = {
@@ -30,14 +30,15 @@ use Drupal\shortcut\ShortcutSetInterface;
  *       "delete" = "Drupal\shortcut\Form\ShortcutSetDeleteForm"
  *     }
  *   },
- *   config_prefix = "shortcut.set",
+ *   config_prefix = "set",
  *   entity_keys = {
  *     "id" = "id",
- *     "label" = "label",
- *     "uuid" = "uuid"
+ *     "label" = "label"
  *   },
  *   links = {
- *     "edit-form" = "shortcut.set_customize"
+ *     "customize-form" = "shortcut.set_customize",
+ *     "delete-form" = "shortcut.set_delete",
+ *     "edit-form" = "shortcut.set_edit"
  *   }
  * )
  */
@@ -109,7 +110,7 @@ class ShortcutSet extends ConfigEntityBase implements ShortcutSetInterface {
   public function resetLinkWeights() {
     $weight = -50;
     foreach ($this->getShortcuts() as $shortcut) {
-      $shortcut->weight->value = ++$weight;
+      $shortcut->setWeight(++$weight);
       $shortcut->save();
     }
 

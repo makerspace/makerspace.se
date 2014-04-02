@@ -14,10 +14,8 @@ use Drupal\Core\Plugin\DefaultPluginManager;
 
 /**
  * Plugin manager for 'field type' plugins.
- *
- * @todo Add FieldTypePluginManagerInterface in https://drupal.org/node/2175415.
  */
-class FieldTypePluginManager extends DefaultPluginManager {
+class FieldTypePluginManager extends DefaultPluginManager implements FieldTypePluginManagerInterface {
 
   /**
    * {@inheritdoc}
@@ -41,8 +39,8 @@ class FieldTypePluginManager extends DefaultPluginManager {
    *   The module handler.
    */
   public function __construct(\Traversable $namespaces, CacheBackendInterface $cache_backend, LanguageManager $language_manager, ModuleHandlerInterface $module_handler) {
-    parent::__construct('Plugin/Field/FieldType', $namespaces, 'Drupal\Core\Field\Annotation\FieldType');
-    $this->alterInfo($module_handler, 'field_info');
+    parent::__construct('Plugin/Field/FieldType', $namespaces, $module_handler, 'Drupal\Core\Field\Annotation\FieldType');
+    $this->alterInfo('field_info');
     $this->setCacheBackend($cache_backend, $language_manager, 'field_types_plugins');
   }
 
@@ -62,14 +60,7 @@ class FieldTypePluginManager extends DefaultPluginManager {
   }
 
   /**
-   * Returns the default field-level settings for a field type.
-   *
-   * @param string $type
-   *   A field type name.
-   *
-   * @return array
-   *   The type's default settings, as provided by the plugin
-   *   definition, or an empty array if type or settings are undefined.
+   * {@inheritdoc}
    */
   public function getDefaultSettings($type) {
     $info = $this->getDefinition($type);
@@ -77,14 +68,7 @@ class FieldTypePluginManager extends DefaultPluginManager {
   }
 
   /**
-   * Returns the default instance-level settings for a field type.
-   *
-   * @param string $type
-   *   A field type name.
-   *
-   * @return array
-   *   The instance's default settings, as provided by the plugin
-   *   definition, or an empty array if type or settings are undefined.
+   * {@inheritdoc}
    */
   public function getDefaultInstanceSettings($type) {
     $info = $this->getDefinition($type);
@@ -92,10 +76,7 @@ class FieldTypePluginManager extends DefaultPluginManager {
   }
 
   /**
-   * Gets the definition of all field types that are configurable.
-   *
-   * @return array
-   *   An array of field type definitions.
+   * {@inheritdoc}
    */
   public function getConfigurableDefinitions() {
     $definitions = $this->getDefinitions();

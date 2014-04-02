@@ -7,11 +7,7 @@
 
 namespace Drupal\forum\Controller;
 
-use Drupal\Core\Config\Config;
-use Drupal\Core\Controller\ControllerInterface;
-use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
-use Drupal\Core\Entity\EntityManagerInterface;
-use Drupal\Core\StringTranslation\TranslationInterface;
+use Drupal\Core\Controller\ControllerBase;
 use Drupal\forum\ForumManagerInterface;
 use Drupal\taxonomy\TermInterface;
 use Drupal\taxonomy\TermStorageControllerInterface;
@@ -21,7 +17,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /**
  * Controller routines for forum routes.
  */
-class ForumController implements ContainerInjectionInterface {
+class ForumController extends ControllerBase {
 
   /**
    * Forum manager service.
@@ -29,20 +25,6 @@ class ForumController implements ContainerInjectionInterface {
    * @var \Drupal\forum\ForumManagerInterface
    */
   protected $forumManager;
-
-  /**
-   * Entity Manager Service.
-   *
-   * @var \Drupal\Core\Entity\EntityManagerInterface
-   */
-  protected $entityManager;
-
-  /**
-   * Config object for forum.settings.
-   *
-   * @var \Drupal\Core\Config\Config
-   */
-  protected $config;
 
   /**
    * Vocabulary storage controller.
@@ -59,35 +41,19 @@ class ForumController implements ContainerInjectionInterface {
   protected $termStorageController;
 
   /**
-   * Translation manager service.
-   *
-   * @var \Drupal\Core\StringTranslation\TranslationInterface
-   */
-  protected $translationManager;
-
-  /**
    * Constructs a ForumController object.
    *
-   * @param \Drupal\Core\Config\Config $config
-   *   Config object for forum.settings.
    * @param \Drupal\forum\ForumManagerInterface $forum_manager
    *   The forum manager service.
    * @param \Drupal\taxonomy\VocabularyStorageControllerInterface $vocabulary_storage_controller
    *   Vocabulary storage controller.
    * @param \Drupal\taxonomy\TermStorageControllerInterface $term_storage_controller
    *   Term storage controller.
-   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
-   *   The entity manager service.
-   * @param \Drupal\Core\StringTranslation\TranslationInterface $translation_manager
-   *   The translation manager service.
    */
-  public function __construct(Config $config, ForumManagerInterface $forum_manager, VocabularyStorageControllerInterface $vocabulary_storage_controller, TermStorageControllerInterface $term_storage_controller, EntityManagerInterface $entity_manager, TranslationInterface $translation_manager) {
-    $this->config = $config;
+  public function __construct(ForumManagerInterface $forum_manager, VocabularyStorageControllerInterface $vocabulary_storage_controller, TermStorageControllerInterface $term_storage_controller) {
     $this->forumManager = $forum_manager;
     $this->vocabularyStorageController = $vocabulary_storage_controller;
     $this->termStorageController = $term_storage_controller;
-    $this->entityManager = $entity_manager;
-    $this->translationManager = $translation_manager;
   }
 
   /**
@@ -95,12 +61,9 @@ class ForumController implements ContainerInjectionInterface {
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('config.factory')->get('forum.settings'),
       $container->get('forum_manager'),
       $container->get('entity.manager')->getStorageController('taxonomy_vocabulary'),
-      $container->get('entity.manager')->getStorageController('taxonomy_term'),
-      $container->get('entity.manager'),
-      $container->get('string_translation')
+      $container->get('entity.manager')->getStorageController('taxonomy_term')
     );
   }
 
@@ -115,16 +78,19 @@ class ForumController implements ContainerInjectionInterface {
    */
   public function forumPage(TermInterface $taxonomy_term) {
     // Get forum details.
-    $taxonomy_term->forums = $this->forumManager->getChildren($this->config->get('vocabulary'), $taxonomy_term->id());
+    $taxonomy_term->forums = $this->forumManager->getChildren($this->config('forum.settings')->get('vocabulary'), $taxonomy_term->id());
     $taxonomy_term->parents = $this->forumManager->getParents($taxonomy_term->id());
 
     if (empty($taxonomy_term->forum_container->value)) {
-      $topics = $this->forumManager->getTopics($taxonomy_term->id());
+      $build = $this->forumManager->getTopics($taxonomy_term->id());
+      $topics = $build['topics'];
+      $header = $build['header'];
     }
     else {
       $topics = '';
+      $header = array();
     }
-    return $this->build($taxonomy_term->forums, $taxonomy_term, $topics, $taxonomy_term->parents);
+    return $this->build($taxonomy_term->forums, $taxonomy_term, $topics, $taxonomy_term->parents, $header);
   }
 
   /**
@@ -134,7 +100,7 @@ class ForumController implements ContainerInjectionInterface {
    *   A render array.
    */
   public function forumIndex() {
-    $vocabulary = $this->vocabularyStorageController->load($this->config->get('vocabulary'));
+    $vocabulary = $this->vocabularyStorageController->load($this->config('forum.settings')->get('vocabulary'));
     $index = $this->forumManager->getIndex();
     $build = $this->build($index->forums, $index);
     if (empty($index->forums)) {
@@ -159,19 +125,23 @@ class ForumController implements ContainerInjectionInterface {
    *   The topics of this forum.
    * @param array $parents
    *   The parent forums in relation this forum.
+   * @param array $header
+   *   Array of header cells.
    *
    * @return array
    *   A render array.
    */
-  protected function build($forums, TermInterface $term, $topics = array(), $parents = array()) {
+  protected function build($forums, TermInterface $term, $topics = array(), $parents = array(), $header = array()) {
+    $config = $this->config('forum.settings');
     $build = array(
       '#theme' => 'forums',
       '#forums' => $forums,
       '#topics' => $topics,
       '#parents' => $parents,
+      '#header' => $header,
       '#term' => $term,
-      '#sortby' => $this->config->get('topics.order'),
-      '#forums_per_page' => $this->config->get('topics.page_limit'),
+      '#sortby' => $config->get('topics.order'),
+      '#forums_per_page' => $config->get('topics.page_limit'),
     );
     $build['#attached']['library'][] = array('forum', 'forum.index');
     if (empty($term->forum_container->value)) {
@@ -188,12 +158,12 @@ class ForumController implements ContainerInjectionInterface {
    *   Render array for the add form.
    */
   public function addForum() {
-    $vid = $this->config->get('vocabulary');
+    $vid = $this->config('forum.settings')->get('vocabulary');
     $taxonomy_term = $this->termStorageController->create(array(
       'vid' => $vid,
       'forum_controller' => 0,
     ));
-    return $this->entityManager->getForm($taxonomy_term, 'forum');
+    return $this->entityFormBuilder()->getForm($taxonomy_term, 'forum');
   }
 
   /**
@@ -203,21 +173,12 @@ class ForumController implements ContainerInjectionInterface {
    *   Render array for the add form.
    */
   public function addContainer() {
-    $vid = $this->config->get('vocabulary');
+    $vid = $this->config('forum.settings')->get('vocabulary');
     $taxonomy_term = $this->termStorageController->create(array(
       'vid' => $vid,
       'forum_container' => 1,
     ));
-    return $this->entityManager->getForm($taxonomy_term, 'container');
-  }
-
-  /**
-   * Translates a string to the current language or to a given language.
-   *
-   * See the t() documentation for details.
-   */
-  protected function t($string, array $args = array(), array $options = array()) {
-    return $this->translationManager->translate($string, $args, $options);
+    return $this->entityFormBuilder()->getForm($taxonomy_term, 'container');
   }
 
 }

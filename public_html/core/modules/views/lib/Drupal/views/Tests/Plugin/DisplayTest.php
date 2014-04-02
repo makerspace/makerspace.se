@@ -72,6 +72,7 @@ class DisplayTest extends PluginTestBase {
       'id' => 'display_test_1',
       'display_title' => 'Display test',
       'position' => 1,
+      'provider' => 'views_test_data',
     );
     $this->assertEqual($displays['display_test_1'], $options);
 
@@ -84,6 +85,7 @@ class DisplayTest extends PluginTestBase {
       'id' => 'display_test_2',
       'display_title' => 'Display test 2',
       'position' => 2,
+      'provider' => 'views_test_data',
     );
     $this->assertEqual($displays['display_test_2'], $options);
 
@@ -227,7 +229,7 @@ class DisplayTest extends PluginTestBase {
     $this->assertTrue(empty($result), 'The more link is not shown when view has more records.');
 
     // Test the default value of use_more_always.
-    $view = entity_create('view', array())->getExecutable();
+    $view = entity_create('view')->getExecutable();
     $this->assertTrue($view->getDisplay()->getOption('use_more_always'), 'Always display the more link by default.');
   }
 
@@ -250,6 +252,7 @@ class DisplayTest extends PluginTestBase {
 
     // Rebuild the router, and ensure that the path is not accessible anymore.
     views_invalidate_cache();
+    \Drupal::service('router.builder')->rebuildIfNeeded();
 
     $this->drupalGet('test_display_invalid');
     $this->assertResponse(404);

@@ -1,5 +1,4 @@
 id: user.user_picture
-uuid: 745b0ce0-aece-42dd-a800-ade5b8455e84
 status: true
 langcode: en
 name: user_picture
@@ -7,7 +6,12 @@ entity_type: user
 type: image
 settings:
   uri_scheme: public
-  default_image: false
+  default_image:
+    fid: null
+    alt: ''
+    title: ''
+    width: null
+    height: null
   column_groups:
     file:
       label: File
@@ -22,7 +26,6 @@ settings:
       label: Title
       translatable: true
 module: image
-active: true
 locked: false
 cardinality: 1
 translatable: false

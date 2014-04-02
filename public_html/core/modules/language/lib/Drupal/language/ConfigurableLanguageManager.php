@@ -8,10 +8,10 @@
 namespace Drupal\language;
 
 use Drupal\Component\PhpStorage\PhpStorageFactory;
-use Drupal\Component\Utility\MapArray;
-use Drupal\Core\Config\ConfigFactory;
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Language\Language;
+use Drupal\Core\Language\LanguageDefault;
 use Drupal\Core\Language\LanguageManager;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -23,7 +23,7 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
   /**
    * The configuration storage service.
    *
-   * @var \Drupal\Core\Config\ConfigFactory
+   * @var \Drupal\Core\Config\ConfigFactoryInterface
    */
   protected $configFactory;
 
@@ -93,21 +93,15 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
   /**
    * Constructs a new ConfigurableLanguageManager object.
    *
-   * @param \Drupal\Core\Config\ConfigFactory $config_factory
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
    *   The configuration storage service.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The module handler service.
    */
-  public function __construct(ConfigFactory $config_factory, ModuleHandlerInterface $module_handler) {
+  public function __construct(LanguageDefault $default_language, ConfigFactoryInterface $config_factory, ModuleHandlerInterface $module_handler) {
+    $this->defaultLanguage = $default_language;
     $this->configFactory = $config_factory;
     $this->moduleHandler = $module_handler;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function initConfigOverrides() {
-    $this->configFactory->setLanguage($this->getCurrentLanguage());
   }
 
   /**
@@ -174,8 +168,15 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
   /**
    * Stores language types configuration.
    */
-  public function saveLanguageTypesConfiguration(array $config) {
-    $this->configFactory->get('language.types')->setData($config)->save();
+  public function saveLanguageTypesConfiguration(array $values) {
+    $config = $this->configFactory->get('language.types');
+    if (isset($values['configurable'])) {
+      $config->set('configurable', $values['configurable']);
+    }
+    if (isset($values['all'])) {
+      $config->set('all', $values['all']);
+    }
+    $config->save();
   }
 
   /**
@@ -217,7 +218,6 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
       $this->languageTypes = NULL;
       $this->languageTypesInfo = NULL;
       $this->languages = NULL;
-      $this->defaultLanguage = NULL;
       if ($this->negotiator) {
         $this->negotiator->reset();
       }
@@ -225,6 +225,7 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
     elseif (isset($this->negotiatedLanguages[$type])) {
       unset($this->negotiatedLanguages[$type]);
     }
+    return $this;
   }
 
   /**
@@ -248,19 +249,6 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
     $this->negotiator = $negotiator;
     $this->initialized = FALSE;
     $this->negotiatedLanguages = array();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getDefaultLanguage() {
-    if (!isset($this->defaultLanguage)) {
-      // @todo Convert to CMI https://drupal.org/node/1827038 and
-      //   https://drupal.org/node/2108599.
-      $default_info = variable_get('language_default', Language::$defaultValues);
-      $this->defaultLanguage = new Language($default_info + array('default' => TRUE));
-    }
-    return $this->defaultLanguage;
   }
 
   /**
@@ -334,7 +322,7 @@ class ConfigurableLanguageManager extends LanguageManager implements Configurabl
       // at the end.
       $candidates = array_keys($this->getLanguages());
       $candidates[] = Language::LANGCODE_NOT_SPECIFIED;
-      $candidates = MapArray::copyValuesToKeys($candidates);
+      $candidates = array_combine($candidates, $candidates);
 
       // The first candidate should always be the desired language if specified.
       if (!empty($langcode)) {

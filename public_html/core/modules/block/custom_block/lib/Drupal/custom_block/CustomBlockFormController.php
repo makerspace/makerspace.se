@@ -134,9 +134,8 @@ class CustomBlockFormController extends ContentEntityFormController {
     $form['revision_information'] = array(
       '#type' => 'details',
       '#title' => $this->t('Revision information'),
-      '#collapsible' => TRUE,
-      // Collapsed by default when "Create new revision" is unchecked.
-      '#collapsed' => !$block->isNewRevision(),
+      // Open by default when "Create new revision" is checked.
+      '#open' => $block->isNewRevision(),
       '#group' => 'advanced',
       '#attributes' => array(
         'class' => array('custom-block-form-revision-information'),
@@ -246,27 +245,6 @@ class CustomBlockFormController extends ContentEntityFormController {
 
     // Clear the page and block caches.
     Cache::invalidateTags(array('content' => TRUE));
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function delete(array $form, array &$form_state) {
-    $destination = array();
-    $query = $this->getRequest()->query;
-    if (!is_null($query->get('destination'))) {
-      $destination = drupal_get_destination();
-      $query->remove('destination');
-    }
-    $form_state['redirect_route'] = array(
-      'route_name' => 'custom_block.delete',
-      'route_parameters' => array(
-        'custom_block' => $this->entity->id(),
-      ),
-      'options' => array(
-        'query' => $destination,
-      ),
-    );
   }
 
   /**

@@ -9,20 +9,21 @@ namespace Drupal\node\Entity;
 
 use Drupal\Core\Entity\ContentEntityBase;
 use Drupal\Core\Entity\EntityStorageControllerInterface;
+use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Field\FieldDefinition;
 use Drupal\Core\Language\Language;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\node\NodeInterface;
+use Drupal\user\UserInterface;
 
 /**
  * Defines the node entity class.
  *
- * @EntityType(
+ * @ContentEntityType(
  *   id = "node",
  *   label = @Translation("Content"),
  *   bundle_label = @Translation("Content type"),
  *   controllers = {
- *     "storage" = "Drupal\Core\Entity\FieldableDatabaseStorageController",
  *     "view_builder" = "Drupal\node\NodeViewBuilder",
  *     "access" = "Drupal\node\NodeAccessController",
  *     "form" = {
@@ -40,7 +41,6 @@ use Drupal\node\NodeInterface;
  *   uri_callback = "node_uri",
  *   fieldable = TRUE,
  *   translatable = TRUE,
- *   render_cache = FALSE,
  *   entity_keys = {
  *     "id" = "nid",
  *     "revision" = "vid",
@@ -48,13 +48,11 @@ use Drupal\node\NodeInterface;
  *     "label" = "title",
  *     "uuid" = "uuid"
  *   },
- *   bundle_keys = {
- *     "bundle" = "type"
- *   },
  *   bundle_entity_type = "node_type",
  *   permission_granularity = "bundle",
  *   links = {
  *     "canonical" = "node.view",
+ *     "delete-form" = "node.delete_confirm",
  *     "edit-form" = "node.page_edit",
  *     "version-history" = "node.revision_overview",
  *     "admin-form" = "node.type_edit"
@@ -184,7 +182,7 @@ class Node extends ContentEntityBase implements NodeInterface {
     }
 
     return \Drupal::entityManager()
-      ->getAccessController($this->entityType)
+      ->getAccessController($this->entityTypeId)
       ->access($this, $operation, $this->prepareLangcode(), $account);
   }
 
@@ -294,22 +292,30 @@ class Node extends ContentEntityBase implements NodeInterface {
   /**
    * {@inheritdoc}
    */
-  public function getAuthor() {
+  public function getOwner() {
     return $this->get('uid')->entity;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function getAuthorId() {
+  public function getOwnerId() {
     return $this->get('uid')->target_id;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function setAuthorId($uid) {
+  public function setOwnerId($uid) {
     $this->set('uid', $uid);
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setOwner(UserInterface $account) {
+    $this->set('uid', $account->id());
     return $this;
   }
 
@@ -346,7 +352,7 @@ class Node extends ContentEntityBase implements NodeInterface {
   /**
    * {@inheritdoc}
    */
-  public static function baseFieldDefinitions($entity_type) {
+  public static function baseFieldDefinitions(EntityTypeInterface $entity_type) {
     $fields['nid'] = FieldDefinition::create('integer')
       ->setLabel(t('Node ID'))
       ->setDescription(t('The node ID.'))
@@ -372,26 +378,22 @@ class Node extends ContentEntityBase implements NodeInterface {
       ->setLabel(t('Language code'))
       ->setDescription(t('The node language code.'));
 
-    $fields['title'] = FieldDefinition::create('text')
-      // @todo Account for $node_type->title_label when per-bundle overrides are
-      //   possible - https://drupal.org/node/2114707.
+    $fields['title'] = FieldDefinition::create('string')
       ->setLabel(t('Title'))
       ->setDescription(t('The title of this node, always treated as non-markup plain text.'))
-      ->setClass('\Drupal\node\NodeTitleItemList')
       ->setRequired(TRUE)
       ->setTranslatable(TRUE)
       ->setSettings(array(
         'default_value' => '',
         'max_length' => 255,
-        'text_processing' => 0,
       ))
       ->setDisplayOptions('view', array(
         'label' => 'hidden',
-        'type' => 'text_default',
+        'type' => 'string',
         'weight' => -5,
       ))
       ->setDisplayOptions('form', array(
-        'type' => 'text_textfield',
+        'type' => 'string',
         'weight' => -5,
       ))
       ->setDisplayConfigurable('form', TRUE);
@@ -443,6 +445,19 @@ class Node extends ContentEntityBase implements NodeInterface {
       ->setLabel(t('Log'))
       ->setDescription(t('The log entry explaining the changes in this revision.'));
 
+    return $fields;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function bundleFieldDefinitions(EntityTypeInterface $entity_type, $bundle, array $base_field_definitions) {
+    $node_type = node_type_load($bundle);
+    $fields = array();
+    if (isset($node_type->title_label)) {
+      $fields['title'] = clone $base_field_definitions['title'];
+      $fields['title']->setLabel($node_type->title_label);
+    }
     return $fields;
   }
 

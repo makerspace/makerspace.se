@@ -9,6 +9,7 @@ namespace Drupal\file\Entity;
 
 use Drupal\Core\Entity\ContentEntityBase;
 use Drupal\Core\Entity\EntityStorageControllerInterface;
+use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Field\FieldDefinition;
 use Drupal\Core\Language\Language;
 use Drupal\file\FileInterface;
@@ -17,7 +18,7 @@ use Drupal\user\UserInterface;
 /**
  * Defines the file entity class.
  *
- * @EntityType(
+ * @ContentEntityType(
  *   id = "file",
  *   label = @Translation("File"),
  *   controllers = {
@@ -132,8 +133,24 @@ class File extends ContentEntityBase implements FileInterface {
   /**
    * {@inheritdoc}
    */
-  public function setOwner(UserInterface $user) {
-    return $this->get('uid')->entity = $user;
+  public function getOwnerId() {
+    return $this->get('uid')->target_id;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setOwnerId($uid) {
+    $this->set('uid', $uid);
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setOwner(UserInterface $account) {
+    $this->set('uid', $account->id());
+    return $this;
   }
 
   /**
@@ -224,7 +241,7 @@ class File extends ContentEntityBase implements FileInterface {
   /**
    * {@inheritdoc}
    */
-  public static function baseFieldDefinitions($entity_type) {
+  public static function baseFieldDefinitions(EntityTypeInterface $entity_type) {
     $fields['fid'] = FieldDefinition::create('integer')
       ->setLabel(t('File ID'))
       ->setDescription(t('The file ID.'))

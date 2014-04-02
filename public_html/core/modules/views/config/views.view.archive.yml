@@ -18,13 +18,16 @@ display:
           distinct: false
           slave: false
           query_tags: {  }
+        provider: views
       title: 'Monthly archive'
       access:
         type: none
         options: {  }
+        provider: views
       cache:
         type: none
         options: {  }
+        provider: views
       exposed_form:
         type: basic
         options:
@@ -35,6 +38,7 @@ display:
           expose_sort_order: true
           sort_asc_label: Asc
           sort_desc_label: Desc
+        provider: views
       pager:
         type: mini
         options:
@@ -43,7 +47,7 @@ display:
           id: 0
           total_pages: 0
           expose:
-            items_per_page: '0'
+            items_per_page: false
             items_per_page_label: 'Items per page'
             items_per_page_options: '5, 10, 20, 40, 60'
             items_per_page_options_all: false
@@ -53,6 +57,7 @@ display:
           tags:
             previous: ‹‹
             next: ››
+        provider: views
       sorts:
         created:
           id: created
@@ -93,8 +98,8 @@ display:
           id: status
           table: node_field_data
           field: status
-          value: '1'
-          group: '0'
+          value: true
+          group: 0
           expose:
             operator: '0'
           plugin_id: boolean
@@ -107,12 +112,14 @@ display:
           default_row_class: true
           row_class_special: true
           uses_fields: false
+        provider: views
       row:
         type: 'entity:node'
         options:
           view_mode: teaser
-          links: '1'
-          comments: '0'
+          links: true
+          comments: false
+        provider: node
       header: {  }
       footer: {  }
       empty: {  }
@@ -127,6 +134,7 @@ display:
       query:
         type: views_query
         options: {  }
+        provider: views
       path: archive
   block_1:
     id: block_1
@@ -137,6 +145,7 @@ display:
       query:
         type: views_query
         options: {  }
+        provider: views
       defaults:
         arguments: false
       arguments:
@@ -161,5 +170,4 @@ label: Archive
 module: node
 id: archive
 tag: default
-uuid: 39fb337d-c126-446c-8345-6908b45313ca
 langcode: en

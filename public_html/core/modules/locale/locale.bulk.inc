@@ -18,7 +18,8 @@ use Drupal\file\FileInterface;
  * @see locale_translate_import_form_submit()
  * @ingroup forms
  *
- * @deprecated Use \Drupal\locale\Form\LocaleForm::import()
+ * @deprecated in Drupal 8.x-dev, will be removed before Drupal 8.0.
+ *   Use \Drupal\locale\Form\LocaleForm::import().
  */
 function locale_translate_import_form($form, &$form_state) {
   Drupal::languageManager()->reset();
@@ -53,10 +54,16 @@ function locale_translate_import_form($form, &$form_state) {
     'file_validate_extensions' => array('po'),
     'file_validate_size' => array(file_upload_max_size()),
   );
+  $file_description = array(
+    '#theme'             => 'file_upload_help',
+    '#description'       => t('A Gettext Portable Object file.'),
+    '#upload_validators' => $validators,
+  );
+
   $form['file'] = array(
     '#type' => 'file',
     '#title' => t('Translation file'),
-    '#description' => theme('file_upload_help', array('description' => t('A Gettext Portable Object file.'), 'upload_validators' => $validators)),
+    '#description' => drupal_render($file_description),
     '#size' => 50,
     '#upload_validators' => $validators,
     '#attributes' => array('class' => array('file-import-input')),
@@ -147,7 +154,8 @@ function locale_translate_import_form_submit($form, &$form_state) {
  * @see locale_translate_export_form_submit()
  * @ingroup forms
  *
- * @deprecated Use \Drupal\locale\Form\LocaleForm::export()
+ * @deprecated in Drupal 8.x-dev, will be removed before Drupal 8.0.
+ *   Use \Drupal\locale\Form\LocaleForm::export().
  */
 function locale_translate_export_form($form, &$form_state) {
   $languages = language_list();
@@ -182,7 +190,6 @@ function locale_translate_export_form($form, &$form_state) {
     $form['content_options'] = array(
       '#type' => 'details',
       '#title' => t('Export options'),
-      '#collapsed' => TRUE,
       '#tree' => TRUE,
       '#states' => array(
         'invisible' => array(

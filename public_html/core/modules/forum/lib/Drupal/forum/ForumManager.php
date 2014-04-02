@@ -7,7 +7,7 @@
 
 namespace Drupal\forum;
 
-use Drupal\Core\Config\ConfigFactory;
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\StringTranslation\TranslationInterface;
@@ -43,7 +43,7 @@ class ForumManager implements ForumManagerInterface {
   /**
    * Forum settings config object.
    *
-   * @var \Drupal\Core\Config\ConfigFactory
+   * @var \Drupal\Core\Config\ConfigFactoryInterface
    */
   protected $configFactory;
 
@@ -113,7 +113,7 @@ class ForumManager implements ForumManagerInterface {
   /**
    * Constructs the forum manager service.
    *
-   * @param \Drupal\Core\Config\ConfigFactory $config_factory
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
    *   The config factory service.
    * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
    *   The entity manager service.
@@ -124,7 +124,7 @@ class ForumManager implements ForumManagerInterface {
    * @param \Drupal\Core\StringTranslation\TranslationInterface $translation_manager
    *   The translation manager service.
    */
-  public function __construct(ConfigFactory $config_factory, EntityManagerInterface $entity_manager, Connection $connection, FieldInfo $field_info, TranslationInterface $translation_manager) {
+  public function __construct(ConfigFactoryInterface $config_factory, EntityManagerInterface $entity_manager, Connection $connection, FieldInfo $field_info, TranslationInterface $translation_manager) {
     $this->configFactory = $config_factory;
     $this->entityManager = $entity_manager;
     $this->connection = $connection;
@@ -140,19 +140,18 @@ class ForumManager implements ForumManagerInterface {
     $forum_per_page = $config->get('topics.page_limit');
     $sortby = $config->get('topics.order');
 
-    global $forum_topic_list_header;
     $user = \Drupal::currentUser();
 
-    $forum_topic_list_header = array(
+    $header = array(
       array('data' => $this->t('Topic'), 'field' => 'f.title'),
       array('data' => $this->t('Replies'), 'field' => 'f.comment_count'),
       array('data' => $this->t('Last reply'), 'field' => 'f.last_comment_timestamp'),
     );
 
     $order = $this->getTopicOrder($sortby);
-    for ($i = 0; $i < count($forum_topic_list_header); $i++) {
-      if ($forum_topic_list_header[$i]['field'] == $order['field']) {
-        $forum_topic_list_header[$i]['sort'] = $order['sort'];
+    for ($i = 0; $i < count($header); $i++) {
+      if ($header[$i]['field'] == $order['field']) {
+        $header[$i]['sort'] = $order['sort'];
       }
     }
 
@@ -165,7 +164,7 @@ class ForumManager implements ForumManagerInterface {
       ->addTag('node_access')
       ->addMetaData('base_table', 'forum_index')
       ->orderBy('f.sticky', 'DESC')
-      ->orderByHeader($forum_topic_list_header)
+      ->orderByHeader($header)
       ->limit($forum_per_page);
 
     $count_query = $this->connection->select('forum_index', 'f');
@@ -207,7 +206,7 @@ class ForumManager implements ForumManagerInterface {
 
       $query
         ->orderBy('f.sticky', 'DESC')
-        ->orderByHeader($forum_topic_list_header)
+        ->orderByHeader($header)
         ->condition('n.nid', $nids)
         // @todo This should be actually filtering on the desired node language
         //   and just fall back to the default language.
@@ -266,7 +265,7 @@ class ForumManager implements ForumManagerInterface {
       $topics[$topic->id()] = $topic;
     }
 
-    return $topics;
+    return array('topics' => $topics, 'header' => $header);
 
   }
 

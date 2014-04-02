@@ -6,6 +6,7 @@
  */
 
 use Drupal\Core\Cache\Cache;
+use Drupal\Core\Extension\Extension;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -30,15 +31,7 @@ function system_theme_default() {
         ->set('default', $theme)
         ->save();
 
-      // Rebuild the menu. This duplicates the menu_router_rebuild() in
-      // theme_enable(). However, modules must know the current default theme in
-      // order to use this information in hook_menu() or hook_menu_alter()
-      // implementations, and doing the variable_set() before the theme_enable()
-      // could result in a race condition where the theme is default but not
-      // enabled.
-      \Drupal::service('router.builder')->rebuild();
-      menu_router_rebuild();
-      Cache::deleteTags(array('local_task' => TRUE));
+      \Drupal::service('router.builder')->setRebuildNeeded();
 
       // The status message depends on whether an admin theme is currently in use:
       // a value of 0 means the admin theme is set to be the default theme.
@@ -69,20 +62,20 @@ function system_theme_default() {
  *   incompatible files as the keys, their values being TRUE.
  * @param $files
  *   The set of files that will be tested.
- * @param $file
+ * @param \Drupal\Core\Extension\Extension $file
  *   The file at which the check starts.
  * @return
  *   Returns TRUE if an incompatible file is found, NULL (no return value)
  *   otherwise.
  */
-function _system_is_incompatible(&$incompatible, $files, $file) {
-  if (isset($incompatible[$file->name])) {
+function _system_is_incompatible(&$incompatible, $files, Extension $file) {
+  if (isset($incompatible[$file->getName()])) {
     return TRUE;
   }
   // Recursively traverse required modules, looking for incompatible modules.
   foreach ($file->requires as $requires) {
     if (isset($files[$requires]) && _system_is_incompatible($incompatible, $files, $files[$requires])) {
-      $incompatible[$file->name] = TRUE;
+      $incompatible[$file->getName()] = TRUE;
       return TRUE;
     }
   }
@@ -127,36 +120,36 @@ function theme_admin_block($variables) {
 }
 
 /**
- * Returns HTML for the content of an administrative block.
+ * Prepares variables for administrative content block templates.
+ *
+ * Default template: admin-block-content.html.twig.
  *
  * @param $variables
  *   An associative array containing:
  *   - content: An array containing information about the block. Each element
  *     of the array represents an administrative menu item, and must at least
- *     contain the keys 'title', 'href', and 'localized_options', which are
+ *     contain the keys 'title', 'link_path', and 'localized_options', which are
  *     passed to l(). A 'description' key may also be provided.
  *
  * @ingroup themeable
  */
-function theme_admin_block_content($variables) {
-  $content = $variables['content'];
-  $output = '';
-
-  if (!empty($content)) {
-    $class = 'admin-list';
-    if ($compact = system_admin_compact_mode()) {
-      $class .= ' compact';
+function template_preprocess_admin_block_content(&$variables) {
+  if (!empty($variables['content'])) {
+    $compact = system_admin_compact_mode();
+    $variables['attributes'] = array('class' => array('admin-list'));
+    if ($compact) {
+      $variables['attributes']['class'][] = 'compact';
     }
-    $output .= '<dl class="' . $class . '">';
-    foreach ($content as $item) {
-      $output .= '<dt>' . l($item['title'], $item['href'], $item['localized_options']) . '</dt>';
+    foreach ($variables['content'] as $key => $item) {
+      $variables['content'][$key]['link'] = l($item['title'], $item['link_path'], $item['localized_options']);
       if (!$compact && isset($item['description'])) {
-        $output .= '<dd>' . filter_xss_admin($item['description']) . '</dd>';
+        $variables['content'][$key]['description'] = filter_xss_admin($item['description']);
+      }
+      else {
+        $variables['content'][$key]['description'] = FALSE;
       }
     }
-    $output .= '</dl>';
   }
-  return $output;
 }
 
 /**
@@ -268,7 +261,9 @@ function theme_system_admin_index($variables) {
 }
 
 /**
- * Returns HTML for the status report.
+ * Prepares variables for status report template.
+ *
+ * Default template: status-report.html.twig.
  *
  * This theme function is dependent on install.inc being loaded, because
  * that's where the constants are defined.
@@ -288,8 +283,7 @@ function theme_system_admin_index($variables) {
  *
  * @ingroup themeable
  */
-function theme_status_report($variables) {
-  $requirements = $variables['requirements'];
+function template_preprocess_status_report(&$variables) {
   $severities = array(
     REQUIREMENT_INFO => array(
       'title' => t('Info'),
@@ -308,11 +302,8 @@ function theme_status_report($variables) {
       'class' => 'error',
     ),
   );
-  $output = '<table class="system-status-report"><thead><tr class="visually-hidden">';
-  $output .= '<th>' . t('Status') . '</th><th>' . t('Component') . '</th><th>' . t('Details') . '</th>';
-  $output .= '</tr></thead><tbody>';
 
-  foreach ($requirements as $requirement) {
+  foreach ($variables['requirements'] as $i => $requirement) {
     // Always use the explicit requirement severity, if defined. Otherwise,
     // default to REQUIREMENT_OK in the installer to visually confirm that
     // installation requirements are met. And default to REQUIREMENT_INFO to
@@ -326,29 +317,9 @@ function theme_status_report($variables) {
     else {
       $severity = $severities[REQUIREMENT_INFO];
     }
-    // hook_requirements does not require value to be set. Set to null if not:
-    if (isset($requirement['value'])) {
-      $value = $requirement['value'];
-    }
-    else {
-      $value = NULL;
-    }
-
-    $severity['icon'] = '<div title="' . $severity['title'] . '"><span class="visually-hidden">' . $severity['title'] . '</span></div>';
-
-    // Output table rows.
-    $output .= '<tr class="' . $severity['class'] . '">';
-    $output .= '<td class="status-icon">' . $severity['icon'] . '</td>';
-    $output .= '<td class="status-title">' . $requirement['title'] . '</td>';
-    $output .= '<td class="status-value">' . $value;
-    if (!empty($requirement['description'])) {
-      $output .= '<div class="description">' . $requirement['description'] . '</div>';
-    }
-    $output .= '</td></tr>';
+    $variables['requirements'][$i]['severity_class'] = $severity['class'];
+    $variables['requirements'][$i]['severity_title'] = $severity['title'];
   }
-
-  $output .= '</tbody></table>';
-  return $output;
 }
 
 /**
@@ -415,7 +386,6 @@ function theme_system_modules_details($variables) {
       '#title' => '<span class="text"> ' . drupal_render($module['description']) . '</span>',
       '#attributes' => array('id' => $module['enable']['#id'] . '-description'),
       '#description' => $description,
-      '#collapsed' => TRUE,
     );
     $col4 = drupal_render($details);
     $row[] = array('class' => array('description', 'expand'), 'data' => $col4);
@@ -582,3 +552,4 @@ function theme_system_themes_page($variables) {
 
   return $output;
 }
+

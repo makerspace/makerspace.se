@@ -35,6 +35,24 @@ abstract class PluginBag implements \Iterator, \Countable {
   abstract protected function initializePlugin($instance_id);
 
   /**
+   * Returns the current configuration of all plugins in this bag.
+   *
+   * @return array
+   *   An array of up-to-date plugin configuration.
+   */
+  abstract public function getConfiguration();
+
+  /**
+   * Sets the configuration for all plugins in this bag.
+   *
+   * @param array $configuration
+   *   An array of up-to-date plugin configuration.
+   *
+   * @return $this
+   */
+  abstract public function setConfiguration($configuration);
+
+  /**
    * Clears all instantiated plugins.
    */
   public function clear() {
@@ -161,7 +179,13 @@ abstract class PluginBag implements \Iterator, \Countable {
    */
   public function valid() {
     $key = key($this->instanceIDs);
-    return $key !== NULL && $key !== FALSE;
+    // Check the key is valid but also that this key yields a plugin from get().
+    // There can be situations where configuration contains data for a plugin
+    // that cannot be instantiated. In this case, this enables us to skip that
+    // plugin during iteration.
+    // @todo Look at removing when https://drupal.org/node/2080823 has been
+    //   solved.
+    return $key !== NULL && $key !== FALSE && $this->get($key);
   }
 
   /**

@@ -52,6 +52,7 @@ abstract class FieldRdfaTestBase extends FieldUnitTestBase {
     parent::setUp();
 
     $this->installSchema('system', array('router'));
+    \Drupal::service('router.builder')->rebuild();
   }
 
   /**
@@ -87,12 +88,12 @@ abstract class FieldRdfaTestBase extends FieldUnitTestBase {
    * Creates the field for testing.
    */
   protected function createTestField() {
-    entity_create('field_entity', array(
+    entity_create('field_config', array(
       'name' => $this->fieldName,
       'entity_type' => 'entity_test',
       'type' => $this->fieldType,
     ))->save();
-    entity_create('field_instance', array(
+    entity_create('field_instance_config', array(
       'entity_type' => 'entity_test',
       'field_name' => $this->fieldName,
       'bundle' => 'entity_test',
@@ -109,8 +110,7 @@ abstract class FieldRdfaTestBase extends FieldUnitTestBase {
    *   The absolute URI.
    */
   protected function getAbsoluteUri($entity) {
-    $uri_info = $entity->uri();
-    return url($uri_info['path'], array('absolute' => TRUE));
+    return $entity->url('canonical', array('absolute' => TRUE));
   }
 
 }

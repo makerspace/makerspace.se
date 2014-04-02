@@ -35,12 +35,12 @@ class EmailItemTest extends FieldUnitTestBase {
     parent::setUp();
 
     // Create an email field and instance for validation.
-    entity_create('field_entity', array(
+    entity_create('field_config', array(
       'name' => 'field_email',
       'entity_type' => 'entity_test',
       'type' => 'email',
     ))->save();
-    entity_create('field_instance', array(
+    entity_create('field_instance_config', array(
       'entity_type' => 'entity_test',
       'field_name' => 'field_email',
       'bundle' => 'entity_test',
@@ -59,7 +59,7 @@ class EmailItemTest extends FieldUnitTestBase {
    */
   public function testEmailItem() {
     // Verify entity creation.
-    $entity = entity_create('entity_test', array());
+    $entity = entity_create('entity_test');
     $value = 'test@example.com';
     $entity->field_email = $value;
     $entity->name->value = $this->randomName();

@@ -18,12 +18,15 @@ display:
           distinct: false
           slave: false
           query_tags: {  }
+        provider: views
       access:
         type: none
         options: {  }
+        provider: views
       cache:
         type: none
         options: {  }
+        provider: views
       exposed_form:
         type: basic
         options:
@@ -34,6 +37,7 @@ display:
           expose_sort_order: true
           sort_asc_label: Asc
           sort_desc_label: Desc
+        provider: views
       pager:
         type: mini
         options:
@@ -42,7 +46,7 @@ display:
           id: 0
           total_pages: 0
           expose:
-            items_per_page: '0'
+            items_per_page: false
             items_per_page_label: 'Items per page'
             items_per_page_options: '5, 10, 20, 40, 60'
             items_per_page_options_all: false
@@ -52,6 +56,7 @@ display:
           tags:
             previous: ‹‹
             next: ››
+        provider: views
       sorts:
         sticky:
           id: sticky
@@ -100,11 +105,11 @@ display:
             type: 'entity:taxonomy_term'
             fail: 'not found'
           validate_options:
-            access: '1'
+            access: true
             operation: view
-            multiple: '1'
+            multiple: 1
             bundles: {  }
-          depth: '0'
+          depth: 0
           break_phrase: true
           plugin_id: taxonomy_index_tid_depth
           relationship: none
@@ -115,8 +120,8 @@ display:
           default_argument_skip_url: false
           summary_options:
             base_path: ''
-            count: '1'
-            items_per_page: '25'
+            count: true
+            items_per_page: 25
             override: false
           provider: taxonomy
         term_node_tid_depth_modifier:
@@ -149,7 +154,7 @@ display:
           id: status_extra
           table: node_field_data
           field: status_extra
-          group: '0'
+          group: 0
           expose:
             operator: '0'
           plugin_id: node_status
@@ -162,12 +167,14 @@ display:
           default_row_class: true
           row_class_special: true
           uses_fields: false
+        provider: views
       row:
         type: 'entity:node'
         options:
           view_mode: teaser
-          links: '1'
-          comments: '0'
+          links: true
+          comments: false
+        provider: views
       header: {  }
       footer: {  }
       empty: {  }
@@ -182,6 +189,7 @@ display:
       query:
         type: views_query
         options: {  }
+        provider: views
       path: taxonomy/term/%
   feed_1:
     id: feed_1
@@ -192,6 +200,7 @@ display:
       query:
         type: views_query
         options: {  }
+        provider: views
       pager:
         type: full
         options:
@@ -200,7 +209,7 @@ display:
           id: 0
           total_pages: 0
           expose:
-            items_per_page: '0'
+            items_per_page: false
             items_per_page_label: 'Items per page'
             items_per_page_options: '5, 10, 20, 40, 60'
             items_per_page_options_all: false
@@ -212,7 +221,8 @@ display:
             next: 'next ›'
             first: '« first'
             last: 'last »'
-          quantity: '9'
+          quantity: 9
+        provider: views
       path: taxonomy/term/%/%/feed
       displays:
         page: page
@@ -222,16 +232,17 @@ display:
         options:
           description: ''
           grouping: {  }
-          uses_fields: '0'
+          uses_fields: false
+        provider: views
       row:
         type: node_rss
         options:
           relationship: none
           item_length: default
-          links: '0'
+          links: false
+        provider: views
 label: 'Taxonomy term'
 module: taxonomy
 id: taxonomy_term
 tag: default
-uuid: e0dea92e-a4c9-4442-a518-2499bfe17d73
 langcode: en

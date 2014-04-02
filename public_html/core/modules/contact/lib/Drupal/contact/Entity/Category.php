@@ -14,11 +14,10 @@ use Drupal\contact\CategoryInterface;
 /**
  * Defines the contact category entity.
  *
- * @EntityType(
+ * @ConfigEntityType(
  *   id = "contact_category",
  *   label = @Translation("Contact category"),
  *   controllers = {
- *     "storage" = "Drupal\contact\CategoryStorageController",
  *     "access" = "Drupal\contact\CategoryAccessController",
  *     "list" = "Drupal\contact\CategoryListController",
  *     "form" = {
@@ -27,14 +26,15 @@ use Drupal\contact\CategoryInterface;
  *       "delete" = "Drupal\contact\Form\CategoryDeleteForm"
  *     }
  *   },
- *   config_prefix = "contact.category",
+ *   config_prefix = "category",
+ *   admin_permission = "administer contact forms",
  *   bundle_of = "contact_message",
  *   entity_keys = {
  *     "id" = "id",
- *     "label" = "label",
- *     "uuid" = "uuid"
+ *     "label" = "label"
  *   },
  *   links = {
+ *     "delete-form" = "contact.category_delete",
  *     "edit-form" = "contact.category_edit"
  *   }
  * )

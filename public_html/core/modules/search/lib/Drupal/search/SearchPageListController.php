@@ -7,8 +7,7 @@
 
 namespace Drupal\search;
 
-use Drupal\Component\Utility\MapArray;
-use Drupal\Core\Config\ConfigFactory;
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\Entity\DraggableListController;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityStorageControllerInterface;
@@ -31,7 +30,7 @@ class SearchPageListController extends DraggableListController implements FormIn
   /**
    * Stores the configuration factory.
    *
-   * @var \Drupal\Core\Config\ConfigFactory
+   * @var \Drupal\Core\Config\ConfigFactoryInterface
    */
   protected $configFactory;
 
@@ -45,17 +44,17 @@ class SearchPageListController extends DraggableListController implements FormIn
   /**
    * Constructs a new SearchPageListController object.
    *
-   * @param \Drupal\Core\Entity\EntityTypeInterface $entity_info
-   *   The entity info for the entity type.
+   * @param \Drupal\Core\Entity\EntityTypeInterface $entity_type
+   *   The entity type definition.
    * @param \Drupal\Core\Entity\EntityStorageControllerInterface $storage
    *   The entity storage controller class.
    * @param \Drupal\search\SearchPluginManager $search_manager
    *   The search plugin manager.
-   * @param \Drupal\Core\Config\ConfigFactory $config_factory
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
    *   The factory for configuration objects.
    */
-  public function __construct(EntityTypeInterface $entity_info, EntityStorageControllerInterface $storage, SearchPluginManager $search_manager, ConfigFactory $config_factory) {
-    parent::__construct($entity_info, $storage);
+  public function __construct(EntityTypeInterface $entity_type, EntityStorageControllerInterface $storage, SearchPluginManager $search_manager, ConfigFactoryInterface $config_factory) {
+    parent::__construct($entity_type, $storage);
     $this->configFactory = $config_factory;
     $this->searchManager = $search_manager;
   }
@@ -63,10 +62,10 @@ class SearchPageListController extends DraggableListController implements FormIn
   /**
    * {@inheritdoc}
    */
-  public static function createInstance(ContainerInterface $container, EntityTypeInterface $entity_info) {
+  public static function createInstance(ContainerInterface $container, EntityTypeInterface $entity_type) {
     return new static(
-      $entity_info,
-      $container->get('entity.manager')->getStorageController($entity_info->id()),
+      $entity_type,
+      $container->get('entity.manager')->getStorageController($entity_type->id()),
       $container->get('plugin.manager.search'),
       $container->get('config.factory')
     );
@@ -138,8 +137,9 @@ class SearchPageListController extends DraggableListController implements FormIn
    */
   public function buildForm(array $form, array &$form_state) {
     $form = parent::buildForm($form, $form_state);
-    $search_settings = $this->configFactory->disableOverrides()->get('search.settings');
-    $this->configFactory->enableOverrides();
+    $old_state = $this->configFactory->getOverrideState();
+    $search_settings = $this->configFactory->setOverrideState(FALSE)->get('search.settings');
+    $this->configFactory->setOverrideState($old_state);
     // Collect some stats.
     $remaining = 0;
     $total = 0;
@@ -157,6 +157,7 @@ class SearchPageListController extends DraggableListController implements FormIn
     $form['status'] = array(
       '#type' => 'details',
       '#title' => $this->t('Indexing status'),
+      '#open' => TRUE,
     );
     $form['status']['status'] = array('#markup' => $status);
     $form['status']['wipe'] = array(
@@ -165,12 +166,14 @@ class SearchPageListController extends DraggableListController implements FormIn
       '#submit' => array(array($this, 'searchAdminReindexSubmit')),
     );
 
-    $items = MapArray::copyValuesToKeys(array(10, 20, 50, 100, 200, 500));
+    $items = array(10, 20, 50, 100, 200, 500);
+    $items = array_combine($items, $items);
 
     // Indexing throttle:
     $form['indexing_throttle'] = array(
       '#type' => 'details',
-      '#title' => $this->t('Indexing throttle')
+      '#title' => $this->t('Indexing throttle'),
+      '#open' => TRUE,
     );
     $form['indexing_throttle']['cron_limit'] = array(
       '#type' => 'select',
@@ -182,7 +185,8 @@ class SearchPageListController extends DraggableListController implements FormIn
     // Indexing settings:
     $form['indexing_settings'] = array(
       '#type' => 'details',
-      '#title' => $this->t('Indexing settings')
+      '#title' => $this->t('Indexing settings'),
+      '#open' => TRUE,
     );
     $form['indexing_settings']['info'] = array(
       '#markup' => $this->t('<p><em>Changing the settings below will cause the site index to be rebuilt. The search index is not cleared but systematically updated to reflect the new settings. Searching will continue to work but new content won\'t be indexed until all existing content has been re-indexed.</em></p><p><em>The default settings should be appropriate for the majority of sites.</em></p>')
@@ -205,6 +209,7 @@ class SearchPageListController extends DraggableListController implements FormIn
     $form['search_pages'] = array(
       '#type' => 'details',
       '#title' => $this->t('Search pages'),
+      '#open' => TRUE,
     );
     $form['search_pages']['add_page'] = array(
       '#type' => 'container',

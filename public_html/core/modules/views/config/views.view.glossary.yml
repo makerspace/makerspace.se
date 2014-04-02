@@ -18,13 +18,16 @@ display:
           distinct: false
           slave: false
           query_tags: {  }
-      use_ajax: '1'
+        provider: views
+      use_ajax: true
       access:
         type: none
         options: {  }
+        provider: views
       cache:
         type: none
         options: {  }
+        provider: views
       exposed_form:
         type: basic
         options:
@@ -35,6 +38,7 @@ display:
           expose_sort_order: true
           sort_asc_label: Asc
           sort_desc_label: Desc
+        provider: views
       pager:
         type: mini
         options:
@@ -43,7 +47,7 @@ display:
           id: 0
           total_pages: 0
           expose:
-            items_per_page: '0'
+            items_per_page: false
             items_per_page_label: 'Items per page'
             items_per_page_options: '5, 10, 20, 40, 60'
             items_per_page_options_all: false
@@ -53,12 +57,13 @@ display:
           tags:
             previous: ‹‹
             next: ››
+        provider: views
       fields:
         title:
           id: title
           table: node_field_data
           field: title
-          link_to_node: '1'
+          link_to_node: true
           plugin_id: node
           relationship: none
           group_type: group
@@ -110,7 +115,7 @@ display:
           table: users
           field: name
           label: Author
-          link_to_user: '1'
+          link_to_user: true
           relationship: uid
           plugin_id: user_name
           group_type: group
@@ -155,9 +160,9 @@ display:
           hide_empty: false
           empty_zero: false
           hide_alter_empty: true
-          overwrite_anonymous: '0'
+          overwrite_anonymous: false
           anonymous_text: ''
-          format_username: '1'
+          format_username: true
           provider: user
         changed:
           id: changed
@@ -284,13 +289,15 @@ display:
           order: asc
           summary: ''
           empty_table: false
+        provider: views
       row:
         type: fields
         options:
           inline: {  }
           separator: ''
           hide_empty: false
-          default_field_elements: '1'
+          default_field_elements: true
+        provider: views
       header: {  }
       footer: {  }
       empty: {  }
@@ -318,11 +325,13 @@ display:
       query:
         type: views_query
         options: {  }
+        provider: views
       pager:
         type: none
         options:
           offset: 0
-          items_per_page: '0'
+          items_per_page: 0
+        provider: views
       defaults:
         arguments: false
       arguments:
@@ -339,7 +348,7 @@ display:
           summary:
             format: unformatted_summary
           summary_options:
-            items_per_page: '25'
+            items_per_page: 25
             inline: true
             separator: ' | '
           specify_validation: true
@@ -369,5 +378,4 @@ label: Glossary
 module: node
 id: glossary
 tag: default
-uuid: da0cfcf2-3e94-436f-a900-0dd0c2310cd7
 langcode: en

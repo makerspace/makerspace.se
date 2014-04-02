@@ -17,6 +17,7 @@ use Drupal\hal\Normalizer\FieldNormalizer;
 use Drupal\rest\LinkManager\LinkManager;
 use Drupal\rest\LinkManager\RelationLinkManager;
 use Drupal\rest\LinkManager\TypeLinkManager;
+use Drupal\serialization\EntityResolver\UuidResolver;
 use Drupal\simpletest\DrupalUnitTestBase;
 use Symfony\Component\Serializer\Serializer;
 
@@ -58,7 +59,7 @@ abstract class NormalizerTestBase extends DrupalUnitTestBase {
    */
   function setUp() {
     parent::setUp();
-    $this->installSchema('system', array('variable', 'url_alias', 'router'));
+    $this->installSchema('system', array('url_alias', 'router'));
     $this->installSchema('user', array('users'));
     $this->installSchema('entity_test', array('entity_test'));
     $this->installConfig(array('field', 'language'));
@@ -78,33 +79,33 @@ abstract class NormalizerTestBase extends DrupalUnitTestBase {
     language_save($german);
 
     // Create the test text field.
-    entity_create('field_entity', array(
+    entity_create('field_config', array(
       'name' => 'field_test_text',
       'entity_type' => 'entity_test',
       'type' => 'text',
       'translatable' => FALSE,
     ))->save();
-    entity_create('field_instance', array(
+    entity_create('field_instance_config', array(
       'entity_type' => 'entity_test',
       'field_name' => 'field_test_text',
       'bundle' => 'entity_test',
     ))->save();
 
     // Create the test translatable field.
-    entity_create('field_entity', array(
+    entity_create('field_config', array(
       'name' => 'field_test_translatable_text',
       'entity_type' => 'entity_test',
       'type' => 'text',
       'translatable' => TRUE,
     ))->save();
-    entity_create('field_instance', array(
+    entity_create('field_instance_config', array(
       'entity_type' => 'entity_test',
       'field_name' => 'field_test_translatable_text',
       'bundle' => 'entity_test',
     ))->save();
 
     // Create the test entity reference field.
-    entity_create('field_entity', array(
+    entity_create('field_config', array(
       'name' => 'field_test_entity_reference',
       'entity_type' => 'entity_test',
       'type' => 'entity_reference',
@@ -113,23 +114,22 @@ abstract class NormalizerTestBase extends DrupalUnitTestBase {
         'target_type' => 'entity_test',
       ),
     ))->save();
-    entity_create('field_instance', array(
+    entity_create('field_instance_config', array(
       'entity_type' => 'entity_test',
       'field_name' => 'field_test_entity_reference',
       'bundle' => 'entity_test',
     ))->save();
 
+    $link_manager = new LinkManager(new TypeLinkManager(new MemoryBackend('cache')), new RelationLinkManager(new MemoryBackend('cache')));
+
     // Set up the mock serializer.
     $normalizers = array(
-      new EntityNormalizer(),
-      new EntityReferenceItemNormalizer(),
+      new EntityNormalizer($link_manager),
+      new EntityReferenceItemNormalizer($link_manager, new UuidResolver()),
       new FieldItemNormalizer(),
       new FieldNormalizer(),
     );
-    $link_manager = new LinkManager(new TypeLinkManager(new MemoryBackend('cache')), new RelationLinkManager(new MemoryBackend('cache')));
-    foreach ($normalizers as $normalizer) {
-      $normalizer->setLinkManager($link_manager);
-    }
+
     $encoders = array(
       new JsonEncoder(),
     );

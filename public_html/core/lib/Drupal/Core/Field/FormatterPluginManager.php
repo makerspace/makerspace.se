@@ -28,7 +28,7 @@ class FormatterPluginManager extends DefaultPluginManager {
   /**
    * The field type manager to define field.
    *
-   * @var \Drupal\Core\Field\FieldTypePluginManager
+   * @var \Drupal\Core\Field\FieldTypePluginManagerInterface
    */
   protected $fieldTypeManager;
 
@@ -44,22 +44,22 @@ class FormatterPluginManager extends DefaultPluginManager {
    *   The module handler.
    * @param \Drupal\Core\Language\LanguageManager $language_manager
    *   The language manager.
-   * @param \Drupal\Core\Field\FieldTypePluginManager $field_type_manager
+   * @param \Drupal\Core\Field\FieldTypePluginManagerInterface $field_type_manager
    *   The 'field type' plugin manager.
    */
-  public function __construct(\Traversable $namespaces, CacheBackendInterface $cache_backend, ModuleHandlerInterface $module_handler, LanguageManager $language_manager, FieldTypePluginManager $field_type_manager) {
+  public function __construct(\Traversable $namespaces, CacheBackendInterface $cache_backend, ModuleHandlerInterface $module_handler, LanguageManager $language_manager, FieldTypePluginManagerInterface $field_type_manager) {
 
-    parent::__construct('Plugin/Field/FieldFormatter', $namespaces, 'Drupal\Core\Field\Annotation\FieldFormatter');
+    parent::__construct('Plugin/Field/FieldFormatter', $namespaces, $module_handler, 'Drupal\Core\Field\Annotation\FieldFormatter');
 
     $this->setCacheBackend($cache_backend, $language_manager, 'field_formatter_types_plugins');
-    $this->alterInfo($module_handler, 'field_formatter_info');
+    $this->alterInfo('field_formatter_info');
     $this->fieldTypeManager = $field_type_manager;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function createInstance($plugin_id, array $configuration) {
+  public function createInstance($plugin_id, array $configuration = array()) {
     $plugin_definition = $this->getDefinition($plugin_id);
     $plugin_class = DefaultFactory::getPluginClass($plugin_id, $plugin_definition);
 

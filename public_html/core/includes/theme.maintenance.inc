@@ -14,10 +14,10 @@ use Drupal\Component\Utility\Unicode;
  * It also applies when the database is unavailable or bootstrap was not
  * complete. Seven is always used for the initial install and update
  * operations. In other cases, Bartik is used, but this can be overridden by
- * setting a "maintenance_theme" key in the $conf variable in settings.php.
+ * setting a "maintenance_theme" key in the $settings variable in settings.php.
  */
 function _drupal_maintenance_theme() {
-  global $theme, $theme_key, $conf;
+  global $theme, $theme_key;
 
   // If $theme is already set, assume the others are set too, and do nothing.
   if (isset($theme)) {
@@ -75,9 +75,10 @@ function _drupal_maintenance_theme() {
 
   $themes = list_themes();
 
-  // list_themes() triggers a drupal_alter() in maintenance mode, but we can't
-  // let themes alter the .info.yml data until we know a theme's base themes. So
-  // don't set global $theme until after list_themes() builds its cache.
+  // list_themes() triggers a \Drupal\Core\Extension\ModuleHandler::alter() in
+  // maintenance mode, but we can't let themes alter the .info.yml data until
+  // we know a theme's base themes. So don't set global $theme until after
+  // list_themes() builds its cache.
   $theme = $custom_theme;
 
   // Store the identifier for retrieving theme settings with.
@@ -90,7 +91,6 @@ function _drupal_maintenance_theme() {
     $base_theme[] = $new_base_theme = $themes[$themes[$ancestor]->base_theme];
     $ancestor = $themes[$ancestor]->base_theme;
   }
-  _drupal_theme_initialize($themes[$theme], array_reverse($base_theme), '_theme_load_offline_registry');
   _drupal_theme_initialize($themes[$theme], array_reverse($base_theme));
   // Prime the theme registry.
   // @todo Remove global theme variables.
@@ -162,9 +162,19 @@ function theme_authorize_report($variables) {
         if ($number === '#abort') {
           continue;
         }
-        $items[] = theme('authorize_message', array('message' => $log_message['message'], 'success' => $log_message['success']));
+        $authorize_message = array(
+          '#theme' => 'authorize_message',
+          '#message' => $log_message['message'],
+          '#success' => $log_message['success'],
+        );
+        $items[] = drupal_render($authorize_message);
       }
-      $output .= theme('item_list',  array('items' => $items, 'title' => $heading));
+      $item_list = array(
+        '#theme' => 'item_list',
+        '#items' => $items,
+        '#title' => $heading,
+      );
+      $output .= drupal_render($item_list);
     }
     $output .= '</div>';
   }

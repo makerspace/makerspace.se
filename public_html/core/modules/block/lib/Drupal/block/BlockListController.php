@@ -10,6 +10,7 @@ namespace Drupal\block;
 use Drupal\Component\Plugin\PluginManagerInterface;
 use Drupal\Component\Utility\Json;
 use Drupal\Component\Utility\String;
+use Drupal\Core\Cache\Cache;
 use Drupal\Core\Config\Entity\ConfigEntityListController;
 use Drupal\Core\Entity\EntityControllerInterface;
 use Drupal\Core\Entity\EntityInterface;
@@ -56,15 +57,15 @@ class BlockListController extends ConfigEntityListController implements FormInte
   /**
    * Constructs a new BlockListController object.
    *
-   * @param \Drupal\Core\Entity\EntityTypeInterface $entity_info
-   *   The entity info for the entity type.
+   * @param \Drupal\Core\Entity\EntityTypeInterface $entity_type
+   *   The entity type definition.
    * @param \Drupal\Core\Entity\EntityStorageControllerInterface $storage
    *   The entity storage controller class.
    * @param \Drupal\Component\Plugin\PluginManagerInterface $block_manager
    *   The block manager.
    */
-  public function __construct(EntityTypeInterface $entity_info, EntityStorageControllerInterface $storage, PluginManagerInterface $block_manager) {
-    parent::__construct($entity_info, $storage);
+  public function __construct(EntityTypeInterface $entity_type, EntityStorageControllerInterface $storage, PluginManagerInterface $block_manager) {
+    parent::__construct($entity_type, $storage);
 
     $this->blockManager = $block_manager;
   }
@@ -72,10 +73,10 @@ class BlockListController extends ConfigEntityListController implements FormInte
   /**
    * {@inheritdoc}
    */
-  public static function createInstance(ContainerInterface $container, EntityTypeInterface $entity_info) {
+  public static function createInstance(ContainerInterface $container, EntityTypeInterface $entity_type) {
     return new static(
-      $entity_info,
-      $container->get('entity.manager')->getStorageController($entity_info->id()),
+      $entity_type,
+      $container->get('entity.manager')->getStorageController($entity_type->id()),
       $container->get('plugin.manager.block')
     );
   }
@@ -97,7 +98,7 @@ class BlockListController extends ConfigEntityListController implements FormInte
     $entities = _block_rehash($this->theme);
 
     // Sort the blocks using \Drupal\block\Entity\Block::sort().
-    uasort($entities, array($this->entityInfo->getClass(), 'sort'));
+    uasort($entities, array($this->entityType->getClass(), 'sort'));
     return $entities;
   }
 
@@ -144,7 +145,7 @@ class BlockListController extends ConfigEntityListController implements FormInte
     }
     $entities = $this->load();
     $form['#theme'] = array('block_list');
-    $form['#attached']['library'][] = array('system', 'drupal.tableheader');
+    $form['#attached']['library'][] = array('core', 'drupal.tableheader');
     $form['#attached']['library'][] = array('block', 'drupal.block');
     $form['#attached']['library'][] = array('block', 'drupal.block.admin');
     $form['#attributes']['class'][] = 'clearfix';
@@ -347,6 +348,7 @@ class BlockListController extends ConfigEntityListController implements FormInte
         $form['place_blocks']['list'][$category_key] = array(
           '#type' => 'details',
           '#title' => $category,
+          '#open' => TRUE,
           'content' => array(
             '#theme' => 'links',
             '#links' => array(),
@@ -412,7 +414,7 @@ class BlockListController extends ConfigEntityListController implements FormInte
       $entity->save();
     }
     drupal_set_message(t('The block settings have been updated.'));
-    cache_invalidate_tags(array('content' => TRUE));
+    Cache::invalidateTags(array('content' => TRUE));
   }
 
 }

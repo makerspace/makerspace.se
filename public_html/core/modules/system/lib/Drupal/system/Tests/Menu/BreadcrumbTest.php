@@ -37,7 +37,7 @@ class BreadcrumbTest extends MenuTestBase {
   function setUp() {
     parent::setUp();
 
-    $perms = array_keys(module_invoke_all('permission'));
+    $perms = array_keys(\Drupal::moduleHandler()->invokeAll('permission'));
     $this->admin_user = $this->drupalCreateUser($perms);
     $this->drupalLogin($this->admin_user);
 
@@ -74,8 +74,7 @@ class BreadcrumbTest extends MenuTestBase {
     $trail += array(
       'admin/structure/taxonomy/manage/tags' => t('Tags'),
     );
-    $this->assertBreadcrumb('admin/structure/taxonomy/manage/tags/edit', $trail);
-    $this->assertBreadcrumb('admin/structure/taxonomy/manage/tags/fields', $trail);
+    $this->assertBreadcrumb('admin/structure/taxonomy/manage/tags/overview', $trail);
     $this->assertBreadcrumb('admin/structure/taxonomy/manage/tags/add', $trail);
 
     // Verify Menu administration breadcrumbs.
@@ -338,10 +337,7 @@ class BreadcrumbTest extends MenuTestBase {
     $trail += array(
       'user/' . $this->web_user->id() => $this->web_user->getUsername(),
     );
-    $tree = array(
-      'user' => t('My account'),
-    );
-    $this->assertBreadcrumb('user/' . $this->web_user->id() . '/edit', $trail, $this->web_user->getUsername(), $tree);
+    $this->assertBreadcrumb('user/' . $this->web_user->id() . '/edit', $trail, $this->web_user->getUsername());
 
     // Create an only slightly privileged user being able to access site reports
     // but not administration pages.

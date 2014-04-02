@@ -7,6 +7,8 @@
 
 namespace Drupal\field\Tests;
 
+use Drupal\Core\Language\Language;
+
 class FieldInfoTest extends FieldUnitTestBase {
 
   public static function getInfo() {
@@ -24,12 +26,12 @@ class FieldInfoTest extends FieldUnitTestBase {
     // Test that field_test module's fields, widgets, and formatters show up.
 
     $field_test_info = $this->getExpectedFieldTypeDefinition();
-    $info = \Drupal::service('plugin.manager.field.field_type')->getConfigurableDefinitions();
+    $entity_type = \Drupal::service('plugin.manager.field.field_type')->getConfigurableDefinitions();
     foreach ($field_test_info as $t_key => $field_type) {
       foreach ($field_type as $key => $val) {
-        $this->assertEqual($info[$t_key][$key], $val, format_string('Field type %t_key key %key is %value', array('%t_key' => $t_key, '%key' => $key, '%value' => print_r($val, TRUE))));
+        $this->assertEqual($entity_type[$t_key][$key], $val, format_string('Field type %t_key key %key is %value', array('%t_key' => $t_key, '%key' => $key, '%value' => print_r($val, TRUE))));
       }
-      $this->assertEqual($info[$t_key]['provider'], 'field_test',  'Field type field_test module appears.');
+      $this->assertEqual($entity_type[$t_key]['provider'], 'field_test',  'Field type field_test module appears.');
     }
 
     // Verify that no unexpected instances exist.
@@ -41,7 +43,7 @@ class FieldInfoTest extends FieldUnitTestBase {
 
     // Create a field, verify it shows up.
     $core_fields = field_info_fields();
-    $field = entity_create('field_entity', array(
+    $field = entity_create('field_config', array(
       'name' => drupal_strtolower($this->randomName()),
       'entity_type' => 'entity_test',
       'type' => 'test_field',
@@ -67,13 +69,13 @@ class FieldInfoTest extends FieldUnitTestBase {
       'description' => $this->randomName(),
       'weight' => mt_rand(0, 127),
     );
-    $instance = entity_create('field_instance', $instance_definition);
+    $instance = entity_create('field_instance_config', $instance_definition);
     $instance->save();
 
-    $info = \Drupal::entityManager()->getDefinition('entity_test');
+    $entity_type = \Drupal::entityManager()->getDefinition('entity_test');
     $instances = field_info_instances('entity_test', $instance->bundle);
     $this->assertEqual(count($instances), 1, format_string('One instance shows up in info when attached to a bundle on a @label.', array(
-      '@label' => $info->getLabel(),
+      '@label' => $entity_type->getLabel(),
     )));
     $this->assertTrue($instance_definition < $instances[$instance->getName()], 'Instance appears in info correctly');
 
@@ -116,7 +118,7 @@ class FieldInfoTest extends FieldUnitTestBase {
       'entity_type' => 'entity_test',
       'type' => 'test_field',
     );
-    $field = entity_create('field_entity', $field_definition);
+    $field = entity_create('field_config', $field_definition);
     $field->save();
 
     // Simulate a stored field definition missing a field setting (e.g. a
@@ -144,13 +146,13 @@ class FieldInfoTest extends FieldUnitTestBase {
       'entity_type' => 'entity_test',
       'type' => 'test_field',
     );
-    entity_create('field_entity', $field_definition)->save();
+    entity_create('field_config', $field_definition)->save();
     $instance_definition = array(
       'field_name' => $field_definition['name'],
       'entity_type' => 'entity_test',
       'bundle' => 'entity_test',
     );
-    $instance = entity_create('field_instance', $instance_definition);
+    $instance = entity_create('field_instance_config', $instance_definition);
     $instance->save();
 
     // Simulate a stored instance definition missing various settings (e.g. a
@@ -186,13 +188,13 @@ class FieldInfoTest extends FieldUnitTestBase {
       'entity_type' => 'comment',
       'type' => 'test_field',
     );
-    entity_create('field_entity', $field_definition)->save();
+    entity_create('field_config', $field_definition)->save();
     $instance_definition = array(
       'field_name' => 'field',
       'entity_type' => 'comment',
       'bundle' => 'comment_node_article',
     );
-    entity_create('field_instance', $instance_definition)->save();
+    entity_create('field_instance_config', $instance_definition)->save();
 
     $this->assertNotNull(field_info_instance('comment', 'field', 'comment_node_article'), 'Instance is returned on enabled entity types.');
     // Disable comment module. This clears field_info cache.
@@ -229,7 +231,7 @@ class FieldInfoTest extends FieldUnitTestBase {
       ),
     );
     foreach ($fields as $field) {
-      entity_create('field_entity', $field)->save();
+      entity_create('field_config', $field)->save();
     }
 
     // Create a couple instances.
@@ -256,7 +258,7 @@ class FieldInfoTest extends FieldUnitTestBase {
       ),
     );
     foreach ($instances as $instance) {
-      entity_create('field_instance', $instance)->save();
+      entity_create('field_instance_config', $instance)->save();
     }
 
     $expected = array(
@@ -303,7 +305,7 @@ class FieldInfoTest extends FieldUnitTestBase {
     // Create a test field and ensure it's in the array returned by
     // field_info_fields().
     $field_name = drupal_strtolower($this->randomName());
-    $field = entity_create('field_entity', array(
+    $field = entity_create('field_config', array(
       'name' => $field_name,
       'entity_type' => 'entity_test',
       'type' => 'test_field',
@@ -314,10 +316,10 @@ class FieldInfoTest extends FieldUnitTestBase {
 
     // Now rebuild the field info cache, and set a variable which will cause
     // the cache to be cleared while it's being rebuilt; see
-    // field_test_entity_info(). Ensure the test field is still in the returned
+    // field_test_entity_type_build(). Ensure the test field is still in the returned
     // array.
     field_info_cache_clear();
-    \Drupal::state()->set('field_test.clear_info_cache_in_hook_entity_info', TRUE);
+    \Drupal::state()->set('field_test.clear_info_cache_in_hook_entity_type_build', TRUE);
     $fields = field_info_fields();
     $this->assertTrue(isset($fields[$field->uuid]), 'The test field is found in the array returned by field_info_fields() even if its cache is cleared while being rebuilt.');
   }
@@ -377,5 +379,39 @@ class FieldInfoTest extends FieldUnitTestBase {
     );
   }
 
+  /**
+   * Tests that the extra fields can be translated.
+   */
+  function testFieldInfoExtraFieldsTranslation() {
+    $this->enableModules(array('language', 'locale'));
+    $this->installSchema('locale', array('locales_source', 'locales_target', 'locales_location'));
+    foreach (array('en', 'hu') as $id) {
+      $language = new Language(array(
+        'id' => $id,
+      ));
+      language_save($language);
+    }
+    $locale_storage = $this->container->get('locale.storage');
+
+    // Create test source string.
+    $en_string = $locale_storage->createString(array(
+      'source' => 'User name and password',
+      'context' => '',
+    ))->save();
+
+    // Create translation for new string and save it.
+    $translated_string = $this->randomString();
+    $locale_storage->createTranslation(array(
+      'lid' => $en_string->lid,
+      'language' => 'hu',
+      'translation' => $translated_string,
+    ))->save();
+
+    // Check that the label is translated.
+    \Drupal::translation()->setDefaultLangcode('hu');
+    $field_info = \Drupal::service('field.info');
+    $user_fields = $field_info->getBundleExtraFields('user', 'user');
+    $this->assertEqual($user_fields['form']['account']['label'], $translated_string);
+  }
 
 }
