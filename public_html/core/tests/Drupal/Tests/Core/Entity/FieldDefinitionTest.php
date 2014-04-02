@@ -9,6 +9,7 @@ namespace Drupal\Tests\Core\Entity;
 
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Core\Field\FieldDefinition;
+use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Tests\UnitTestCase;
 
 /**
@@ -170,12 +171,27 @@ class FieldDefinitionTest extends UnitTestCase {
   }
 
   /**
+   * Tests field revisionable methods.
+   */
+  public function testFieldRevisionable() {
+    $definition = FieldDefinition::create($this->fieldType);
+    $this->assertFalse($definition->isRevisionable());
+    $definition->setRevisionable(TRUE);
+    $this->assertTrue($definition->isRevisionable());
+    $definition->setRevisionable(FALSE);
+    $this->assertFalse($definition->isRevisionable());
+  }
+
+  /**
    * Tests field cardinality.
    */
   public function testFieldCardinality() {
     $definition = FieldDefinition::create($this->fieldType);
     $this->assertEquals(1, $definition->getCardinality());
-    // @todo: Add more tests when this can be controlled.
+    $definition->setCardinality(2);
+    $this->assertEquals(2, $definition->getCardinality());
+    $definition->setCardinality(FieldDefinitionInterface::CARDINALITY_UNLIMITED);
+    $this->assertEquals(FieldDefinitionInterface::CARDINALITY_UNLIMITED, $definition->getCardinality());
   }
 
   /**
@@ -191,11 +207,25 @@ class FieldDefinitionTest extends UnitTestCase {
   }
 
   /**
-   * Tests configurable.
+   * Tests provider.
    */
-  public function testFieldConfigurable() {
+  public function testFieldProvider() {
     $definition = FieldDefinition::create($this->fieldType);
-    $this->assertFalse($definition->isConfigurable());
+    $provider = $this->randomName();
+    $definition->setProvider($provider);
+    $this->assertEquals($provider, $definition->getProvider());
+  }
+
+  /**
+   * Tests custom storage.
+   */
+  public function testCustomStorage() {
+    $definition = FieldDefinition::create($this->fieldType);
+    $this->assertFalse($definition->hasCustomStorage());
+    $definition->setCustomStorage(TRUE);
+    $this->assertTrue($definition->hasCustomStorage());
+    $definition->setCustomStorage(FALSE);
+    $this->assertFalse($definition->hasCustomStorage());
   }
 
 }

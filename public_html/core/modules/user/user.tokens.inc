@@ -66,7 +66,7 @@ function user_tokens($type, $tokens, array $data = array(), array $options = arr
   $token_service = \Drupal::token();
   $url_options = array('absolute' => TRUE);
   if (isset($options['langcode'])) {
-    $url_options['language'] = language_load($options['langcode']);
+    $url_options['language'] = \Drupal::languageManager()->getLanguage($options['langcode']);
     $langcode = $options['langcode'];
   }
   else {
@@ -125,7 +125,7 @@ function user_tokens($type, $tokens, array $data = array(), array $options = arr
   }
 
   if ($type == 'current-user') {
-    $account = user_load($GLOBALS['user']->id());
+    $account = user_load(\Drupal::currentUser()->id());
     $replacements += $token_service->generate('user', $tokens, array('user' => $account), $options);
   }
 

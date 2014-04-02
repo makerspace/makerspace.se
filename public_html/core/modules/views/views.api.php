@@ -342,7 +342,7 @@ function hook_views_query_substitutions(ViewExecutable $view) {
     '***CURRENT_VERSION***' => \Drupal::VERSION,
     '***CURRENT_TIME***' => REQUEST_TIME,
     '***CURRENT_LANGUAGE***' => \Drupal::languageManager()->getCurrentLanguage(\Drupal\Core\Language\Language::TYPE_CONTENT)->id,
-    '***DEFAULT_LANGUAGE***' => language_default()->id,
+    '***DEFAULT_LANGUAGE***' => \Drupal::languageManager()->getDefaultLanguage()->id,
   );
 }
 
@@ -576,9 +576,9 @@ function hook_views_query_alter(ViewExecutable $view, QueryPluginBase $query) {
  *
  * @param array $rows
  *   An associative array with two keys:
- *   - query: An array of rows suitable for '#theme' => 'table', containing
+ *   - query: An array of rows suitable for '#type' => 'table', containing
  *     information about the query and the display title and path.
- *   - statistics: An array of rows suitable for '#theme' => 'table',
+ *   - statistics: An array of rows suitable for '#type' => 'table',
  *     containing performance statistics.
  * @param \Drupal\views\ViewExecutable $view
  *   The view object.

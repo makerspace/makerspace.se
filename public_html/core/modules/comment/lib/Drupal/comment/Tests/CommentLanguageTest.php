@@ -7,6 +7,7 @@
 
 namespace Drupal\comment\Tests;
 
+use Drupal\comment\Plugin\Field\FieldType\CommentItemInterface;
 use Drupal\simpletest\WebTestBase;
 
 /**
@@ -90,20 +91,20 @@ class CommentLanguageTest extends WebTestBase {
     // is the user language preference. This way we can ensure that node
     // language and interface language do not influence comment language, as
     // only content language has to.
-    foreach (language_list() as $node_langcode => $node_language) {
+    foreach ($this->container->get('language_manager')->getLanguages() as $node_langcode => $node_language) {
       // Create "Article" content.
       $title = $this->randomName();
       $edit = array(
         'title[0][value]' => $title,
         'body[0][value]' => $this->randomName(),
         'langcode' => $node_langcode,
-        'comment[0][status]' => COMMENT_OPEN,
+        'comment[0][status]' => CommentItemInterface::OPEN,
       );
       $this->drupalPostForm("node/add/article", $edit, t('Save'));
       $node = $this->drupalGetNodeByTitle($title);
 
       $prefixes = language_negotiation_url_prefixes();
-      foreach (language_list() as $langcode => $language) {
+      foreach ($this->container->get('language_manager')->getLanguages() as $langcode => $language) {
         // Post a comment with content language $langcode.
         $prefix = empty($prefixes[$langcode]) ? '' : $prefixes[$langcode] . '/';
         $comment_values[$node_langcode][$langcode] = $this->randomName();

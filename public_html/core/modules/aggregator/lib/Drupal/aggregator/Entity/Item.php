@@ -8,7 +8,7 @@
 namespace Drupal\aggregator\Entity;
 
 use Drupal\Core\Entity\ContentEntityBase;
-use Drupal\Core\Entity\EntityStorageControllerInterface;
+use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\aggregator\ItemInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Field\FieldDefinition;
@@ -20,7 +20,7 @@ use Drupal\Core\Field\FieldDefinition;
  *   id = "aggregator_item",
  *   label = @Translation("Aggregator feed item"),
  *   controllers = {
- *     "storage" = "Drupal\aggregator\ItemStorageController",
+ *     "storage" = "Drupal\aggregator\ItemStorage",
  *     "view_builder" = "Drupal\aggregator\ItemViewBuilder"
  *   },
  *   base_table = "aggregator_item",
@@ -50,22 +50,12 @@ class Item extends ContentEntityBase implements ItemInterface {
   /**
    * {@inheritdoc}
    */
-  public function postCreate(EntityStorageControllerInterface $storage_controller) {
-    parent::postCreate($storage_controller);
-
-    if ($this->getPostedTime() === NULL) {
-      $this->setPostedTime(REQUEST_TIME);
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public static function baseFieldDefinitions(EntityTypeInterface $entity_type) {
     $fields['iid'] = FieldDefinition::create('integer')
       ->setLabel(t('Aggregator item ID'))
       ->setDescription(t('The ID of the feed item.'))
-      ->setReadOnly(TRUE);
+      ->setReadOnly(TRUE)
+      ->setSetting('unsigned', TRUE);
 
     $fields['fid'] = FieldDefinition::create('entity_reference')
       ->setLabel(t('Aggregator feed ID'))
@@ -93,8 +83,7 @@ class Item extends ContentEntityBase implements ItemInterface {
       ->setLabel(t('Description'))
       ->setDescription(t('The body of the feed item.'));
 
-    // @todo Convert to a "timestamp" field in https://drupal.org/node/2145103.
-    $fields['timestamp'] = FieldDefinition::create('integer')
+    $fields['timestamp'] = FieldDefinition::create('created')
       ->setLabel(t('Posted timestamp'))
       ->setDescription(t('Posted date of the feed item, as a Unix timestamp.'));
 

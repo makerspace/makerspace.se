@@ -81,7 +81,7 @@ class LocaleUpdateBase extends WebTestBase {
     $edit = array('predefined_langcode' => $langcode);
     $this->drupalPostForm('admin/config/regional/language/add', $edit, t('Add language'));
     $this->container->get('language_manager')->reset();
-    $this->assertTrue(language_load($langcode), String::format('Language %langcode added.', array('%langcode' => $langcode)));
+    $this->assertTrue(\Drupal::languageManager()->getLanguage($langcode), String::format('Language %langcode added.', array('%langcode' => $langcode)));
   }
 
   /**
@@ -270,8 +270,8 @@ EOF;
       'version' => '',
     );
     foreach ($data as $file) {
-      $file = (object) array_merge($default, $file);
-      drupal_write_record('locale_file', $file);
+      $file = array_merge($default, $file);
+      db_insert('locale_file')->fields($file)->execute();
     }
   }
 

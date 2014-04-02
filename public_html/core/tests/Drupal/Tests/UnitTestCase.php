@@ -48,12 +48,11 @@ abstract class UnitTestCase extends \PHPUnit_Framework_TestCase {
   /**
    * {@inheritdoc}
    */
-  protected function tearDown() {
-    parent::tearDown();
-    if (\Drupal::getContainer()) {
-      $container = new ContainerBuilder();
-      \Drupal::setContainer($container);
-    }
+  protected function setUp() {
+    parent::setUp();
+    // Ensure that an instantiated container in the global state of \Drupal from
+    // a previous test does not leak into this test.
+    \Drupal::setContainer(NULL);
   }
 
   /**
@@ -84,6 +83,18 @@ abstract class UnitTestCase extends \PHPUnit_Framework_TestCase {
     return $this->randomGenerator;
   }
 
+  /**
+   * Asserts if two arrays are equal by sorting them first.
+   *
+   * @param array $expected
+   * @param array $actual
+   * @param string $message
+   */
+  protected function assertArrayEquals(array $expected, array $actual, $message = NULL) {
+    ksort($expected);
+    ksort($actual);
+    $this->assertEquals($expected, $actual, $message);
+  }
 
   /**
    * Returns a stub config factory that behaves according to the passed in array.
@@ -191,7 +202,7 @@ abstract class UnitTestCase extends \PHPUnit_Framework_TestCase {
     $translation = $this->getMock('Drupal\Core\StringTranslation\TranslationInterface');
     $translation->expects($this->any())
       ->method('translate')
-      ->will($this->returnCallback(function ($string, array $args = array()) { return strtr($string, $args); }));
+      ->will($this->returnCallback('Drupal\Component\Utility\String::format'));
     return $translation;
   }
 

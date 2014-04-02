@@ -151,6 +151,26 @@ class FieldDefinition extends ListDataDefinition implements FieldDefinitionInter
   /**
    * {@inheritdoc}
    */
+  public function getProvider() {
+    return $this->definition['provider'];
+  }
+
+  /**
+   * Sets the name of the provider of this field.
+   *
+   * @param string $provider
+   *   The provider name to set.
+   *
+   * @return $this
+   */
+  public function setProvider($provider) {
+    $this->definition['provider'] = $provider;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function isTranslatable() {
     return !empty($this->definition['translatable']);
   }
@@ -161,7 +181,7 @@ class FieldDefinition extends ListDataDefinition implements FieldDefinitionInter
    * @param bool $translatable
    *   Whether the field is translatable.
    *
-   * @return static
+   * @return $this
    *   The object itself for chaining.
    */
   public function setTranslatable($translatable) {
@@ -172,9 +192,46 @@ class FieldDefinition extends ListDataDefinition implements FieldDefinitionInter
   /**
    * {@inheritdoc}
    */
+  public function isRevisionable() {
+    return !empty($this->definition['revisionable']);
+  }
+
+  /**
+   * Sets whether the field is revisionable.
+   *
+   * @param bool $revisionable
+   *   Whether the field is revisionable.
+   *
+   * @return $this
+   *   The object itself for chaining.
+   */
+  public function setRevisionable($revisionable) {
+    $this->definition['revisionable'] = $revisionable;
+    return $this;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getCardinality() {
     // @todo: Allow to control this.
     return isset($this->definition['cardinality']) ? $this->definition['cardinality'] : 1;
+  }
+
+  /**
+   * Sets the maximum number of items allowed for the field.
+   *
+   * Possible values are positive integers or
+   * FieldDefinitionInterface::CARDINALITY_UNLIMITED.
+   *
+   * @param int $cardinality
+   *  The field cardinality.
+   *
+   * @return $this
+   */
+  public function setCardinality($cardinality) {
+    $this->definition['cardinality'] = $cardinality;
+    return $this;
   }
 
   /**
@@ -285,13 +342,6 @@ class FieldDefinition extends ListDataDefinition implements FieldDefinitionInter
    */
   public function isDisplayConfigurable($display_context) {
     return isset($this->definition['display'][$display_context]['configurable']) ? $this->definition['display'][$display_context]['configurable'] : FALSE;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function isConfigurable() {
-    return FALSE;
   }
 
   /**
@@ -435,6 +485,27 @@ class FieldDefinition extends ListDataDefinition implements FieldDefinitionInter
    */
   public static function getReservedColumns() {
     return array('deleted');
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function hasCustomStorage() {
+    return !empty($this->definition['custom_storage']);
+  }
+
+  /**
+   * Sets the storage behavior for this field.
+   *
+   * @param bool $custom_storage
+   *   Pass FALSE if the storage takes care of storing the field,
+   *   TRUE otherwise.
+   *
+   * @return $this
+   */
+  public function setCustomStorage($custom_storage) {
+    $this->definition['custom_storage'] = $custom_storage;
+    return $this;
   }
 
 }

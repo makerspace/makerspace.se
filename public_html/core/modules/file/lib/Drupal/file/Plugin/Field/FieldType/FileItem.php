@@ -10,7 +10,6 @@ namespace Drupal\file\Plugin\Field\FieldType;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\Plugin\Field\FieldType\EntityReferenceItem;
 use Drupal\Core\TypedData\DataDefinition;
-use Drupal\Core\Field\ConfigFieldItemInterface;
 
 /**
  * Plugin implementation of the 'file' field type.
@@ -19,24 +18,36 @@ use Drupal\Core\Field\ConfigFieldItemInterface;
  *   id = "file",
  *   label = @Translation("File"),
  *   description = @Translation("This field stores the ID of a file as an integer value."),
- *   settings = {
- *     "target_type" = "file",
- *     "display_field" = "0",
- *     "display_default" = "0",
- *     "uri_scheme" = ""
- *   },
- *   instance_settings = {
- *     "file_extensions" = "txt",
- *     "file_directory" = "",
- *     "max_filesize" = "",
- *     "description_field" = "0"
- *   },
  *   default_widget = "file_generic",
  *   default_formatter = "file_default",
  *   list_class = "\Drupal\file\Plugin\Field\FieldType\FileFieldItemList"
  * )
  */
-class FileItem extends EntityReferenceItem implements ConfigFieldItemInterface {
+class FileItem extends EntityReferenceItem {
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function defaultSettings() {
+    return array(
+      'target_type' => 'file',
+      'display_field' => 0,
+      'display_default' => 0,
+      'uri_scheme' => file_default_scheme(),
+    ) + parent::defaultSettings();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function defaultInstanceSettings() {
+    return array(
+      'file_extensions' => 'txt',
+      'file_directory' => '',
+      'max_filesize' => '',
+      'description_field' => 0,
+    ) + parent::defaultInstanceSettings();
+  }
 
   /**
    * {@inheritdoc}
@@ -97,7 +108,7 @@ class FileItem extends EntityReferenceItem implements ConfigFieldItemInterface {
   public function settingsForm(array $form, array &$form_state, $has_data) {
     $element = array();
 
-    $element['#attached']['library'][] = array('file', 'drupal.file');
+    $element['#attached']['library'][] = 'file/drupal.file';
 
     $element['display_field'] = array(
       '#type' => 'checkbox',

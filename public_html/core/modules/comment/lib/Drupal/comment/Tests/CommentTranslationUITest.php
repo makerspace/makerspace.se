@@ -7,6 +7,7 @@
 
 namespace Drupal\comment\Tests;
 
+use Drupal\comment\Plugin\Field\FieldType\CommentItemInterface;
 use Drupal\content_translation\Tests\ContentTranslationUITest;
 
 /**
@@ -102,7 +103,7 @@ class CommentTranslationUITest extends ContentTranslationUITest {
     $node = $this->drupalCreateNode(array(
       'type' => $node_type,
       $field_name => array(
-        array('status' => COMMENT_OPEN)
+        array('status' => CommentItemInterface::OPEN)
       ),
     ));
     $values['entity_id'] = $node->id();
@@ -131,7 +132,7 @@ class CommentTranslationUITest extends ContentTranslationUITest {
     $entity = entity_load($this->entityTypeId, $this->entityId);
     $user = $this->drupalCreateUser(array('access comments'));
     $this->drupalLogin($user);
-    $languages = language_list();
+    $languages = $this->container->get('language_manager')->getLanguages();
 
     // Check that simple users cannot see unpublished field translations.
     $path = $entity->getSystemPath();

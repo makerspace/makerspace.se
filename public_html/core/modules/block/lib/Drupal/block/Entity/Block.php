@@ -7,10 +7,13 @@
 
 namespace Drupal\block\Entity;
 
+use Drupal\Core\Cache\Cache;
 use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\block\BlockPluginBag;
 use Drupal\block\BlockInterface;
+use Drupal\Core\Config\Entity\ConfigEntityInterface;
 use Drupal\Core\Config\Entity\EntityWithPluginBagInterface;
+use Drupal\Core\Entity\EntityStorageInterface;
 
 /**
  * Defines a Block configuration entity class.
@@ -21,7 +24,7 @@ use Drupal\Core\Config\Entity\EntityWithPluginBagInterface;
  *   controllers = {
  *     "access" = "Drupal\block\BlockAccessController",
  *     "view_builder" = "Drupal\block\BlockViewBuilder",
- *     "list" = "Drupal\block\BlockListController",
+ *     "list_builder" = "Drupal\block\BlockListBuilder",
  *     "form" = {
  *       "default" = "Drupal\block\BlockFormController",
  *       "delete" = "Drupal\block\Form\BlockDeleteForm"
@@ -47,13 +50,6 @@ class Block extends ConfigEntityBase implements BlockInterface, EntityWithPlugin
    * @var string
    */
   public $id;
-
-  /**
-   * The block UUID.
-   *
-   * @var string
-   */
-  public $uuid;
 
   /**
    * The plugin instance settings.
@@ -134,10 +130,10 @@ class Block extends ConfigEntityBase implements BlockInterface, EntityWithPlugin
   }
 
   /**
-   * Overrides \Drupal\Core\Config\Entity\ConfigEntityBase::getExportProperties();
+   * {@inheritdoc}
    */
-  public function getExportProperties() {
-    $properties = parent::getExportProperties();
+  public function toArray() {
+    $properties = parent::toArray();
     $names = array(
       'theme',
       'region',
@@ -153,9 +149,35 @@ class Block extends ConfigEntityBase implements BlockInterface, EntityWithPlugin
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function postSave(EntityStorageInterface $storage, $update = TRUE) {
+    parent::postSave($storage, $update);
+
+    if ($update) {
+      Cache::invalidateTags(array('block' => $this->id()));
+    }
+    // When placing a new block, invalidate all cache entries for this theme,
+    // since any page that uses this theme might be affected.
+    else {
+      // @todo Replace with theme cache tag: https://drupal.org/node/2185617
+      Cache::invalidateTags(array('content' => TRUE));
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function postDelete(EntityStorageInterface $storage, array $entities) {
+    parent::postDelete($storage, $entities);
+
+    Cache::invalidateTags(array('block' => array_keys($entities)));
+  }
+
+  /**
    * Sorts active blocks by weight; sorts inactive blocks by name.
    */
-  public static function sort($a, $b) {
+  public static function sort(ConfigEntityInterface $a, ConfigEntityInterface $b) {
     // Separate enabled from disabled.
     $status = $b->get('status') - $a->get('status');
     if ($status) {
@@ -170,6 +192,15 @@ class Block extends ConfigEntityBase implements BlockInterface, EntityWithPlugin
     }
     // Sort by label.
     return strcmp($a->label(), $b->label());
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function calculateDependencies() {
+    parent::calculateDependencies();
+    $this->addDependency('theme', $this->theme);
+    return $this->dependencies;
   }
 
 }

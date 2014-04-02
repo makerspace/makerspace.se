@@ -50,7 +50,7 @@ class DerivativeDiscoveryDecorator implements DiscoveryInterface {
         // If a plugin defined itself as a derivative, merge in possible
         // defaults from the derivative.
         if ($derivative_id && isset($plugin_definition)) {
-          $plugin_definition += $derivative_plugin_definition ?: array();
+          $plugin_definition = $this->mergeDerivativeDefinition($plugin_definition, $derivative_plugin_definition);
         }
         else {
           $plugin_definition = $derivative_plugin_definition;
@@ -90,7 +90,7 @@ class DerivativeDiscoveryDecorator implements DiscoveryInterface {
           // Use this definition as defaults if a plugin already defined
           // itself as this derivative.
           if ($derivative_id && isset($base_plugin_definitions[$plugin_id])) {
-            $derivative_definition = $base_plugin_definitions[$plugin_id] + ($derivative_definition ?: array());
+            $derivative_definition = $this->mergeDerivativeDefinition($base_plugin_definitions[$plugin_id], $derivative_definition);
           }
           $plugin_definitions[$plugin_id] = $derivative_definition;
         }
@@ -155,17 +155,17 @@ class DerivativeDiscoveryDecorator implements DiscoveryInterface {
    *
    * @param string $base_plugin_id
    *   The base plugin id of the plugin.
-   * @param array $base_definition
+   * @param mixed $base_definition
    *   The base plugin definition to build derivatives.
    *
    * @return \Drupal\Component\Plugin\Derivative\DerivativeInterface|null
-+   *   A DerivativeInterface or NULL if none exists for the plugin.
-+   *
-+   * @throws \Drupal\Component\Plugin\Exception\InvalidDerivativeClassException
-+   *   Thrown if the 'derivative' class specified in the plugin definition does
-+   *   not implement \Drupal\Component\Plugin\Derivative\DerivativeInterface.
+   *   A DerivativeInterface or NULL if none exists for the plugin.
+   *
+   * @throws \Drupal\Component\Plugin\Exception\InvalidDerivativeClassException
+   *   Thrown if the 'derivative' class specified in the plugin definition does
+   *   not implement \Drupal\Component\Plugin\Derivative\DerivativeInterface.
    */
-  protected function getDerivativeFetcher($base_plugin_id, array $base_definition) {
+  protected function getDerivativeFetcher($base_plugin_id, $base_definition) {
     if (!isset($this->derivativeFetchers[$base_plugin_id])) {
       $this->derivativeFetchers[$base_plugin_id] = FALSE;
       $class = $this->getDerivativeClass($base_definition);
@@ -191,13 +191,32 @@ class DerivativeDiscoveryDecorator implements DiscoveryInterface {
    */
   protected function getDerivativeClass($base_definition) {
     $class = NULL;
-    if (isset($base_definition['derivative'])) {
-      $class = $base_definition['derivative'];
+    if ((is_array($base_definition) || ($base_definition = (array) $base_definition)) && (isset($base_definition['derivative']) && $class = $base_definition['derivative'])) {
       if (!is_subclass_of($class, '\Drupal\Component\Plugin\Derivative\DerivativeInterface')) {
         throw new InvalidDerivativeClassException(sprintf('Plugin (%s) derivative class "%s" has to implement interface \Drupal\Component\Plugin\Derivative\DerivativeInterface', $base_definition['id'], $class));
       }
     }
     return $class;
+  }
+
+  /**
+   * Merges a base and derivative definition, taking into account empty values.
+   *
+   * @param array $base_plugin_definition
+   *   The base plugin definition.
+   * @param array $derivative_definition
+   *   The derivative plugin definition.
+   *
+   * @return array
+   *   The merged definition.
+   */
+  protected function mergeDerivativeDefinition($base_plugin_definition, $derivative_definition) {
+    // Use this definition as defaults if a plugin already defined itself as
+    // this derivative, but filter out empty values first.
+    $filtered_base = array_filter($base_plugin_definition);
+    $derivative_definition = $filtered_base + ($derivative_definition ?: array());
+    // Add back any empty keys that the derivative didn't have.
+    return $derivative_definition + $base_plugin_definition;
   }
 
   /**

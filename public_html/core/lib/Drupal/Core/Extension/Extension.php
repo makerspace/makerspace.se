@@ -15,7 +15,7 @@ class Extension implements \Serializable {
   /**
    * The type of the extension (e.g., 'module').
    *
-   * @todo Replace all uses of $type with getType() method.
+   * @todo Change to protected once external test dependencies are resolved.
    *
    * @var string
    */
@@ -31,7 +31,7 @@ class Extension implements \Serializable {
   /**
    * The internal name of the extension (e.g., 'node').
    *
-   * @todo Replace all uses of $name with getName() method.
+   * @todo Remove this property once external test dependencies are resolved.
    *
    * @var string
    */
@@ -48,23 +48,22 @@ class Extension implements \Serializable {
   public $uri;
 
   /**
-   * The filename of the main extension file (e.g., 'node.module').
+   * Same as $uri.
    *
-   * Note that this is not necessarily a filename but a pathname and also not
-   * necessarily the filename of the info file. Due to legacy code and property
-   * value overloading, it is either the filename of the main extension file or
-   * the relative pathname of the main extension file (== $uri), depending on
-   * whether the object has been post-processed or not.
-   *
-   * @see _system_rebuild_module_data()
-   * @see \Drupal\Core\Extension\ThemeHandler::rebuildThemeData()
-   *
-   * @todo Remove this property and do not require .module/.profile files.
-   * @see https://drupal.org/node/340723
+   * @todo Remove this property once external test dependencies are resolved.
    *
    * @var string
    */
   public $filename;
+
+  /**
+   * The filename of the main extension file (e.g., 'node.module').
+   *
+   * @todo Rename to $filename once external test dependencies are resolved.
+   *
+   * @var string|null
+   */
+  protected $_filename;
 
   /**
    * An SplFileInfo instance for the extension's info file.
@@ -84,15 +83,16 @@ class Extension implements \Serializable {
    *   The relative path and filename of the extension's info file; e.g.,
    *   'core/modules/node/node.info.yml'.
    * @param string $filename
-   *   The filename of the main extension file; e.g., 'node.module'.
+   *   (optional) The filename of the main extension file; e.g., 'node.module'.
    */
-  public function __construct($type, $pathname, $filename) {
+  public function __construct($type, $pathname, $filename = NULL) {
     $this->type = $type;
     $this->pathname = $pathname;
+    $this->_filename = $filename;
     // Set legacy public properties.
-    $this->name = basename($pathname, '.info.yml');
-    $this->filename = $filename;
-    $this->uri = dirname($pathname) . '/' . $filename;
+    $this->name = $this->getName();
+    $this->uri = $this->getPath() . '/' . $filename;
+    $this->filename = $this->uri;
   }
 
   /**
@@ -141,6 +141,40 @@ class Extension implements \Serializable {
   }
 
   /**
+   * Returns the relative path of the main extension file, if any.
+   *
+   * @return string|null
+   */
+  public function getExtensionPathname() {
+    if ($this->_filename) {
+      return $this->getPath() . '/' . $this->_filename;
+    }
+  }
+
+  /**
+   * Returns the name of the main extension file, if any.
+   *
+   * @return string|null
+   */
+  public function getExtensionFilename() {
+    return $this->_filename;
+  }
+
+  /**
+   * Loads the main extension file, if any.
+   *
+   * @return bool
+   *   TRUE if this extension has a main extension file, FALSE otherwise.
+   */
+  public function load() {
+    if ($this->_filename) {
+      include_once DRUPAL_ROOT . '/' . $this->getPath() . '/' . $this->_filename;
+      return TRUE;
+    }
+    return FALSE;
+  }
+
+  /**
    * Re-routes method calls to SplFileInfo.
    *
    * Offers all SplFileInfo methods to consumers; e.g., $extension->getMTime().
@@ -153,22 +187,6 @@ class Extension implements \Serializable {
   }
 
   /**
-   * Sets an explicit SplFileInfo object for the extension's info file.
-   *
-   * Used by ExtensionDiscovery::scanDirectory() to avoid creating additional
-   * PHP resources.
-   *
-   * @param \SplFileInfo $fileinfo
-   *   A file info instance to set.
-   *
-   * @return $this
-   */
-  public function setSplFileInfo(\SplFileInfo $fileinfo) {
-    $this->splFileInfo = $fileinfo;
-    return $this;
-  }
-
-  /**
    * Implements Serializable::serialize().
    *
    * Serializes the Extension object in the most optimized way.
@@ -177,13 +195,8 @@ class Extension implements \Serializable {
     $data = array(
       'type' => $this->type,
       'pathname' => $this->pathname,
+      '_filename' => $this->_filename,
     );
-
-    // Include legacy public properties.
-    // @todo Remove this property and do not require .module/.profile files.
-    // @see https://drupal.org/node/340723
-    // @see Extension::$filename
-    $data['filename'] = basename($this->uri);
 
     // @todo ThemeHandler::listInfo(), ThemeHandler::rebuildThemeData(), and
     //   system_list() are adding custom properties to the Extension object.
@@ -202,14 +215,14 @@ class Extension implements \Serializable {
     $data = unserialize($data);
     $this->type = $data['type'];
     $this->pathname = $data['pathname'];
+    $this->_filename = $data['_filename'];
 
     // Restore legacy public properties.
     // @todo Remove these properties and do not require .module/.profile files.
     // @see https://drupal.org/node/340723
-    // @see Extension::$filename
-    $this->name = basename($data['pathname'], '.info.yml');
-    $this->uri = dirname($data['pathname']) . '/' . $data['filename'];
-    $this->filename = $data['filename'];
+    $this->name = $this->getName();
+    $this->uri = $this->getPath() . '/' . $this->_filename;
+    $this->filename = $this->uri;
 
     // @todo ThemeHandler::listInfo(), ThemeHandler::rebuildThemeData(), and
     //   system_list() are adding custom properties to the Extension object.

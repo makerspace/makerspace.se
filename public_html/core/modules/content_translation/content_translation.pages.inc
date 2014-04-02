@@ -20,7 +20,7 @@ use Drupal\Core\Entity\ContentEntityInterface;
  */
 function content_translation_overview(EntityInterface $entity) {
   $controller = content_translation_controller($entity->getEntityTypeId());
-  $languages = language_list();
+  $languages = \Drupal::languageManager()->getLanguages();
   $original = $entity->getUntranslated()->language()->id;
   $translations = $entity->getTranslationLanguages();
   $administrator = \Drupal::currentUser()->hasPermission('administer languages');
@@ -136,7 +136,7 @@ function content_translation_overview(EntityInterface $entity) {
   $build['#entity'] = $entity;
 
   $build['content_translation_overview'] = array(
-    '#theme' => 'table',
+    '#type' => 'table',
     '#header' => $header,
     '#rows' => $rows,
   );
@@ -229,6 +229,6 @@ function content_translation_edit_page(EntityInterface $entity, Language $langua
 function content_translation_prepare_translation(EntityInterface $entity, Language $source, Language $target) {
   if ($entity instanceof ContentEntityInterface) {
     $source_translation = $entity->getTranslation($source->id);
-    $entity->addTranslation($target->id, $source_translation->getPropertyValues());
+    $entity->addTranslation($target->id, $source_translation->toArray());
   }
 }

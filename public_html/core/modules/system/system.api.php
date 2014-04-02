@@ -47,50 +47,6 @@ function hook_hook_info() {
 }
 
 /**
- * Define administrative paths.
- *
- * Modules may specify whether or not the routing paths they define are
- * to be considered administrative. Other modules may use this information to
- * display those pages differently.
- *
- * To change the administrative status of menu items defined in another module's
- * routing paths, modules should implement hook_admin_paths_alter().
- *
- * @return
- *   An associative array. For each item, the key is the path in question, in
- *   a format acceptable to drupal_match_path(). The value for each item should
- *   be TRUE (for paths considered administrative) or FALSE (for non-
- *   administrative paths).
- *
- * @see drupal_match_path()
- * @see hook_admin_paths_alter()
- */
-function hook_admin_paths() {
-  $paths = array(
-    'mymodule/*/add' => TRUE,
-    'mymodule/*/edit' => TRUE,
-  );
-  return $paths;
-}
-
-/**
- * Redefine administrative paths defined by other modules.
- *
- * @param $paths
- *   An associative array of administrative paths, as defined by implementations
- *   of hook_admin_paths().
- *
- * @see hook_admin_paths()
- */
-function hook_admin_paths_alter(&$paths) {
-  // Treat all user pages as administrative.
-  $paths['user'] = TRUE;
-  $paths['user/*'] = TRUE;
-  // Treat the forum topic node form as a non-administrative page.
-  $paths['node/add/forum'] = FALSE;
-}
-
-/**
  * Perform periodic actions.
  *
  * Modules that require some commands to be executed periodically can
@@ -360,14 +316,14 @@ function hook_library_info_alter(&$libraries, $module) {
  * @param string $name
  *   The name of the library.
  *
- * @see drupal_add_library()
+ * @see _drupal_add_library()
  */
-function hook_library_alter(array &$library, $extension, $name) {
-  if ($extension == 'core' && $name == 'jquery.ui.datepicker') {
+function hook_library_alter(array &$library, $name) {
+  if ($name == 'core/jquery.ui.datepicker') {
     // Note: If the added assets do not depend on additional request-specific
     // data supplied here, consider to statically register it directly via
     // hook_library_info_alter() already.
-    $library['dependencies'][] = array('locale', 'drupal.locale.datepicker');
+    $library['dependencies'][] = 'locale/drupal.locale.datepicker';
 
     $language_interface = \Drupal::languageManager()->getCurrentLanguage();
     $settings['jquery']['ui']['datepicker'] = array(
@@ -436,7 +392,7 @@ function hook_page_build(&$page) {
   $path = drupal_get_path('module', 'foo');
   // Add JavaScript/CSS assets to all pages.
   // @see drupal_process_attached()
-  $page['#attached']['js'][$path . '/foo.css'] = array('every_page' => TRUE);
+  $page['#attached']['js'][$path . '/foo.js'] = array('every_page' => TRUE);
   $page['#attached']['css'][$path . '/foo.base.css'] = array('every_page' => TRUE);
   $page['#attached']['css'][$path . '/foo.theme.css'] = array('every_page' => TRUE);
 
@@ -455,13 +411,27 @@ function hook_page_build(&$page) {
 }
 
 /**
- * Define links for menus.
+ * Alter links for menus.
+ *
+ * @param array $links
+ *   The link definitions to be altered.
  *
  * @return array
  *   An array of default menu links. Each link has a key that is the machine
- *   name, which must be unique. The corresponding array value is an
- *   associative array that may contain the following key-value pairs:
- *   - link_title: (required) The untranslated title of the menu item.
+ *   name, which must be unique. By default, use the route name as the
+ *   machine name. In cases where multiple links use the same route name, such
+ *   as two links to the same page in different menus, or two links using the
+ *   same route name but different route parameters, the suggested machine name
+ *   patten is the route name followed by a dot and a unique suffix. For
+ *   example, an additional logout link might have a machine name of
+ *   user.logout.navigation, and default links provided to edit the article and
+ *   page content types could use machine names node.type_edit.article and
+ *   node.type_edit.page. Since the machine name may be arbitrary, you should
+ *   never write code that assumes it is identical to the route name.
+ *
+ *   The value corresponding to each machine name key is an associative array
+ *   that may contain the following key-value pairs:
+ *   - title: (required) The untranslated title of the menu link.
  *   - description: The untranslated description of the link.
  *   - route_name: (optional) The route name to be used to build the path.
  *     Either a route_name or a link_path must be provided.
@@ -479,45 +449,13 @@ function hook_page_build(&$page) {
  *     this menu item (as a result of other properties), then the menu link is
  *     always expanded, equivalent to its 'always expanded' checkbox being set
  *     in the UI.
- *   - type: (optional) A bitmask of flags describing properties of the menu
- *     item. The following two bitmasks are provided as constants in menu.inc:
- *     - MENU_NORMAL_ITEM: Normal menu items show up in the menu tree and can be
- *       moved/hidden by the administrator.
- *     - MENU_SUGGESTED_ITEM: Modules may "suggest" menu items that the
- *       administrator may enable.
- *     If the "type" element is omitted, MENU_NORMAL_ITEM is assumed.
  *   - options: (optional) An array of options to be passed to l() when
  *     generating a link from this menu item.
- *
- * @see hook_menu_link_defaults_alter()
- */
-function hook_menu_link_defaults() {
-  $links['user'] = array(
-    'link_title' => 'My account',
-    'weight' => -10,
-    'route_name' => 'user.page',
-    'menu_name' => 'account',
-  );
-
-  $links['user.logout'] = array(
-    'link_title' => 'Log out',
-    'route_name' => 'user.logout',
-    'weight' => 10,
-    'menu_name' => 'account',
-  );
-
-  return $links;
-}
-
-/**
- * Alter links for menus.
- *
- * @see hook_menu_link_defaults()
  */
 function hook_menu_link_defaults_alter(&$links) {
   // Change the weight and title of the user.logout link.
   $links['user.logout']['weight'] = -10;
-  $links['user.logout']['link_title'] = t('Logout');
+  $links['user.logout']['title'] = 'Logout';
 }
 
 /**
@@ -653,7 +591,7 @@ function hook_contextual_links_alter(array &$links, $group, array $route_paramet
   if ($group == 'menu') {
     // Dynamically use the menu name for the title of the menu_edit contextual
     // link.
-    $menu = \Drupal::entityManager()->getStorageController('menu')->load($route_parameters['menu']);
+    $menu = \Drupal::entityManager()->getStorage('menu')->load($route_parameters['menu']);
     $links['menu_edit']['title'] = t('Edit menu: !label', array('!label' => $menu->label()));
   }
 }
@@ -761,8 +699,8 @@ function hook_page_alter(&$page) {
  *   Nested array of form elements that comprise the form.
  * @param $form_state
  *   A keyed array containing the current state of the form. The arguments
- *   that drupal_get_form() was originally called with are available in the
- *   array $form_state['build_info']['args'].
+ *   that \Drupal::formBuilder()->getForm() was originally called with are
+ *   available in the array $form_state['build_info']['args'].
  * @param $form_id
  *   String representing the name of the form itself. Typically this is the
  *   name of the function that generated the form.
@@ -800,8 +738,8 @@ function hook_form_alter(&$form, &$form_state, $form_id) {
  *   Nested array of form elements that comprise the form.
  * @param $form_state
  *   A keyed array containing the current state of the form. The arguments
- *   that drupal_get_form() was originally called with are available in the
- *   array $form_state['build_info']['args'].
+ *   that \Drupal::formBuilder()->getForm() was originally called with are
+ *   available in the array $form_state['build_info']['args'].
  * @param $form_id
  *   String representing the name of the form itself. Typically this is the
  *   name of the function that generated the form.
@@ -827,10 +765,10 @@ function hook_form_FORM_ID_alter(&$form, &$form_state, $form_id) {
 /**
  * Provide a form-specific alteration for shared ('base') forms.
  *
- * By default, when drupal_get_form() is called, Drupal looks for a function
- * with the same name as the form ID, and uses that function to build the form.
- * In contrast, base forms allow multiple form IDs to be mapped to a single base
- * (also called 'factory') form function.
+ * By default, when \Drupal::formBuilder()->getForm() is called, Drupal looks
+ * for a function with the same name as the form ID, and uses that function to
+ * build the form. In contrast, base forms allow multiple form IDs to be mapped
+ * to a single base (also called 'factory') form function.
  *
  * Modules can implement hook_form_BASE_FORM_ID_alter() to modify a specific
  * base form, rather than implementing hook_form_alter() and checking for
@@ -993,19 +931,18 @@ function hook_system_breadcrumb_alter(array &$breadcrumb, array $attributes, arr
  * add to or alter the data generated by reading the .info.yml file with
  * \Drupal\Core\Extension\InfoParser.
  *
- * @param $info
+ * @param array $info
  *   The .info.yml file contents, passed by reference so that it can be altered.
- * @param $file
- *   Full information about the module or theme, including $file->name, and
- *   $file->filename
- * @param $type
+ * @param \Drupal\Core\Extension\Extension $file
+ *   Full information about the module or theme.
+ * @param string $type
  *   Either 'module' or 'theme', depending on the type of .info.yml file that
  *   was passed.
  */
-function hook_system_info_alter(&$info, $file, $type) {
+function hook_system_info_alter(array &$info, \Drupal\Core\Extension\Extension $file, $type) {
   // Only fill this in if the .info.yml file does not define a 'datestamp'.
   if (empty($info['datestamp'])) {
-    $info['datestamp'] = filemtime($file->filename);
+    $info['datestamp'] = $file->getMTime();
   }
 }
 
@@ -1463,7 +1400,7 @@ function hook_cache_flush() {
 function hook_rebuild() {
   $themes = list_themes();
   foreach ($themes as $theme) {
-    _block_rehash($theme->name);
+    _block_rehash($theme->getName());
   }
 }
 
@@ -2496,7 +2433,7 @@ function hook_system_themes_page_alter(&$theme_groups) {
       $theme->operations[] = array(
         'title' => t('Foo'),
         'href' => 'admin/appearance/foo',
-        'query' => array('theme' => $theme->name)
+        'query' => array('theme' => $theme->getName())
       );
     }
   }

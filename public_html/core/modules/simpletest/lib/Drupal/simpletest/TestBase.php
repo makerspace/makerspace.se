@@ -18,6 +18,8 @@ use Drupal\Core\Database\ConnectionNotDefinedException;
 use Drupal\Core\Config\StorageInterface;
 use Drupal\Core\DrupalKernel;
 use Drupal\Core\Language\Language;
+use Drupal\Core\Session\AccountProxy;
+use Drupal\Core\Session\AnonymousUserSession;
 use Drupal\Core\StreamWrapper\PublicStream;
 use Drupal\Core\Utility\Error;
 use Symfony\Component\HttpFoundation\Request;
@@ -371,13 +373,24 @@ abstract class TestBase {
    *   The database connection to use for inserting assertions.
    */
   public static function getDatabaseConnection() {
+    // Check whether there is a test runner connection.
+    // @see run-tests.sh
+    // @todo Convert Simpletest UI runner to create + use this connection, too.
     try {
-      $connection = Database::getConnection('default', 'simpletest_original_default');
+      $connection = Database::getConnection('default', 'test-runner');
     }
     catch (ConnectionNotDefinedException $e) {
-      // If the test was not set up, the simpletest_original_default
-      // connection does not exist.
-      $connection = Database::getConnection('default', 'default');
+      // Check whether there is a backup of the original default connection.
+      // @see TestBase::prepareEnvironment()
+      try {
+        $connection = Database::getConnection('default', 'simpletest_original_default');
+      }
+      catch (ConnectionNotDefinedException $e) {
+        // If TestBase::prepareEnvironment() or TestBase::restoreEnvironment()
+        // failed, the test-specific database connection does not exist
+        // yet/anymore, so fall back to the default of the (UI) test runner.
+        $connection = Database::getConnection('default', 'default');
+      }
     }
     return $connection;
   }
@@ -806,11 +819,13 @@ abstract class TestBase {
     $test_methods = array_filter(get_class_methods($class), function ($method) {
       return strpos($method, 'test') === 0;
     });
+    if (empty($test_methods)) {
+      // Call $this->assert() here because we need to pass along custom caller
+      // information, lest the wrong originating code file/line be identified.
+      $this->assert(FALSE, 'No test methods found.', 'Requirements', array('function' => __METHOD__ . '()', 'file' => __FILE__, 'line' => __LINE__));
+    }
     if ($methods) {
       $test_methods = array_intersect($test_methods, $methods);
-    }
-    if (defined("$class::SORT_METHODS")) {
-      sort($test_methods);
     }
     foreach ($test_methods as $method) {
       // Insert a fail record. This will be deleted on completion to ensure
@@ -913,7 +928,7 @@ abstract class TestBase {
     // As soon as the database prefix is set, the test might start to execute.
     // All assertions as well as the SimpleTest batch operations are associated
     // with the testId, so the database prefix has to be associated with it.
-    $affected_rows = db_update('simpletest_test_id')
+    $affected_rows = self::getDatabaseConnection()->update('simpletest_test_id')
       ->fields(array('last_prefix' => $this->databasePrefix))
       ->condition('test_id', $this->testId)
       ->execute();
@@ -930,6 +945,13 @@ abstract class TestBase {
   private function changeDatabasePrefix() {
     if (empty($this->databasePrefix)) {
       $this->prepareDatabasePrefix();
+    }
+    // If the backup already exists, something went terribly wrong.
+    // This case is possible, because database connection info is a static
+    // global state construct on the Database class, which at least persists
+    // for all test methods executed in one PHP process.
+    if (Database::getConnectionInfo('simpletest_original_default')) {
+      throw new \RuntimeException("Bad Database connection state: 'simpletest_original_default' connection key already exists. Broken test?");
     }
 
     // Clone the current connection and replace the current prefix.
@@ -968,8 +990,7 @@ abstract class TestBase {
    * @see TestBase::beforePrepareEnvironment()
    */
   private function prepareEnvironment() {
-    global $user;
-
+    $user = \Drupal::currentUser();
     // Allow (base) test classes to backup global state information.
     $this->beforePrepareEnvironment();
 
@@ -986,31 +1007,27 @@ abstract class TestBase {
 
     // Backup current in-memory configuration.
     $this->originalSite = conf_path();
-    $this->originalSettings = settings()->getAll();
+    $this->originalSettings = Settings::getAll();
     $this->originalConfig = $GLOBALS['config'];
+    // @todo Remove all remnants of $GLOBALS['conf'].
+    // @see https://drupal.org/node/2183323
+    $this->originalConf = isset($GLOBALS['conf']) ? $GLOBALS['conf'] : NULL;
 
     // Backup statics and globals.
     $this->originalContainer = clone \Drupal::getContainer();
     $this->originalLanguage = $language_interface;
     $this->originalConfigDirectories = $GLOBALS['config_directories'];
-    if (isset($GLOBALS['theme_key'])) {
-      $this->originalThemeKey = $GLOBALS['theme_key'];
-    }
-    $this->originalTheme = isset($GLOBALS['theme']) ? $GLOBALS['theme'] : NULL;
 
     // Save further contextual information.
     // Use the original files directory to avoid nesting it within an existing
     // simpletest directory if a test is executed within a test.
-    $this->originalFileDirectory = settings()->get('file_public_path', conf_path() . '/files');
+    $this->originalFileDirectory = Settings::get('file_public_path', conf_path() . '/files');
     $this->originalProfile = drupal_get_profile();
     $this->originalUser = isset($user) ? clone $user : NULL;
 
     // Ensure that the current session is not changed by the new environment.
-    require_once DRUPAL_ROOT . '/' . settings()->get('session_inc', 'core/includes/session.inc');
+    require_once DRUPAL_ROOT . '/' . Settings::get('session_inc', 'core/includes/session.inc');
     drupal_save_session(FALSE);
-    // Run all tests as a anonymous user by default, web tests will replace that
-    // during the test set up.
-    $user = drupal_anonymous_user();
 
     // Save and clean the shutdown callbacks array because it is static cached
     // and will be changed by the test run. Otherwise it will contain callbacks
@@ -1065,14 +1082,23 @@ abstract class TestBase {
 
     $request = Request::create('/');
     $this->container->set('request', $request);
-    $this->container->set('current_user', $GLOBALS['user']);
+
+    // Run all tests as a anonymous user by default, web tests will replace that
+    // during the test set up.
+    $this->container->set('current_user', new AnonymousUserSession());
 
     \Drupal::setContainer($this->container);
 
     // Unset globals.
     unset($GLOBALS['config_directories']);
+    unset($GLOBALS['config']);
+    unset($GLOBALS['conf']);
     unset($GLOBALS['theme_key']);
     unset($GLOBALS['theme']);
+    unset($GLOBALS['theme_info']);
+    unset($GLOBALS['base_theme_info']);
+    unset($GLOBALS['theme_engine']);
+    unset($GLOBALS['theme_path']);
 
     // Log fatal errors.
     ini_set('log_errors', 1);
@@ -1081,13 +1107,16 @@ abstract class TestBase {
     // Change the database prefix.
     $this->changeDatabasePrefix();
 
-    // Remove all configuration overrides.
-    $GLOBALS['config'] = array();
-
     // After preparing the environment and changing the database prefix, we are
     // in a valid test environment.
     drupal_valid_test_ua($this->databasePrefix);
     conf_path(FALSE, TRUE);
+
+    // Reset settings.
+    new Settings(array(
+      // For performance, simply use the database prefix as hash salt.
+      'hash_salt' => $this->databasePrefix,
+    ));
 
     drupal_set_time_limit($this->timeLimit);
   }
@@ -1111,15 +1140,27 @@ abstract class TestBase {
   protected function rebuildContainer($environment = 'testing') {
     // Preserve the request object after the container rebuild.
     $request = \Drupal::request();
+    // When called from InstallerTestBase, the current container is the minimal
+    // container from TestBase::prepareEnvironment(), which does not contain a
+    // request stack.
+    if (\Drupal::getContainer()->initialized('request_stack')) {
+      $request_stack = \Drupal::service('request_stack');
+    }
 
     $this->kernel = new DrupalKernel($environment, drupal_classloader(), FALSE);
     $this->kernel->boot();
     // DrupalKernel replaces the container in \Drupal::getContainer() with a
     // different object, so we need to replace the instance on this test class.
     $this->container = \Drupal::getContainer();
-    // The global $user is set in TestBase::prepareEnvironment().
+    // The current user is set in TestBase::prepareEnvironment().
     $this->container->set('request', $request);
-    $this->container->set('current_user', $GLOBALS['user']);
+    if (isset($request_stack)) {
+      $this->container->set('request_stack', $request_stack);
+    }
+    else {
+      $this->container->get('request_stack')->push($request);
+    }
+    $this->container->get('current_user')->setAccount(\Drupal::currentUser());
   }
 
   /**
@@ -1140,8 +1181,6 @@ abstract class TestBase {
    * @see TestBase::prepareEnvironment()
    */
   private function restoreEnvironment() {
-    global $user;
-
     // Reset all static variables.
     // Unsetting static variables will potentially invoke destruct methods,
     // which might call into functions that prime statics and caches again.
@@ -1193,19 +1232,22 @@ abstract class TestBase {
     $connection_info = Database::getConnectionInfo('default');
     $databases['default']['default'] = $connection_info['default'];
 
-    // Restore original globals.
-    if (isset($this->originalThemeKey)) {
-      $GLOBALS['theme_key'] = $this->originalThemeKey;
-    }
-    $GLOBALS['theme'] = $this->originalTheme;
-
     // Reset all static variables.
     // All destructors of statically cached objects have been invoked above;
     // this second reset is guaranteed to reset everything to nothing.
     drupal_static_reset();
 
+    // Reset global theme variables.
+    unset($GLOBALS['theme_key']);
+    unset($GLOBALS['theme']);
+    unset($GLOBALS['theme_info']);
+    unset($GLOBALS['base_theme_info']);
+    unset($GLOBALS['theme_engine']);
+    unset($GLOBALS['theme_path']);
+
     // Restore original in-memory configuration.
     $GLOBALS['config'] = $this->originalConfig;
+    $GLOBALS['conf'] = $this->originalConf;
     new Settings($this->originalSettings);
 
     // Restore original statics and globals.
@@ -1225,7 +1267,7 @@ abstract class TestBase {
     $callbacks = $this->originalShutdownCallbacks;
 
     // Restore original user session.
-    $user = $this->originalUser;
+    $this->container->set('current_user', $this->originalUser);
     drupal_save_session(TRUE);
   }
 
@@ -1302,7 +1344,7 @@ abstract class TestBase {
    * @see \Drupal\Component\Utility\Settings::get()
    */
   protected function settingsSet($name, $value) {
-    $settings = settings()->getAll();
+    $settings = Settings::getAll();
     $settings[$name] = $value;
     new Settings($settings);
   }

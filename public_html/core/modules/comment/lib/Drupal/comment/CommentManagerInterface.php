@@ -8,6 +8,8 @@
 namespace Drupal\comment;
 use Drupal\Core\Entity\EntityInterface;
 
+use Drupal\comment\Plugin\Field\FieldType\CommentItemInterface;
+
 /**
  * Comment manager contains common functions to manage comment fields.
  */
@@ -19,8 +21,7 @@ interface CommentManagerInterface {
    * @param \Drupal\comment\CommentInterface $comment
    *   The comment entity.
    *
-   * @return array
-   *   An array returned by \Drupal\Core\Entity\EntityInterface::uri().
+   * @return \Drupal\Core\Url
    */
   public function getParentEntityUri(CommentInterface $comment);
 
@@ -59,10 +60,11 @@ interface CommentManagerInterface {
    * @param string $field_name
    *   (optional) Field name to use for the comment field. Defaults to 'comment'.
    * @param int $default_value
-   *   (optional) Default value, one of COMMENT_HIDDEN, COMMENT_OPEN,
-   *   COMMENT_CLOSED. Defaults to COMMENT_OPEN.
+   *   (optional) Default value, one of CommentItemInterface::HIDDEN,
+   *   CommentItemInterface::OPEN, CommentItemInterface::CLOSED. Defaults to
+   *   CommentItemInterface::OPEN.
    */
-  public function addDefaultField($entity_type, $bundle, $field_name = 'comment', $default_value = COMMENT_OPEN);
+  public function addDefaultField($entity_type, $bundle, $field_name = 'comment', $default_value = CommentItemInterface::OPEN);
 
   /**
    * Creates a comment_body field instance.

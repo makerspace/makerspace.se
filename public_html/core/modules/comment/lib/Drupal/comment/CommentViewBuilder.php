@@ -7,6 +7,7 @@
 
 namespace Drupal\comment;
 
+use Drupal\comment\Plugin\Field\FieldType\CommentItemInterface;
 use Drupal\Core\Access\CsrfTokenGenerator;
 use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
 use Drupal\Core\Entity\EntityInterface;
@@ -97,7 +98,7 @@ class CommentViewBuilder extends EntityViewBuilder {
     foreach ($entities as $entity) {
       $uids[] = $entity->getOwnerId();
     }
-    $this->entityManager->getStorageController('user')->loadMultiple(array_unique($uids));
+    $this->entityManager->getStorage('user')->loadMultiple(array_unique($uids));
 
     parent::buildContent($entities, $displays, $view_mode, $langcode);
 
@@ -110,7 +111,7 @@ class CommentViewBuilder extends EntityViewBuilder {
     // Load entities in bulk. This is more performant than using
     // $comment->getCommentedEntity() as we can load them in bulk per type.
     foreach ($commented_entity_ids as $entity_type => $entity_ids) {
-      $commented_entities[$entity_type] = $this->entityManager->getStorageController($entity_type)->loadMultiple($entity_ids);
+      $commented_entities[$entity_type] = $this->entityManager->getStorage($entity_type)->loadMultiple($entity_ids);
     }
 
     foreach ($entities as $entity) {
@@ -138,9 +139,9 @@ class CommentViewBuilder extends EntityViewBuilder {
       if (!isset($entity->content['#attached'])) {
         $entity->content['#attached'] = array();
       }
-      $entity->content['#attached']['library'][] = array('comment', 'drupal.comment-by-viewer');
+      $entity->content['#attached']['library'][] = 'comment/drupal.comment-by-viewer';
       if ($this->moduleHandler->moduleExists('history') &&  \Drupal::currentUser()->isAuthenticated()) {
-        $entity->content['#attached']['library'][] = array('comment', 'drupal.comment-new-indicator');
+        $entity->content['#attached']['library'][] = 'comment/drupal.comment-new-indicator';
 
         // Embed the metadata for the comment "new" indicators on this node.
         $entity->content['#post_render_cache']['history_attach_timestamp'] = array(
@@ -209,7 +210,7 @@ class CommentViewBuilder extends EntityViewBuilder {
 
     $container = \Drupal::getContainer();
 
-    if ($status == COMMENT_OPEN) {
+    if ($status == CommentItemInterface::OPEN) {
       if ($entity->access('delete')) {
         $links['comment-delete'] = array(
           'title' => t('Delete'),
@@ -317,7 +318,7 @@ class CommentViewBuilder extends EntityViewBuilder {
       return $element;
     }
     $entity = \Drupal::entityManager()
-      ->getStorageController($context['entity_type'])
+      ->getStorage($context['entity_type'])
       ->load($context['entity_id']);
     $field_name = $context['field_name'];
     $query = comment_new_page_count($entity->{$field_name}->comment_count, $new, $entity);

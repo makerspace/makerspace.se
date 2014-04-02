@@ -7,11 +7,13 @@
 
 namespace Drupal\edit\Form;
 
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityInterface;
-use Drupal\Core\Entity\EntityStorageControllerInterface;
+use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityChangedInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormBase;
+use Drupal\Core\Render\Element;
 use Drupal\entity\Entity\EntityFormDisplay;
 use Drupal\user\TempStoreFactory;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -38,7 +40,7 @@ class EditFieldForm extends FormBase {
   /**
    * The node type storage.
    *
-   * @var \Drupal\Core\Entity\EntityStorageControllerInterface
+   * @var \Drupal\Core\Entity\EntityStorageInterface
    */
   protected $nodeTypeStorage;
 
@@ -49,10 +51,10 @@ class EditFieldForm extends FormBase {
    *   The tempstore factory.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The module handler.
-   * @param \Drupal\Core\Entity\EntityStorageControllerInterface $node_type_storage
+   * @param \Drupal\Core\Entity\EntityStorageInterface $node_type_storage
    *   The node type storage.
    */
-  public function __construct(TempStoreFactory $temp_store_factory, ModuleHandlerInterface $module_handler, EntityStorageControllerInterface $node_type_storage) {
+  public function __construct(TempStoreFactory $temp_store_factory, ModuleHandlerInterface $module_handler, EntityStorageInterface $node_type_storage) {
     $this->moduleHandler = $module_handler;
     $this->nodeTypeStorage = $node_type_storage;
     $this->tempStoreFactory = $temp_store_factory;
@@ -65,7 +67,7 @@ class EditFieldForm extends FormBase {
     return new static(
       $container->get('user.tempstore'),
       $container->get('module_handler'),
-      $container->get('entity.manager')->getStorageController('node_type')
+      $container->get('entity.manager')->getStorage('node_type')
     );
   }
 
@@ -87,7 +89,7 @@ class EditFieldForm extends FormBase {
     }
 
     // Add the field form.
-    field_attach_form($form_state['entity'], $form, $form_state, $form_state['langcode'], array('field_name' =>  $form_state['field_name']));
+    $form_state['form_display']->buildForm($entity, $form, $form_state);
 
     // Add a dummy changed timestamp field to attach form errors to.
     if ($entity instanceof EntityChangedInterface) {
@@ -127,9 +129,15 @@ class EditFieldForm extends FormBase {
     $form_state['entity'] = $entity;
     $form_state['field_name'] = $field_name;
 
-    // @todo Allow the usage of different form modes by exposing a hook and the
-    //   UI for them.
-    $form_state['form_display'] = EntityFormDisplay::collectRenderDisplay($entity, 'default');
+    // Fetch the display used by the form. It is the display for the 'default'
+    // form mode, with only the current field visible.
+    $display = EntityFormDisplay::collectRenderDisplay($entity, 'default');
+    foreach ($display->getComponents() as $name => $optipns) {
+      if ($name != $field_name) {
+        $display->removeComponent($name);
+      }
+    }
+    $form_state['form_display'] = $display;
   }
 
   /**
@@ -137,7 +145,8 @@ class EditFieldForm extends FormBase {
    */
   public function validateForm(array &$form, array &$form_state) {
     $entity = $this->buildEntity($form, $form_state);
-    field_attach_form_validate($entity, $form, $form_state, array('field_name' =>  $form_state['field_name']));
+
+    $form_state['form_display']->validateFormValues($entity, $form, $form_state);
 
     // Do validation on the changed field as well and assign the error to the
     // dummy form element we added for this. We don't know the name of this
@@ -173,7 +182,7 @@ class EditFieldForm extends FormBase {
     $entity = clone $form_state['entity'];
     $field_name = $form_state['field_name'];
 
-    field_attach_extract_form_values($entity, $form, $form_state, array('field_name' => $field_name));
+    $form_state['form_display']->extractFormValues($entity, $form, $form_state);
 
     // @todo Refine automated log messages and abstract them to all entity
     //   types: http://drupal.org/node/1678002.
@@ -206,7 +215,7 @@ class EditFieldForm extends FormBase {
     // with per-delta elements. Skip single checkboxes, because their title is
     // key to their UI. Also skip widgets with multiple subelements, because in
     // that case, per-element labeling is informative.
-    $num_children = count(element_children($widget_element));
+    $num_children = count(Element::children($widget_element));
     if ($num_children == 0 && $widget_element['#type'] != 'checkbox') {
       $widget_element['#title_display'] = 'invisible';
     }
@@ -226,17 +235,16 @@ class EditFieldForm extends FormBase {
   /**
    * Finds the field name for the field carrying the changed timestamp, if any.
    *
-   * @param \Drupal\Core\Entity\EntityInterface $entity
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The entity.
    *
    * @return string|null
    *   The name of the field found or NULL if not found.
    */
-  protected function getChangedFieldName(EntityInterface $entity) {
-    foreach ($entity as $field_name => $field) {
-      $constraints = $field->getItemDefinition()->getConstraints();
-      if (isset($constraints['ComplexData']['value']['EntityChanged'])) {
-        return $field_name;
+  protected function getChangedFieldName(ContentEntityInterface $entity) {
+    foreach ($entity->getFieldDefinitions() as $field) {
+      if ($field->getType() == 'changed') {
+        return $field->getName();
       }
     }
   }

@@ -5,8 +5,6 @@
  * Install, update, and uninstall functions for the Forum module.
  */
 
-use Drupal\Core\Language\Language;
-
 /**
  * Implements hook_install().
  */
@@ -83,19 +81,7 @@ function forum_install() {
     'include_deleted' => FALSE,
   ));
   if (empty($fields)) {
-    Drupal::service('comment.manager')->addDefaultField('node', 'forum', 'comment_forum', COMMENT_OPEN);
-  }
-}
-
-/**
- * Implements hook_module_preinstall().
- */
-function forum_module_preinstall($module) {
-  $list_boolean = \Drupal::service('plugin.manager.field.field_type')->getDefinition('list_boolean');
-  if (empty($list_boolean) && $module == 'forum') {
-    // Make sure that the list_boolean field type is available before our
-    // default config is installed.
-    field_info_cache_clear();
+    Drupal::service('comment.manager')->addDefaultField('node', 'forum', 'comment_forum');
   }
 }
 

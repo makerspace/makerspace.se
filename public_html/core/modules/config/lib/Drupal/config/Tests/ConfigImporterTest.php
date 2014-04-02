@@ -163,12 +163,14 @@ class ConfigImporterTest extends DrupalUnitTestBase {
     // Create new config entity.
     $original_dynamic_data = array(
       'id' => 'new',
-      'uuid' => '30df59bd-7b03-4cf7-bb35-d42fc49f0651',
       'label' => 'New',
       'weight' => 0,
       'style' => '',
+      'test_dependencies' => array(),
       'status' => TRUE,
-      'langcode' => language_default()->id,
+      'uuid' => '30df59bd-7b03-4cf7-bb35-d42fc49f0651',
+      'langcode' => \Drupal::languageManager()->getDefaultLanguage()->id,
+      'dependencies' => array(),
       'protected_property' => '',
     );
     $staging->write($dynamic_name, $original_dynamic_data);

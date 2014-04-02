@@ -7,8 +7,10 @@
 
 namespace Drupal\Core\Config;
 
-use Drupal\Core\Config\ConfigEvents;
+use Drupal\Component\Utility\String;
+use Drupal\Core\Config\Entity\ImportableEntityStorageInterface;
 use Drupal\Core\DependencyInjection\DependencySerialization;
+use Drupal\Core\Entity\EntityStorageException;
 use Drupal\Core\Lock\LockBackendInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
@@ -279,7 +281,7 @@ class ConfigImporter extends DependencySerialization {
   }
 
   /**
-   * Invokes import* methods on configuration entity storage controllers.
+   * Invokes import* methods on configuration entity storage.
    *
    * Allow modules to take over configuration change operations for higher-level
    * configuration data.
@@ -292,14 +294,15 @@ class ConfigImporter extends DependencySerialization {
    * @param string $name
    *   The name of the configuration to process.
    *
+   * @throws \Drupal\Core\Entity\EntityStorageException
+   *   Thrown if the data is owned by an entity type, but the entity storage
+   *   does not support imports.
+   *
    * @return bool
    *   TRUE if the configuration was imported as a configuration entity. FALSE
    *   otherwise.
    */
   protected function importInvokeOwner($op, $name) {
-    // Call to the configuration entity's storage controller to handle the
-    // configuration change.
-    $handled_by_module = FALSE;
     // Validate the configuration object name before importing it.
     // Config::validateName($name);
     if ($entity_type = $this->configManager->getEntityTypeIdByName($name)) {
@@ -315,9 +318,13 @@ class ConfigImporter extends DependencySerialization {
       }
 
       $method = 'import' . ucfirst($op);
-      $handled_by_module = $this->configManager->getEntityManager()->getStorageController($entity_type)->$method($name, $new_config, $old_config);
-    }
-    if (!empty($handled_by_module)) {
+      $entity_storage = $this->configManager->getEntityManager()->getStorage($entity_type);
+      // Call to the configuration entity's storage to handle the configuration
+      // change.
+      if (!($entity_storage instanceof ImportableEntityStorageInterface)) {
+        throw new EntityStorageException(String::format('The entity storage "@storage" for the "@entity_type" entity type does not support imports', array('@storage' => get_class($entity_storage), '@entity_type' => $entity_type)));
+      }
+      $entity_storage->$method($name, $new_config, $old_config);
       $this->setProcessed($op, $name);
       return TRUE;
     }

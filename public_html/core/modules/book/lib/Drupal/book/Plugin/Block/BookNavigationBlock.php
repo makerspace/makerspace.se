@@ -8,6 +8,7 @@
 namespace Drupal\book\Plugin\Block;
 
 use Drupal\block\BlockBase;
+use Drupal\book\BookManagerInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -31,6 +32,13 @@ class BookNavigationBlock extends BlockBase implements ContainerFactoryPluginInt
   protected $request;
 
   /**
+   * The book manager.
+   *
+   * @var \Drupal\book\BookManagerInterface
+   */
+  protected $bookManager;
+
+  /**
    * Constructs a new BookNavigationBlock instance.
    *
    * @param array $configuration
@@ -41,11 +49,14 @@ class BookNavigationBlock extends BlockBase implements ContainerFactoryPluginInt
    *   The plugin implementation definition.
    * @param \Symfony\Component\HttpFoundation\Request $request
    *   The request object.
+   * @param \Drupal\book\BookManagerInterface $book_manager
+   *   The book manager.
    */
-  public function __construct(array $configuration, $plugin_id, array $plugin_definition, Request $request) {
+  public function __construct(array $configuration, $plugin_id, array $plugin_definition, Request $request, BookManagerInterface $book_manager) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
 
     $this->request = $request;
+    $this->bookManager = $book_manager;
   }
 
   /**
@@ -56,7 +67,8 @@ class BookNavigationBlock extends BlockBase implements ContainerFactoryPluginInt
       $configuration,
       $plugin_id,
       $plugin_definition,
-      $container->get('request')
+      $container->get('request'),
+      $container->get('book.manager')
     );
   }
 
@@ -65,7 +77,6 @@ class BookNavigationBlock extends BlockBase implements ContainerFactoryPluginInt
    */
   public function defaultConfiguration() {
     return array(
-      'cache' => DRUPAL_CACHE_PER_PAGE | DRUPAL_CACHE_PER_ROLE,
       'block_mode' => "all pages",
     );
   }
@@ -101,18 +112,19 @@ class BookNavigationBlock extends BlockBase implements ContainerFactoryPluginInt
    */
   public function build() {
     $current_bid = 0;
+
     if ($node = $this->request->get('node')) {
       $current_bid = empty($node->book['bid']) ? 0 : $node->book['bid'];
     }
     if ($this->configuration['block_mode'] == 'all pages') {
       $book_menus = array();
       $pseudo_tree = array(0 => array('below' => FALSE));
-      foreach (book_get_books() as $book_id => $book) {
+      foreach ($this->bookManager->getAllBooks() as $book_id => $book) {
         if ($book['bid'] == $current_bid) {
           // If the current page is a node associated with a book, the menu
           // needs to be retrieved.
-          $data = \Drupal::service('book.manager')->bookTreeAllData($node->book['bid'], $node->book);
-          $book_menus[$book_id] = \Drupal::service('book.manager')->bookTreeOutput($data);
+          $data = $this->bookManager->bookTreeAllData($node->book['bid'], $node->book);
+          $book_menus[$book_id] = $this->bookManager->bookTreeOutput($data);
         }
         else {
           // Since we know we will only display a link to the top node, there
@@ -122,7 +134,7 @@ class BookNavigationBlock extends BlockBase implements ContainerFactoryPluginInt
           $book_node = node_load($book['nid']);
           $book['access'] = $book_node->access('view');
           $pseudo_tree[0]['link'] = $book;
-          $book_menus[$book_id] = \Drupal::service('book.manager')->bookTreeOutput($pseudo_tree);
+          $book_menus[$book_id] = $this->bookManager->bookTreeOutput($pseudo_tree);
         }
       }
       if ($book_menus) {
@@ -140,20 +152,26 @@ class BookNavigationBlock extends BlockBase implements ContainerFactoryPluginInt
       $nid = $select->execute()->fetchField();
       // Only show the block if the user has view access for the top-level node.
       if ($nid) {
-        $tree = \Drupal::service('book.manager')->bookTreeAllData($node->book['bid'], $node->book);
+        $tree = $this->bookManager->bookTreeAllData($node->book['bid'], $node->book);
         // There should only be one element at the top level.
         $data = array_shift($tree);
-        $below = \Drupal::service('book.manager')->bookTreeOutput($data['below']);
+        $below = $this->bookManager->bookTreeOutput($data['below']);
         if (!empty($below)) {
-          $book_title_link = array('#theme' => 'book_title_link', '#link' => $data['link']);
-          return array(
-            '#title' => drupal_render($book_title_link),
-            $below,
-          );
+          return $below;
         }
       }
     }
     return array();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getRequiredCacheContexts() {
+    // The "Book navigation" block must be cached per URL and per role: the
+    // "active" menu link may differ per URL and different roles may have access
+    // to different menu links.
+    return array('cache_context.url', 'cache_context.user.roles');
   }
 
 }

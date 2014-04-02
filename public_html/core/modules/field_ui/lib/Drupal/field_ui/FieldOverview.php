@@ -10,6 +10,7 @@ namespace Drupal\field_ui;
 use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Field\FieldTypePluginManagerInterface;
+use Drupal\Core\Render\Element;
 use Drupal\field_ui\OverviewBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\field\Entity\FieldConfig;
@@ -89,7 +90,7 @@ class FieldOverview extends OverviewBase {
 
     // Gather bundle information.
     $instances = field_info_instances($this->entity_type, $this->bundle);
-    $field_types = $this->fieldTypeManager->getConfigurableDefinitions();
+    $field_types = $this->fieldTypeManager->getDefinitions();
 
     // Field prefix.
     $field_prefix = \Drupal::config('field_ui.settings')->get('field_prefix');
@@ -289,7 +290,7 @@ class FieldOverview extends OverviewBase {
     // here instead of a #pre_render callback because this form doesn't have the
     // tabledrag behavior anymore.
     $table['#regions']['content']['rows_order'] = array();
-    foreach (element_children($table) as $name) {
+    foreach (Element::children($table) as $name) {
       $table['#regions']['content']['rows_order'][] = $name;
     }
 
@@ -408,8 +409,8 @@ class FieldOverview extends OverviewBase {
 
       // Create the field and instance.
       try {
-        $this->entityManager->getStorageController('field_config')->create($field)->save();
-        $new_instance = $this->entityManager->getStorageController('field_instance_config')->create($instance);
+        $this->entityManager->getStorage('field_config')->create($field)->save();
+        $new_instance = $this->entityManager->getStorage('field_instance_config')->create($instance);
         $new_instance->save();
 
         // Make sure the field is displayed in the 'default' form mode (using
@@ -461,7 +462,7 @@ class FieldOverview extends OverviewBase {
         );
 
         try {
-          $new_instance = $this->entityManager->getStorageController('field_instance_config')->create($instance);
+          $new_instance = $this->entityManager->getStorage('field_instance_config')->create($instance);
           $new_instance->save();
 
           // Make sure the field is displayed in the 'default' form mode (using
@@ -530,7 +531,7 @@ class FieldOverview extends OverviewBase {
     // Load the instances and build the list of options.
     if ($instance_ids) {
       $field_types = $this->fieldTypeManager->getDefinitions();
-      $instances = $this->entityManager->getStorageController('field_instance_config')->loadMultiple($instance_ids);
+      $instances = $this->entityManager->getStorage('field_instance_config')->loadMultiple($instance_ids);
       foreach ($instances as $instance) {
         // Do not show:
         // - locked fields,

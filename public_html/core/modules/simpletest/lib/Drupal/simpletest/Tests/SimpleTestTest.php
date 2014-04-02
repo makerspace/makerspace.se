@@ -7,6 +7,7 @@
 
 namespace Drupal\simpletest\Tests;
 
+use Drupal\Core\Database\Driver\pgsql\Select;
 use Drupal\simpletest\WebTestBase;
 
 class SimpleTestTest extends WebTestBase {
@@ -233,7 +234,7 @@ class SimpleTestTest extends WebTestBase {
 
     $this->assertAssertion("Debug: 'Foo'", 'Debug', 'Fail', 'SimpleTestTest.php', 'Drupal\simpletest\Tests\SimpleTestTest->stubTest()');
 
-    $this->assertEqual('6 passes, 5 fails, 2 exceptions, 1 debug message', $this->childTestResults['summary'], 'Stub test summary is correct');
+    $this->assertEqual('6 passes, 5 fails, 2 exceptions, 1 debug message', $this->childTestResults['summary']);
 
     $this->test_ids[] = $test_id = $this->getTestIdFromResults();
     $this->assertTrue($test_id, 'Found test ID in results.');
@@ -298,7 +299,7 @@ class SimpleTestTest extends WebTestBase {
           $assertion['file'] = $this->asText($row->td[2]);
           $assertion['line'] = $this->asText($row->td[3]);
           $assertion['function'] = $this->asText($row->td[4]);
-          $ok_url = file_create_url('core/misc/watchdog-ok.png');
+          $ok_url = file_create_url('core/misc/icons/73b355/check.png');
           $assertion['status'] = ($row->td[5]->img['src'] == $ok_url) ? 'Pass' : 'Fail';
           $results['assertions'][] = $assertion;
         }

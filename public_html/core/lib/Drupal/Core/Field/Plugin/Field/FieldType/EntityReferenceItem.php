@@ -26,11 +26,30 @@ use Drupal\Core\TypedData\DataReferenceDefinition;
  *   id = "entity_reference",
  *   label = @Translation("Entity reference"),
  *   description = @Translation("An entity field containing an entity reference."),
- *   configurable = FALSE,
- *   constraints = {"ValidReference" = TRUE}
+ *   no_ui = TRUE,
+ *   constraints = {"ValidReference" = {}}
  * )
  */
 class EntityReferenceItem extends FieldItemBase {
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function defaultSettings() {
+    return array(
+      'target_type' => \Drupal::moduleHandler()->moduleExists('node') ? 'node' : 'user',
+      'target_bundle' => NULL,
+    ) + parent::defaultSettings();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function defaultInstanceSettings() {
+    return array(
+      'handler' => 'default',
+    ) + parent::defaultInstanceSettings();
+  }
 
   /**
    * {@inheritdoc}
@@ -44,9 +63,7 @@ class EntityReferenceItem extends FieldItemBase {
       // https://drupal.org/node/2107249
       $target_id_definition = DataDefinition::create('integer')
         ->setLabel(t('Entity ID'))
-        ->setConstraints(array(
-          'Range' => array('min' => 0),
-        ));
+        ->setSetting('unsigned', TRUE);
     }
     else {
       $target_id_definition = DataDefinition::create('string')
@@ -225,4 +242,5 @@ class EntityReferenceItem extends FieldItemBase {
   public function hasUnsavedEntity() {
     return $this->target_id === NULL && ($entity = $this->entity) && $entity->isNew();
   }
+
 }

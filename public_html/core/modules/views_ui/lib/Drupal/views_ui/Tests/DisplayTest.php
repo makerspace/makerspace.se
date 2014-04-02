@@ -7,6 +7,7 @@
 
 namespace Drupal\views_ui\Tests;
 
+use Drupal\Component\Utility\Json;
 use Drupal\Component\Utility\String;
 
 use Drupal\views\Views;
@@ -47,7 +48,6 @@ class DisplayTest extends UITestBase {
       'block[create]' => TRUE
     );
     $view = $this->randomView($view);
-    $path_prefix = 'admin/structure/views/view/' . $view['id'] .'/edit';
 
     $this->clickLink(t('Reorder displays'));
     $this->assertTrue($this->xpath('//tr[@id="display-row-default"]'), 'Make sure the default display appears on the reorder listing');
@@ -62,7 +62,7 @@ class DisplayTest extends UITestBase {
     $this->drupalPostForm(NULL, $edit, t('Apply'));
     $this->drupalPostForm(NULL, array(), t('Save'));
 
-    $view = views_get_view($view['id']);
+    $view = Views::getView($view['id']);
     $displays = $view->storage->get('display');
     $this->assertEqual($displays['default']['position'], 0, 'Make sure the master display comes first.');
     $this->assertEqual($displays['block_1']['position'], 1, 'Make sure the block display comes before the page display.');
@@ -115,7 +115,7 @@ class DisplayTest extends UITestBase {
     \Drupal::config('views.settings')->set('ui.show.advanced_column', TRUE)->save();
 
     // Add a new data display to the view.
-    $view = views_get_view('test_display');
+    $view = Views::getView('test_display');
     $view->storage->addDisplay('display_no_area_test');
     $view->save();
 
@@ -189,7 +189,7 @@ class DisplayTest extends UITestBase {
     $post = array('ids[0]' => $id);
     $response = $this->drupalPost('contextual/render', 'application/json', $post, array('query' => array('destination' => 'test-display')));
     $this->assertResponse(200);
-    $json = drupal_json_decode($response);
+    $json = Json::decode($response);
     $this->assertIdentical($json[$id], '<ul class="contextual-links"><li class="views-uiedit"><a href="' . base_path() . 'admin/structure/views/view/test_display/edit/page_1">Edit view</a></li></ul>');
   }
 
@@ -205,7 +205,7 @@ class DisplayTest extends UITestBase {
     $elements = $this->xpath('//div[contains(@class, :edit) and contains(@class, :status)]', array(':edit' => 'views-edit-view', ':status' => 'enabled'));
     $this->assertTrue($elements, 'The enabled class was found on the form wrapper');
 
-    $view = views_get_view($id);
+    $view = Views::getView($id);
     $view->storage->disable()->save();
 
     $this->drupalGet('admin/structure/views/view/' . $id);

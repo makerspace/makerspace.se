@@ -7,6 +7,7 @@
 
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Drupal\Component\Utility\Crypt;
+use Drupal\Component\Utility\OpCodeCache;
 use Drupal\Component\Utility\Settings;
 use Drupal\Core\Database\Database;
 use Drupal\Core\DrupalKernel;
@@ -95,16 +96,19 @@ function drupal_load_updates() {
 function drupal_install_profile_distribution_name() {
   // During installation, the profile information is stored in the global
   // installation state (it might not be saved anywhere yet).
+  $info = array();
   if (drupal_installation_attempted()) {
     global $install_state;
-    return isset($install_state['profile_info']['distribution_name']) ? $install_state['profile_info']['distribution_name'] : 'Drupal';
+    if (isset($install_state['profile_info'])) {
+      $info = $install_state['profile_info'];
+    }
   }
   // At all other times, we load the profile via standard methods.
   else {
     $profile = drupal_get_profile();
     $info = system_get_info('module', $profile);
-    return $info['distribution_name'];
   }
+  return isset($info['distribution']['name']) ? $info['distribution']['name'] : 'Drupal';
 }
 
 /**
@@ -208,6 +212,10 @@ function drupal_rewrite_settings($settings = array(), $settings_file = NULL) {
   }
   $contents = file_get_contents(DRUPAL_ROOT . '/' . $settings_file);
   if ($contents !== FALSE) {
+    // Initialize the contents for the settings.php file if it is empty.
+    if (trim($contents) === '') {
+      $contents = "<?php\n";
+    }
     // Step through each token in settings.php and replace any variables that
     // are in the passed-in array.
     $buffer = '';
@@ -314,9 +322,14 @@ function drupal_rewrite_settings($settings = array(), $settings_file = NULL) {
       // In case any $settings variables were written, import them into the
       // Settings singleton.
       if (!empty($settings_settings)) {
-        $old_settings = settings()->getAll();
+        $old_settings = Settings::getAll();
         new Settings($settings_settings + $old_settings);
       }
+      // The existing settings.php file might have been included already. In
+      // case an opcode cache is enabled, the rewritten contents of the file
+      // will not be reflected in this process. Ensure to invalidate the file
+      // in case an opcode cache is enabled.
+      OpCodeCache::invalidate(DRUPAL_ROOT . '/' . $settings_file);
     }
   }
   else {
@@ -573,9 +586,7 @@ function drupal_verify_profile($install_state) {
   include_once __DIR__ . '/common.inc';
 
   $profile = $install_state['parameters']['profile'];
-  $profile_file = $install_state['profiles'][$profile]->uri;
-
-  if (!isset($profile) || !file_exists($profile_file)) {
+  if (!isset($profile) || !isset($install_state['profiles'][$profile])) {
     throw new Exception(install_no_profile_error());
   }
   $info = $install_state['profile_info'];
@@ -584,7 +595,7 @@ function drupal_verify_profile($install_state) {
   $listing = new ExtensionDiscovery();
   $present_modules = array();
   foreach ($listing->scan('module') as $present_module) {
-    $present_modules[] = $present_module->name;
+    $present_modules[] = $present_module->getName();
   }
 
   // The installation profile is also a module, which needs to be installed
@@ -625,19 +636,17 @@ function drupal_install_system($install_state) {
   // Create tables.
   drupal_install_schema('system');
 
-  if (!\Drupal::hasService('kernel')) {
-    // Immediately boot a kernel to have real services ready. If there's already
-    // an initialized request object in the pre-kernel container, persist it in
-    // the post-kernel container.
-    if (\Drupal::getContainer()->initialized('request')) {
-      $request = \Drupal::request();
-    }
-    $kernel = new DrupalKernel('install', drupal_classloader(), FALSE);
-    $kernel->boot();
-    if (isset($request)) {
-      \Drupal::getContainer()->set('request', $request);
-    }
+  // Immediately boot a new kernel into the regular production environment.
+  $request = \Drupal::hasRequest() ? \Drupal::request() : FALSE;
 
+  unset($GLOBALS['conf']['container_service_providers']['InstallerServiceProvider']);
+  $kernel = new DrupalKernel('prod', drupal_classloader(), FALSE);
+  $kernel->boot();
+
+  if ($request) {
+    $kernel->getContainer()->enterScope('request');
+    $kernel->getContainer()->set('request', $request, 'request');
+    $kernel->getContainer()->get('request_stack')->push($request);
   }
 
   $system_path = drupal_get_path('module', 'system');
@@ -661,8 +670,9 @@ function drupal_install_system($install_state) {
     ->save();
 
   // Update the module list to include it. Reboot the kernel too.
-  \Drupal::moduleHandler()->setModuleList(array('system' => $system_path . '/system.module'));
-  $kernel->updateModules(array('system' => $system_path . '/system.module'));
+  \Drupal::moduleHandler()->addModule('system', 'core/modules/system');
+  $module_list = \Drupal::moduleHandler()->getModuleList();
+  $kernel->updateModules($module_list);
 
   \Drupal::service('config.installer')->installDefaultConfig('module', 'system');
 
@@ -1051,15 +1061,19 @@ function drupal_check_module($module) {
  * Additional, less commonly-used information that can appear in a
  * profile.info.yml file but not in a normal Drupal module .info.yml file
  * includes:
- * - distribution_name: The name of the Drupal distribution that is being
- *   installed, to be shown throughout the installation process. Defaults to
- *   'Drupal'.
- * - exclusive: If the install profile is intended to be the only eligible
- *   choice in a distribution, setting exclusive = TRUE will auto-select it
- *   during installation, and the install profile selection screen will be
- *   skipped. If more than one profile is found where exclusive = TRUE then
- *   this property will have no effect and the profile selection screen will
- *   be shown as normal with all available profiles shown.
+ *
+ * - distribution: Existence of this key denotes that the installation profile
+ *   is intended to be the only eligible choice in a distribution and will be
+ *   auto-selected during installation, whereas the installation profile
+ *   selection screen will be skipped. If more than one distribution profile is
+ *   found then the first one discovered will be selected.
+ *   The following subproperties may be set:
+ *   - name: The name of the distribution that is being installed, to be shown
+ *     throughout the installation process. If omitted,
+ *     drupal_install_profile_distribution_name() defaults to 'Drupal'.
+ *   - install: Optional parameters to override the installer:
+ *     - theme: The machine name of a theme to use in the installer instead of
+ *       Drupal's default installer theme.
  *
  * Note that this function does an expensive file system scan to get info file
  * information for dependencies. If you only need information from the info
@@ -1089,7 +1103,6 @@ function install_profile_info($profile, $langcode = 'en') {
     $defaults = array(
       'dependencies' => array(),
       'description' => '',
-      'distribution_name' => 'Drupal',
       'version' => NULL,
       'hidden' => FALSE,
       'php' => DRUPAL_MINIMUM_PHP,
@@ -1097,15 +1110,14 @@ function install_profile_info($profile, $langcode = 'en') {
     $profile_file = drupal_get_path('profile', $profile) . "/$profile.info.yml";
     $info = \Drupal::service('info_parser')->parse($profile_file);
     $info += $defaults;
-    $info['dependencies'] = array_unique(array_merge(
-      drupal_required_modules(),
-      $info['dependencies'],
-      ($langcode != 'en' && !empty($langcode) ? array('locale') : array()))
-    );
 
     // drupal_required_modules() includes the current profile as a dependency.
-    // Since a module can't depend on itself we remove that element of the array.
-    array_shift($info['dependencies']);
+    // Remove that dependency, since a module cannot depend on itself.
+    $required = array_diff(drupal_required_modules(), array($profile));
+
+    $locale = !empty($langcode) && $langcode != 'en' ? array('locale') : array();
+
+    $info['dependencies'] = array_unique(array_merge($required, $info['dependencies'], $locale));
 
     $cache[$profile] = $info;
   }

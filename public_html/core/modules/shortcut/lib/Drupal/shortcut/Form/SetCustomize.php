@@ -9,6 +9,7 @@ namespace Drupal\shortcut\Form;
 
 use Drupal\Core\Entity\EntityFormController;
 use Drupal\Core\Entity\EntityManagerInterface;
+use Drupal\Core\Render\Element;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -17,30 +18,11 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 class SetCustomize extends EntityFormController {
 
   /**
-   * The shortcut storage controller.
+   * The entity being used by this form.
    *
-   * @var \Drupal\Core\Entity\EntityStorageControllerInterface
+   * @var \Drupal\shortcut\ShortcutSetInterface
    */
-  protected $storageController;
-
-  /**
-   * Constructs a SetCustomize object.
-   *
-   * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
-   *   The entity manager.
-   */
-  public function __construct(EntityManagerInterface $entity_manager) {
-    $this->storageController = $entity_manager->getStorageController('shortcut');
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function create(ContainerInterface $container) {
-    return new static(
-      $container->get('entity.manager')
-    );
-  }
+  protected $entity;
 
   /**
    * {@inheritdoc}
@@ -66,8 +48,7 @@ class SetCustomize extends EntityFormController {
       ),
     );
 
-    $shortcuts = $this->storageController->loadByProperties(array('shortcut_set' => $this->entity->id()));
-    foreach ($shortcuts as $shortcut) {
+    foreach ($this->entity->getShortcuts() as $shortcut) {
       $id = $shortcut->id();
       $form['shortcuts']['links'][$id]['#attributes']['class'][] = 'draggable';
       $form['shortcuts']['links'][$id]['name']['#markup'] = l($shortcut->getTitle(), $shortcut->path->value);
@@ -94,7 +75,7 @@ class SetCustomize extends EntityFormController {
       );
     }
     // Sort the list so the output is ordered by weight.
-    uasort($form['shortcuts']['links'], 'element_sort');
+    uasort($form['shortcuts']['links'], array('\Drupal\Component\Utility\SortArray', 'sortByWeightProperty'));
     return $form;
   }
 
@@ -106,7 +87,7 @@ class SetCustomize extends EntityFormController {
     return array(
       'submit' => array(
         '#value' => t('Save changes'),
-        '#access' => (bool) element_get_visible_children($form['shortcuts']['links']),
+        '#access' => (bool) Element::getVisibleChildren($form['shortcuts']['links']),
         '#submit' => array(
           array($this, 'submit'),
           array($this, 'save'),
@@ -119,8 +100,7 @@ class SetCustomize extends EntityFormController {
    * {@inheritdoc}
    */
   public function save(array $form, array &$form_state) {
-    $shortcuts = $this->storageController->loadByProperties(array('shortcut_set' => $this->entity->id()));
-    foreach ($shortcuts as $shortcut) {
+    foreach ($this->entity->getShortcuts() as $shortcut) {
       $shortcut->setWeight($form_state['values']['shortcuts']['links'][$shortcut->id()]['weight']);
       $shortcut->save();
     }

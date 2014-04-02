@@ -55,7 +55,6 @@ abstract class DrupalUnitTestBase extends UnitTestBase {
 
   private $moduleFiles;
   private $themeFiles;
-  private $themeData;
 
   /**
    * The configuration directories for this test run.
@@ -96,7 +95,6 @@ abstract class DrupalUnitTestBase extends UnitTestBase {
     if (!isset($this->moduleFiles)) {
       $this->moduleFiles = \Drupal::state()->get('system.module.files') ?: array();
       $this->themeFiles = \Drupal::state()->get('system.theme.files') ?: array();
-      $this->themeData = \Drupal::state()->get('system.theme.data') ?: array();
     }
   }
 
@@ -139,7 +137,6 @@ abstract class DrupalUnitTestBase extends UnitTestBase {
 
     \Drupal::state()->set('system.module.files', $this->moduleFiles);
     \Drupal::state()->set('system.theme.files', $this->themeFiles);
-    \Drupal::state()->set('system.theme.data', $this->themeData);
 
     // Bootstrap the kernel.
     // No need to dump it; this test runs in-memory.
@@ -169,9 +166,11 @@ abstract class DrupalUnitTestBase extends UnitTestBase {
     // Modules have been collected in reverse class hierarchy order; modules
     // defined by base classes should be sorted first. Then, merge the results
     // together.
-    $modules = array_reverse($modules);
-    $modules = call_user_func_array('array_merge_recursive', $modules);
-    $this->enableModules($modules, FALSE);
+    if ($modules) {
+      $modules = array_reverse($modules);
+      $modules = call_user_func_array('array_merge_recursive', $modules);
+      $this->enableModules($modules, FALSE);
+    }
     // In order to use theme functions default theme config needs to exist.
     \Drupal::config('system.theme')->set('default', 'stark');
 
@@ -244,7 +243,7 @@ abstract class DrupalUnitTestBase extends UnitTestBase {
       // place.
       $container->register('settings', 'Drupal\Component\Utility\Settings')
         ->setFactoryClass('Drupal\Component\Utility\Settings')
-        ->setFactoryMethod('getSingleton');
+        ->setFactoryMethod('getInstance');
 
       $container
         ->register('keyvalue', 'Drupal\Core\KeyValueStore\KeyValueFactory')
@@ -343,20 +342,21 @@ abstract class DrupalUnitTestBase extends UnitTestBase {
   protected function enableModules(array $modules) {
     // Set the list of modules in the extension handler.
     $module_handler = $this->container->get('module_handler');
-    $module_filenames = $module_handler->getModuleList();
+
     // Write directly to active storage to avoid early instantiation of
     // the event dispatcher which can prevent modules from registering events.
     $active_storage =  \Drupal::service('config.storage');
     $system_config = $active_storage->read('system.module');
+
     foreach ($modules as $module) {
-      $module_filenames[$module] = drupal_get_filename('module', $module);
+      $module_handler->addModule($module, drupal_get_path('module', $module));
       // Maintain the list of enabled modules in configuration.
       $system_config['enabled'][$module] = 0;
     }
     $active_storage->write('system.module', $system_config);
-    $module_handler->setModuleList($module_filenames);
-    $module_handler->resetImplementations();
+
     // Update the kernel to make their services available.
+    $module_filenames = $module_handler->getModuleList();
     $this->kernel->updateModules($module_filenames, $module_filenames);
 
     // Ensure isLoaded() is TRUE in order to make _theme() work.

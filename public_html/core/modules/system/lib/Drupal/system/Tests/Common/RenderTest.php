@@ -8,6 +8,8 @@
 namespace Drupal\system\Tests\Common;
 
 use Drupal\Component\Utility\Html;
+use Drupal\Component\Utility\Json;
+use Drupal\Core\Render\Element;
 use Drupal\simpletest\DrupalUnitTestBase;
 
 /**
@@ -91,7 +93,7 @@ class RenderTest extends DrupalUnitTestBase {
           '#theme_wrappers' => array('container'),
           '#attributes' => array('class' => 'baz'),
         ),
-        'expected' => '<div class="baz">foobar</div>',
+        'expected' => '<div class="baz">foobar</div>' . "\n",
       ),
       // Test that #theme_wrappers can disambiguate element attributes shared
       // with rendering methods that build #children by using the alternate
@@ -109,7 +111,7 @@ class RenderTest extends DrupalUnitTestBase {
           '#href' => 'http://drupal.org',
           '#title' => 'bar',
         ),
-        'expected' => '<div class="baz"><a href="http://drupal.org" id="foo">bar</a></div>',
+        'expected' => '<div class="baz"><a href="http://drupal.org" id="foo">bar</a></div>' . "\n",
       ),
       // Test that #theme_wrappers can disambiguate element attributes when the
       // "base" attribute is not set for #theme.
@@ -125,7 +127,7 @@ class RenderTest extends DrupalUnitTestBase {
             ),
           ),
         ),
-        'expected' => '<div class="baz"><a href="http://drupal.org">foo</a></div>',
+        'expected' => '<div class="baz"><a href="http://drupal.org">foo</a></div>' . "\n",
       ),
       // Two 'container' #theme_wrappers, one using the "base" attributes and
       // one using an override.
@@ -140,7 +142,7 @@ class RenderTest extends DrupalUnitTestBase {
             'container',
           ),
         ),
-        'expected' => '<div class="foo"><div class="bar"></div></div>',
+        'expected' => '<div class="foo"><div class="bar"></div>' . "\n" . '</div>' . "\n",
       ),
       // Array syntax theme hook suggestion in #theme_wrappers.
       array(
@@ -149,7 +151,7 @@ class RenderTest extends DrupalUnitTestBase {
           '#theme_wrappers' => array(array('container')),
           '#attributes' => array('class' => 'foo'),
         ),
-        'expected' => '<div class="foo"></div>',
+        'expected' => '<div class="foo"></div>' . "\n",
       ),
 
       // Test handling of #markup as a fallback for #theme hooks.
@@ -304,10 +306,10 @@ class RenderTest extends DrupalUnitTestBase {
     // Confirm that the $elements array has '#sorted' set to TRUE.
     $this->assertTrue($elements['#sorted'], "'#sorted' => TRUE was added to the array");
 
-    // Pass $elements through element_children() and ensure it remains
-    // sorted in the correct order. drupal_render() will return an empty string
-    // if used on the same array in the same request.
-    $children = element_children($elements);
+    // Pass $elements through \Drupal\Core\Render\Element::children() and
+    // ensure it remains sorted in the correct order. drupal_render() will
+    // return an empty string if used on the same array in the same request.
+    $children = Element::children($elements);
     $this->assertTrue(array_shift($children) == 'first', 'Child found in the correct order.');
     $this->assertTrue(array_shift($children) == 'second', 'Child found in the correct order.');
 
@@ -495,11 +497,12 @@ class RenderTest extends DrupalUnitTestBase {
 
     // GET request: validate cached data.
     $element = array('#cache' => array('cid' => 'post_render_cache_test_GET'));
-    $cached_element = \Drupal::cache()->get(drupal_render_cid_create($element))->data;
+    $cached_element = \Drupal::cache('render')->get(drupal_render_cid_create($element))->data;
     $expected_element = array(
       '#markup' => '<p>#cache enabled, GET</p>',
       '#attached' => $test_element['#attached'],
       '#post_render_cache' => $test_element['#post_render_cache'],
+      '#cache' => array('tags' => array()),
     );
     $this->assertIdentical($cached_element, $expected_element, 'The correct data is cached: the stored #markup and #attached properties are not affected by #post_render_cache callbacks.');
 
@@ -536,7 +539,7 @@ class RenderTest extends DrupalUnitTestBase {
 
     // POST request: Ensure no data was cached.
     $element = array('#cache' => array('cid' => 'post_render_cache_test_POST'));
-    $cached_element = \Drupal::cache()->get(drupal_render_cid_create($element));
+    $cached_element = \Drupal::cache('render')->get(drupal_render_cid_create($element));
     $this->assertFalse($cached_element, 'No data is cached because this is a POST request.');
 
     // Restore the previous request method.
@@ -601,15 +604,15 @@ class RenderTest extends DrupalUnitTestBase {
 
     // GET request: validate cached data.
     $element = array('#cache' => $element['#cache']);
-    $cached_element = \Drupal::cache()->get(drupal_render_cid_create($element))->data;
+    $cached_element = \Drupal::cache('render')->get(drupal_render_cid_create($element))->data;
     $expected_element = array(
       '#attached' => array(
         'js' => array(
           array('type' => 'setting', 'data' => array('foo' => 'bar'))
         ),
         'library' => array(
-          array('core', 'drupal.collapse'),
-          array('core', 'drupal.collapse'),
+          'core/drupal.collapse',
+          'core/drupal.collapse',
         ),
       ),
       '#post_render_cache' => array(
@@ -619,6 +622,7 @@ class RenderTest extends DrupalUnitTestBase {
           $context_3,
         )
       ),
+      '#cache' => array('tags' => array()),
     );
 
     $dom = Html::load($cached_element['#markup']);
@@ -683,16 +687,16 @@ class RenderTest extends DrupalUnitTestBase {
     $element = $test_element;
     $element['#cache']['keys'] = array('simpletest', 'drupal_render', 'children_post_render_cache', 'nested_cache_parent');
     $element['child']['#cache']['keys'] = array('simpletest', 'drupal_render', 'children_post_render_cache', 'nested_cache_child');
-    $cached_parent_element = \Drupal::cache()->get(drupal_render_cid_create($element))->data;
-    $cached_child_element = \Drupal::cache()->get(drupal_render_cid_create($element['child']))->data;
+    $cached_parent_element = \Drupal::cache('render')->get(drupal_render_cid_create($element))->data;
+    $cached_child_element = \Drupal::cache('render')->get(drupal_render_cid_create($element['child']))->data;
     $expected_parent_element = array(
       '#attached' => array(
         'js' => array(
           array('type' => 'setting', 'data' => array('foo' => 'bar'))
         ),
         'library' => array(
-          array('core', 'drupal.collapse'),
-          array('core', 'drupal.collapse'),
+          'core/drupal.collapse',
+          'core/drupal.collapse',
         ),
       ),
       '#post_render_cache' => array(
@@ -702,6 +706,7 @@ class RenderTest extends DrupalUnitTestBase {
           $context_3,
         )
       ),
+      '#cache' => array('tags' => array()),
     );
 
     $dom = Html::load($cached_parent_element['#markup']);
@@ -718,7 +723,7 @@ class RenderTest extends DrupalUnitTestBase {
     $expected_child_element = array(
       '#attached' => array(
         'library' => array(
-          array('core', 'drupal.collapse'),
+          'core/drupal.collapse',
         ),
       ),
       '#post_render_cache' => array(
@@ -727,6 +732,7 @@ class RenderTest extends DrupalUnitTestBase {
           $context_3,
         )
       ),
+      '#cache' => array('tags' => array()),
     );
 
     $dom = Html::load($cached_child_element['#markup']);
@@ -811,7 +817,7 @@ class RenderTest extends DrupalUnitTestBase {
     $tokens = array_keys($element['#post_render_cache']['common_test_post_render_cache_placeholder']);
     $expected_token = $tokens[0];
     $element = array('#cache' => array('cid' => 'render_cache_placeholder_test_GET'));
-    $cached_element = \Drupal::cache()->get(drupal_render_cid_create($element))->data;
+    $cached_element = \Drupal::cache('render')->get(drupal_render_cid_create($element))->data;
     // Parse unique token out of the cached markup.
     $dom = Html::load($cached_element['#markup']);
     $xpath = new \DOMXPath($dom);
@@ -830,6 +836,7 @@ class RenderTest extends DrupalUnitTestBase {
           $expected_token => $context,
         ),
       ),
+      '#cache' => array('tags' => array()),
     );
     $this->assertIdentical($cached_element, $expected_element, 'The correct data is cached: the stored #markup and #attached properties are not affected by #post_render_cache callbacks.');
 
@@ -853,7 +860,7 @@ class RenderTest extends DrupalUnitTestBase {
    * element.
    */
   function testDrupalRenderChildElementRenderCachePlaceholder() {
-    $context = array('bar' => $this->randomString());
+    $context = array('bar' => $this->randomContextValue());
     $container = array(
       '#type' => 'container',
     );
@@ -865,7 +872,7 @@ class RenderTest extends DrupalUnitTestBase {
       '#suffix' => '</foo>'
     );
     $container['test_element'] = $test_element;
-    $expected_output = '<div><foo><bar>' . $context['bar'] . '</bar></foo></div>';
+    $expected_output = '<div><foo><bar>' . $context['bar'] . '</bar></foo></div>' . "\n";
 
     // #cache disabled.
     drupal_static_reset('_drupal_add_js');
@@ -901,7 +908,7 @@ class RenderTest extends DrupalUnitTestBase {
     $parent_tokens = array_keys($element['#post_render_cache']['common_test_post_render_cache_placeholder']);
     $expected_token = $child_tokens[0];
     $element = array('#cache' => array('cid' => 'render_cache_placeholder_test_child_GET'));
-    $cached_element = \Drupal::cache()->get(drupal_render_cid_create($element))->data;
+    $cached_element = \Drupal::cache('render')->get(drupal_render_cid_create($element))->data;
     // Parse unique token out of the cached markup.
     $dom = Html::load($cached_element['#markup']);
     $xpath = new \DOMXPath($dom);
@@ -920,12 +927,13 @@ class RenderTest extends DrupalUnitTestBase {
           $expected_token => $context,
         ),
       ),
+      '#cache' => array('tags' => array()),
     );
     $this->assertIdentical($cached_element, $expected_element, 'The correct data is cached for the child element: the stored #markup and #attached properties are not affected by #post_render_cache callbacks.');
 
     // GET request: validate cached data (for the parent/entire render array).
     $element = array('#cache' => array('cid' => 'render_cache_placeholder_test_GET'));
-    $cached_element = \Drupal::cache()->get(drupal_render_cid_create($element))->data;
+    $cached_element = \Drupal::cache('render')->get(drupal_render_cid_create($element))->data;
     // Parse unique token out of the cached markup.
     $dom = Html::load($cached_element['#markup']);
     $xpath = new \DOMXPath($dom);
@@ -938,12 +946,13 @@ class RenderTest extends DrupalUnitTestBase {
     $this->assertIdentical($token, $expected_token, 'The tokens are identical for the parent element');
     // Verify the token is in the cached element.
     $expected_element = array(
-      '#markup' => '<div><foo><drupal:render-cache-placeholder callback="common_test_post_render_cache_placeholder" context="bar:' . $context['bar'] .';" token="'. $expected_token . '" /></foo></div>',
+      '#markup' => '<div><foo><drupal:render-cache-placeholder callback="common_test_post_render_cache_placeholder" context="bar:' . $context['bar'] .';" token="'. $expected_token . '" /></foo></div>' . "\n",
       '#post_render_cache' => array(
         'common_test_post_render_cache_placeholder' => array(
           $expected_token => $context,
         ),
       ),
+      '#cache' => array('tags' => array()),
     );
     $this->assertIdentical($cached_element, $expected_element, 'The correct data is cached for the parent element: the stored #markup and #attached properties are not affected by #post_render_cache callbacks.');
 
@@ -951,7 +960,7 @@ class RenderTest extends DrupalUnitTestBase {
     // Check the cache of the child element again after the parent has been
     // rendered.
     $element = array('#cache' => array('cid' => 'render_cache_placeholder_test_child_GET'));
-    $cached_element = \Drupal::cache()->get(drupal_render_cid_create($element))->data;
+    $cached_element = \Drupal::cache('render')->get(drupal_render_cid_create($element))->data;
     // Verify that the child element contains the correct
     // render_cache_placeholder markup.
     $expected_token = $child_tokens[0];
@@ -972,6 +981,7 @@ class RenderTest extends DrupalUnitTestBase {
           $expected_token => $context,
         ),
       ),
+      '#cache' => array('tags' => array()),
     );
     $this->assertIdentical($cached_element, $expected_element, 'The correct data is cached for the child element: the stored #markup and #attached properties are not affected by #post_render_cache callbacks.');
 
@@ -1000,7 +1010,7 @@ class RenderTest extends DrupalUnitTestBase {
     $start = strpos($html, $startToken) + strlen($startToken);
     $end = strrpos($html, $endToken);
     $json  = drupal_substr($html, $start, $end - $start + 1);
-    $parsed_settings = drupal_json_decode($json);
+    $parsed_settings = Json::decode($json);
     return $parsed_settings;
   }
 

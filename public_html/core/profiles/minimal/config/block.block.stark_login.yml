@@ -7,9 +7,8 @@ region: sidebar_first
 plugin: user_login_block
 settings:
   label: 'User login'
-  module: user
+  provider: user
   label_display: visible
-  cache: -1
 visibility:
   path:
     visibility: 0
@@ -18,3 +17,8 @@ visibility:
     roles: {  }
   node_type:
     types: {  }
+dependencies:
+  module:
+    - user
+  theme:
+    - stark

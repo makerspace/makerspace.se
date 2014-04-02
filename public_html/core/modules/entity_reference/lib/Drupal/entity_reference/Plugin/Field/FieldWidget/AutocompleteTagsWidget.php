@@ -7,6 +7,8 @@
 
 namespace Drupal\entity_reference\Plugin\Field\FieldWidget;
 
+use Drupal\Component\Utility\Tags;
+
 /**
  * Plugin implementation of the 'entity_reference autocomplete-tags' widget.
  *
@@ -17,16 +19,22 @@ namespace Drupal\entity_reference\Plugin\Field\FieldWidget;
  *   field_types = {
  *     "entity_reference"
  *   },
- *   settings = {
- *     "match_operator" = "CONTAINS",
- *     "size" = 60,
- *     "autocomplete_type" = "tags",
- *     "placeholder" = ""
- *   },
  *   multiple_values = TRUE
  * )
  */
 class AutocompleteTagsWidget extends AutocompleteWidgetBase {
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function defaultSettings() {
+    return array(
+      'match_operator' => 'CONTAINS',
+      'size' => '60',
+      'autocomplete_type' => 'tags',
+      'placeholder' => '',
+    ) + parent::defaultSettings();
+  }
 
   /**
    * {@inheritdoc}
@@ -40,7 +48,7 @@ class AutocompleteTagsWidget extends AutocompleteWidgetBase {
 
     if (!empty($element['#value'])) {
       $value = array();
-      foreach (drupal_explode_tags($element['#value']) as $input) {
+      foreach (Tags::explode($element['#value']) as $input) {
         $match = FALSE;
 
         // Take "label (entity id)', match the ID from parenthesis when it's a

@@ -41,10 +41,10 @@ interface FormBuilderInterface extends FormErrorInterface {
    *   - The name of a function that builds the form.
    * @param ...
    *   Any additional arguments are passed on to the functions called by
-   *   drupal_get_form(), including the unique form constructor function. For
-   *   example, the node_edit form requires that a node object is passed in here
-   *   when it is called. These are available to implementations of
-   *   hook_form_alter() and hook_form_FORM_ID_alter() as the array
+   *   \Drupal::formBuilder()->getForm(), including the unique form constructor
+   *   function. For example, the node_edit form requires that a node object is
+   *   passed in here when it is called. These are available to implementations
+   *   of hook_form_alter() and hook_form_FORM_ID_alter() as the array
    *   $form_state['build_info']['args'].
    *
    * @return array
@@ -104,6 +104,12 @@ interface FormBuilderInterface extends FormErrorInterface {
    *     already set $form_state['rebuild'] to cause the form processing to
    *     bypass submit handlers and rebuild the form instead, even if there are
    *     no validation errors.
+   *   - response: Used when a form needs to return some kind of a
+   *     \Symfony\Component\HttpFoundation\Response object, e.g., a
+   *     \Symfony\Component\HttpFoundation\BinaryFileResponse when triggering a
+   *     file download. If you use the $form_state['redirect'] key, it will be
+   *     used to build a \Symfony\Component\HttpFoundation\RedirectResponse and
+   *     will populate this key.
    *   - redirect: Used to redirect the form on submission. It may either be a
    *     string containing the destination URL, or an array of arguments
    *     compatible with url(). See url() for complete information.
@@ -158,6 +164,12 @@ interface FormBuilderInterface extends FormErrorInterface {
    *     likely to occur during Ajax operations.
    *   - programmed: If TRUE, the form was submitted programmatically, usually
    *     invoked via self::submitForm(). Defaults to FALSE.
+   *   - programmed_bypass_access_check: If TRUE, programmatic form submissions
+   *     are processed without taking #access into account. Set this to FALSE
+   *     when submitting a form programmatically with values that may have been
+   *     input by the user executing the current request; this will cause
+   *     #access to be respected as it would on a normal form submission.
+   *     Defaults to TRUE.
    *   - process_input: Boolean flag. TRUE signifies correct form submission.
    *     This is always TRUE for programmed forms coming from self::submitForm()
    *     (see 'programmed' key), or if the form_id coming from the

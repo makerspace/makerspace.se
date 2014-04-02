@@ -26,3 +26,7 @@ settings:
 status: true
 langcode: und
 field_type: image
+dependencies:
+  entity:
+    - field.field.node.field_image
+    - node.type.article

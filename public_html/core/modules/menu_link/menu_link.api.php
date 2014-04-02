@@ -86,7 +86,7 @@ function hook_menu_link_presave(\Drupal\menu_link\Entity\MenuLink $menu_link) {
   // Flag a menu link to be altered by hook_menu_link_load(), but only if it is
   // derived from a menu router item; i.e., do not alter a custom menu link
   // pointing to the same path that has been created by a user.
-  if ($menu_link->link_path == 'user' && $menu_link->module == 'system') {
+  if ($menu_link->machine_name == 'user.page') {
     $menu_link->options['alter'] = TRUE;
   }
 }
@@ -111,7 +111,7 @@ function hook_menu_link_insert(\Drupal\menu_link\Entity\MenuLink $menu_link) {
   $record['mlid'] = $menu_link->id();
   $record['menu_name'] = $menu_link->menu_name;
   $record['status'] = 0;
-  drupal_write_record('menu_example', $record);
+  db_insert('menu_example')->fields($record)->execute();
 }
 
 /**

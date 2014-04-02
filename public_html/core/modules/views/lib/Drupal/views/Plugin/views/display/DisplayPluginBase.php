@@ -157,15 +157,15 @@ abstract class DisplayPluginBase extends PluginBase {
     $skip_cache = \Drupal::config('views.settings')->get('skip_cache');
 
     if (empty($view->editing) || !$skip_cache) {
-      $cid = 'unpackOptions:' . hash('sha256', serialize(array($this->options, $options))) . ':' . \Drupal::languageManager()->getCurrentLanguage()->id;
+      $cid = 'views:unpack_options:' . hash('sha256', serialize(array($this->options, $options))) . ':' . \Drupal::languageManager()->getCurrentLanguage()->id;
       if (empty(static::$unpackOptions[$cid])) {
-        $cache = \Drupal::cache('views_info')->get($cid);
+        $cache = \Drupal::cache('data')->get($cid);
         if (!empty($cache->data)) {
           $this->options = $cache->data;
         }
         else {
           $this->unpackOptions($this->options, $options);
-          \Drupal::cache('views_info')->set($cid, $this->options);
+          \Drupal::cache('data')->set($cid, $this->options);
         }
         static::$unpackOptions[$cid] = $this->options;
       }
@@ -881,7 +881,7 @@ abstract class DisplayPluginBase extends PluginBase {
   public function getHandlers($type) {
     if (!isset($this->handlers[$type])) {
       $this->handlers[$type] = array();
-      $types = ViewExecutable::viewsHandlerTypes();
+      $types = ViewExecutable::getHandlerTypes();
       $plural = $types[$type]['plural'];
 
       foreach ($this->getOption($plural) as $id => $info) {
@@ -1147,8 +1147,8 @@ abstract class DisplayPluginBase extends PluginBase {
 
     if ($style_plugin_instance->usesRowPlugin()) {
       $row_plugin_instance = $this->getPlugin('row');
-      $row_summary = empty($row_plugin_instance->definition['title']) ? t('Missing style plugin') : $row_plugin_instance->summaryTitle();
-      $row_title = empty($row_plugin_instance->definition['title']) ? t('Missing style plugin') : $row_plugin_instance->pluginTitle();
+      $row_summary = empty($row_plugin_instance->definition['title']) ? t('Missing row plugin') : $row_plugin_instance->summaryTitle();
+      $row_title = empty($row_plugin_instance->definition['title']) ? t('Missing row plugin') : $row_plugin_instance->pluginTitle();
 
       $options['row'] = array(
         'category' => 'format',
@@ -1516,7 +1516,7 @@ abstract class DisplayPluginBase extends PluginBase {
           '#title' => t('Access'),
           '#title_display' => 'invisible',
           '#type' => 'radios',
-          '#options' => views_fetch_plugin_names('access', $this->getType(), array($this->view->storage->get('base_table'))),
+          '#options' => Views::fetchPluginNames('access', $this->getType(), array($this->view->storage->get('base_table'))),
           '#default_value' => $access['type'],
         );
 
@@ -1553,7 +1553,7 @@ abstract class DisplayPluginBase extends PluginBase {
           '#title' => t('Caching'),
           '#title_display' => 'invisible',
           '#type' => 'radios',
-          '#options' => views_fetch_plugin_names('cache', $this->getType(), array($this->view->storage->get('base_table'))),
+          '#options' => Views::fetchPluginNames('cache', $this->getType(), array($this->view->storage->get('base_table'))),
           '#default_value' => $cache['type'],
         );
 
@@ -1647,7 +1647,7 @@ abstract class DisplayPluginBase extends PluginBase {
           '#title' => t('Style'),
           '#title_display' => 'invisible',
           '#type' => 'radios',
-          '#options' => views_fetch_plugin_names('style', $this->getType(), array($this->view->storage->get('base_table'))),
+          '#options' => Views::fetchPluginNames('style', $this->getType(), array($this->view->storage->get('base_table'))),
           '#default_value' => $style_plugin->definition['id'],
           '#description' => t('If the style you choose has settings, be sure to click the settings button that will appear next to it in the View summary.'),
         );
@@ -1696,7 +1696,7 @@ abstract class DisplayPluginBase extends PluginBase {
           '#title' => t('Row'),
           '#title_display' => 'invisible',
           '#type' => 'radios',
-          '#options' => views_fetch_plugin_names('row', $this->getType(), array($this->view->storage->get('base_table'))),
+          '#options' => Views::fetchPluginNames('row', $this->getType(), array($this->view->storage->get('base_table'))),
           '#default_value' => $row_plugin_instance->definition['id'],
         );
 
@@ -1790,7 +1790,7 @@ abstract class DisplayPluginBase extends PluginBase {
           '#title' => t('Exposed form'),
           '#title_display' => 'invisible',
           '#type' => 'radios',
-          '#options' => views_fetch_plugin_names('exposed_form', $this->getType(), array($this->view->storage->get('base_table'))),
+          '#options' => Views::fetchPluginNames('exposed_form', $this->getType(), array($this->view->storage->get('base_table'))),
           '#default_value' => $exposed_form['type'],
         );
 
@@ -1826,7 +1826,7 @@ abstract class DisplayPluginBase extends PluginBase {
           '#title' => t('Pager'),
           '#title_display' => 'invisible',
           '#type' => 'radios',
-          '#options' => views_fetch_plugin_names('pager', !$this->usesPager() ? 'basic' : NULL, array($this->view->storage->get('base_table'))),
+          '#options' => Views::fetchPluginNames('pager', !$this->usesPager() ? 'basic' : NULL, array($this->view->storage->get('base_table'))),
           '#default_value' => $pager['type'],
         );
 
@@ -2233,7 +2233,7 @@ abstract class DisplayPluginBase extends PluginBase {
    * @return string
    *   The required display type. Defaults to 'normal'.
    *
-   * @see views_fetch_plugin_names()
+   * @see \Drupal\views\Views::fetchPluginNames()
    */
   protected function getType() {
     return 'normal';
@@ -2285,7 +2285,7 @@ abstract class DisplayPluginBase extends PluginBase {
     }
 
     // Validate handlers
-    foreach (ViewExecutable::viewsHandlerTypes() as $type => $info) {
+    foreach (ViewExecutable::getHandlerTypes() as $type => $info) {
       foreach ($this->getHandlers($type) as $handler) {
         $result = $handler->validate();
         if (!empty($result) && is_array($result)) {
@@ -2324,7 +2324,7 @@ abstract class DisplayPluginBase extends PluginBase {
    *
    */
   public function isIdentifierUnique($id, $identifier) {
-    foreach (ViewExecutable::viewsHandlerTypes() as $type => $info) {
+    foreach (ViewExecutable::getHandlerTypes() as $type => $info) {
       foreach ($this->getHandlers($type) as $key => $handler) {
         if ($handler->canExpose() && $handler->isExposed()) {
           if ($handler->isAGroup()) {
@@ -2383,7 +2383,6 @@ abstract class DisplayPluginBase extends PluginBase {
 
       $blocks[$delta] = array(
         'info' => $desc,
-        'cache' => DRUPAL_NO_CACHE,
       );
     }
 
@@ -2449,7 +2448,7 @@ abstract class DisplayPluginBase extends PluginBase {
 
     // Build a map of plural => singular for handler types.
     $type_map = array();
-    foreach (ViewExecutable::viewsHandlerTypes() as $type => $info) {
+    foreach (ViewExecutable::getHandlerTypes() as $type => $info) {
       $type_map[$info['plural']] = $type;
     }
 
@@ -2488,7 +2487,7 @@ abstract class DisplayPluginBase extends PluginBase {
    *   The name of the handler type option.
    */
   protected function mergeHandler($type) {
-    $types = ViewExecutable::viewsHandlerTypes();
+    $types = ViewExecutable::getHandlerTypes();
 
     $options = $this->getOption($types[$type]['plural']);
     foreach ($this->getHandlers($type) as $id => $handler) {

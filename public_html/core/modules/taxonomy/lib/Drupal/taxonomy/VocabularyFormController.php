@@ -20,7 +20,12 @@ class VocabularyFormController extends EntityFormController {
    */
   public function form(array $form, array &$form_state) {
     $vocabulary = $this->entity;
-    $form['#title'] = $this->t('Edit vocabulary');
+    if ($vocabulary->isNew()) {
+      $form['#title'] = $this->t('Add vocabulary');
+    }
+    else {
+      $form['#title'] = $this->t('Edit vocabulary');
+    }
 
     $form['name'] = array(
       '#type' => 'textfield',
@@ -131,8 +136,7 @@ class VocabularyFormController extends EntityFormController {
     $vocabulary->name = trim($vocabulary->name);
 
     $status = $vocabulary->save();
-    $uri = $vocabulary->urlInfo();
-    $edit_link = \Drupal::l($this->t('edit'), $uri['route_name'], $uri['route_parameters'], $uri['options']);
+    $edit_link = \Drupal::linkGenerator()->generateFromUrl($this->t('edit'), $this->entity->urlInfo());
     switch ($status) {
       case SAVED_NEW:
         drupal_set_message($this->t('Created new vocabulary %name.', array('%name' => $vocabulary->name)));

@@ -2,16 +2,15 @@
 
 /**
  * @file
- * Contains \Drupal\shortcut\Plugin\Core\Entity\Shortcut.
+ * Contains \Drupal\shortcut\Entity\Shortcut.
  */
 
 namespace Drupal\shortcut\Entity;
 
 use Drupal\Core\Entity\ContentEntityBase;
-use Drupal\Core\Entity\EntityStorageControllerInterface;
+use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Field\FieldDefinition;
-use Drupal\Core\Routing\UrlMatcher;
 use Drupal\Core\Url;
 use Drupal\shortcut\ShortcutInterface;
 
@@ -21,7 +20,6 @@ use Drupal\shortcut\ShortcutInterface;
  * @ContentEntityType(
  *   id = "shortcut",
  *   label = @Translation("Shortcut link"),
- *   module = "shortcut",
  *   controllers = {
  *     "access" = "Drupal\shortcut\ShortcutAccessController",
  *     "form" = {
@@ -112,8 +110,8 @@ class Shortcut extends ContentEntityBase implements ShortcutInterface {
   /**
    * {@inheritdoc}
    */
-  public static function preCreate(EntityStorageControllerInterface $storage_controller, array &$values) {
-    parent::preCreate($storage_controller, $values);
+  public static function preCreate(EntityStorageInterface $storage, array &$values) {
+    parent::preCreate($storage, $values);
 
     if (!isset($values['shortcut_set'])) {
       $values['shortcut_set'] = 'default';
@@ -123,8 +121,8 @@ class Shortcut extends ContentEntityBase implements ShortcutInterface {
   /**
    * {@inheritdoc}
    */
-  public function preSave(EntityStorageControllerInterface $storage_controller) {
-    parent::preSave($storage_controller);
+  public function preSave(EntityStorageInterface $storage) {
+    parent::preSave($storage);
 
     $url = Url::createFromPath($this->path->value);
     $this->setRouteName($url->getRouteName());
@@ -138,7 +136,8 @@ class Shortcut extends ContentEntityBase implements ShortcutInterface {
     $fields['id'] = FieldDefinition::create('integer')
       ->setLabel(t('ID'))
       ->setDescription(t('The ID of the shortcut.'))
-      ->setReadOnly(TRUE);
+      ->setReadOnly(TRUE)
+      ->setSetting('unsigned', TRUE);
 
     $fields['uuid'] = FieldDefinition::create('uuid')
       ->setLabel(t('UUID'))

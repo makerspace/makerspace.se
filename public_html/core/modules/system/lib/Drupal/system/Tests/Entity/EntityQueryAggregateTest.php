@@ -18,14 +18,14 @@ class EntityQueryAggregateTest extends EntityUnitTestBase {
    *
    * @var array
    */
-  public static $modules = array('number');
+  public static $modules = array();
 
   /**
-   * The entity_test storage controller to create the test entities.
+   * The entity_test storage to create the test entities.
    *
-   * @var \Drupal\entity_test\EntityTestStorageController
+   * @var \Drupal\entity_test\EntityTestStorage
    */
-  protected $entityStorageController;
+  protected $entityStorage;
 
   /**
    * The actual query result, to compare later.
@@ -52,7 +52,7 @@ class EntityQueryAggregateTest extends EntityUnitTestBase {
   public function setUp() {
     parent::setUp();
 
-    $this->entityStorageController = $this->container->get('entity.manager')->getStorageController('entity_test');
+    $this->entityStorage = $this->container->get('entity.manager')->getStorage('entity_test');
     $this->factory = $this->container->get('entity.query');
 
     // Add some fieldapi fields to be used in the test.
@@ -61,7 +61,7 @@ class EntityQueryAggregateTest extends EntityUnitTestBase {
       entity_create('field_config', array(
         'name' => $field_name,
         'entity_type' => 'entity_test',
-        'type' => 'number_integer',
+        'type' => 'integer',
         'cardinality' => 2,
       ))->save();
       entity_create('field_instance_config', array(
@@ -71,7 +71,7 @@ class EntityQueryAggregateTest extends EntityUnitTestBase {
       ))->save();
     }
 
-    $entity = $this->entityStorageController->create(array(
+    $entity = $this->entityStorage->create(array(
       'id' => 1,
       'user_id' => 1,
       'field_test_1' => 1,
@@ -80,7 +80,7 @@ class EntityQueryAggregateTest extends EntityUnitTestBase {
     $entity->enforceIsNew();
     $entity->save();
 
-    $entity = $this->entityStorageController->create(array(
+    $entity = $this->entityStorage->create(array(
       'id' => 2,
       'user_id' => 2,
       'field_test_1' => 1,
@@ -88,7 +88,7 @@ class EntityQueryAggregateTest extends EntityUnitTestBase {
     ));
     $entity->enforceIsNew();
     $entity->save();
-    $entity = $this->entityStorageController->create(array(
+    $entity = $this->entityStorage->create(array(
       'id' => 3,
       'user_id' => 2,
       'field_test_1' => 2,
@@ -96,7 +96,7 @@ class EntityQueryAggregateTest extends EntityUnitTestBase {
     ));
     $entity->enforceIsNew();
     $entity->save();
-    $entity = $this->entityStorageController->create(array(
+    $entity = $this->entityStorage->create(array(
       'id' => 4,
       'user_id' => 2,
       'field_test_1' => 2,
@@ -104,7 +104,7 @@ class EntityQueryAggregateTest extends EntityUnitTestBase {
     ));
     $entity->enforceIsNew();
     $entity->save();
-    $entity = $this->entityStorageController->create(array(
+    $entity = $this->entityStorage->create(array(
       'id' => 5,
       'user_id' => 3,
       'field_test_1' => 2,
@@ -112,7 +112,7 @@ class EntityQueryAggregateTest extends EntityUnitTestBase {
     ));
     $entity->enforceIsNew();
     $entity->save();
-    $entity = $this->entityStorageController->create(array(
+    $entity = $this->entityStorage->create(array(
       'id' => 6,
       'user_id' => 3,
       'field_test_1' => 3,
@@ -586,4 +586,3 @@ class EntityQueryAggregateTest extends EntityUnitTestBase {
     return $this->assertResults($expected, TRUE);
   }
 }
-

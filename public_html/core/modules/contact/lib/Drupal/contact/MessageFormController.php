@@ -28,7 +28,7 @@ class MessageFormController extends ContentEntityFormController {
    * Overrides Drupal\Core\Entity\EntityFormController::form().
    */
   public function form(array $form, array &$form_state) {
-    global $user;
+    $user = \Drupal::currentUser();
     $message = $this->entity;
     $form = parent::form($form, $form_state, $message);
     $form['#attributes']['class'][] = 'contact-form';
@@ -53,7 +53,7 @@ class MessageFormController extends ContentEntityFormController {
       '#required' => TRUE,
     );
     if ($user->isAnonymous()) {
-      $form['#attached']['library'][] = array('core', 'jquery.cookie');
+      $form['#attached']['library'][] = 'core/jquery.cookie';
       $form['#attributes']['class'][] = 'user-info-from-cookie';
     }
     // Do not allow authenticated users to alter the name or e-mail values to
@@ -139,15 +139,15 @@ class MessageFormController extends ContentEntityFormController {
    * Overrides Drupal\Core\Entity\EntityFormController::save().
    */
   public function save(array $form, array &$form_state) {
-    global $user;
+    $user = \Drupal::currentUser();
 
     $language_interface = \Drupal::languageManager()->getCurrentLanguage();
     $message = $this->entity;
 
     $sender = clone user_load($user->id());
     if ($user->isAnonymous()) {
-      // At this point, $sender contains drupal_anonymous_user(), so we need to
-      // take over the submitted form values.
+      // At this point, $sender contains an anonymous user, so we need to take
+      // over the submitted form values.
       $sender->name = $message->getSenderName();
       $sender->mail = $message->getSenderMail();
       // Save the anonymous user information to a cookie for reuse.

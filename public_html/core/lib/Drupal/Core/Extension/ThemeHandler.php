@@ -159,12 +159,12 @@ class ThemeHandler implements ThemeHandlerInterface {
    * {@inheritdoc}
    */
   public function disable(array $theme_list) {
-    // Don't disable the default theme.
-    if ($pos = array_search($this->configFactory->get('system.theme')->get('default'), $theme_list) !== FALSE) {
-      unset($theme_list[$pos]);
-      if (empty($theme_list)) {
-        return;
-      }
+    // Don't disable the default or admin themes.
+    $default_theme = \Drupal::config('system.theme')->get('default');
+    $admin_theme = \Drupal::config('system.theme')->get('admin');
+    $theme_list = array_diff($theme_list, array($default_theme, $admin_theme));
+    if (empty($theme_list)) {
+      return;
     }
 
     $this->clearCssCache();
@@ -206,8 +206,8 @@ class ThemeHandler implements ThemeHandlerInterface {
             $theme->stylesheets[$media][$stylesheet] = $path;
           }
         }
-        foreach ($theme->info['scripts'] as $script => $path) {
-          $theme->scripts[$script] = $path;
+        foreach ($theme->info['libraries'] as $library => $name) {
+          $theme->libraries[$library] = $name;
         }
         if (isset($theme->info['engine'])) {
           $theme->engine = $theme->info['engine'];
@@ -220,7 +220,7 @@ class ThemeHandler implements ThemeHandlerInterface {
         if (!isset($theme->status)) {
           $theme->status = 0;
         }
-        $this->list[$theme->name] = $theme;
+        $this->list[$theme->getName()] = $theme;
       }
     }
     return $this->list;
@@ -265,13 +265,12 @@ class ThemeHandler implements ThemeHandlerInterface {
       'screenshot' => 'screenshot.png',
       'php' => DRUPAL_MINIMUM_PHP,
       'stylesheets' => array(),
-      'scripts' => array(),
+      'libraries' => array(),
     );
 
     $sub_themes = array();
     // Read info files for each theme.
     foreach ($themes as $key => $theme) {
-      $theme->filename = $theme->uri;
       $theme->info = $this->infoParser->parse($theme->getPathname()) + $defaults;
 
       // Add the info file modification time, so it becomes available for
@@ -291,14 +290,13 @@ class ThemeHandler implements ThemeHandlerInterface {
       // Defaults to 'twig' (see $defaults above).
       $engine = $theme->info['engine'];
       if (isset($engines[$engine])) {
-        $theme->owner = $engines[$engine]->uri;
-        $theme->prefix = $engines[$engine]->name;
+        $theme->owner = $engines[$engine]->getExtensionPathname();
+        $theme->prefix = $engines[$engine]->getName();
       }
 
-      // Prefix stylesheets, scripts, and screenshot with theme path.
+      // Prefix stylesheets and screenshot with theme path.
       $path = $theme->getPath();
       $theme->info['stylesheets'] = $this->themeInfoPrefixPath($theme->info['stylesheets'], $path);
-      $theme->info['scripts'] = $this->themeInfoPrefixPath($theme->info['scripts'], $path);
       if (!empty($theme->info['screenshot'])) {
         $theme->info['screenshot'] = $path . '/' . $theme->info['screenshot'];
       }
@@ -339,7 +337,7 @@ class ThemeHandler implements ThemeHandlerInterface {
    *
    * This helper function is mainly used to prefix all array values of an
    * .info.yml file property with a single given path (to the module or theme);
-   * e.g., to prefix all values of the 'stylesheets' or 'scripts' properties
+   * e.g., to prefix all values of the 'stylesheets' properties
    * with the file path to the defining module/theme.
    *
    * @param array $info

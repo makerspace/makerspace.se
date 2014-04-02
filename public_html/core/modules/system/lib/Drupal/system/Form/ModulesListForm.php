@@ -11,9 +11,11 @@ use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Entity\Query\QueryFactory;
 use Drupal\Core\Entity\Query\QueryFactoryInterface;
+use Drupal\Core\Extension\Extension;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\KeyValueStore\KeyValueStoreExpirableInterface;
+use Drupal\Core\Render\Element;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Core\Access\AccessManager;
 
@@ -141,7 +143,7 @@ class ModulesListForm extends FormBase {
     }
 
     // Add a wrapper around every package.
-    foreach (element_children($form['modules']) as $package) {
+    foreach (Element::children($form['modules']) as $package) {
       $form['modules'][$package] += array(
         '#type' => 'details',
         '#title' => $this->t($package),
@@ -159,9 +161,9 @@ class ModulesListForm extends FormBase {
     }
 
     // Lastly, sort all packages by title.
-    uasort($form['modules'], 'element_sort_by_title');
+    uasort($form['modules'], array('\Drupal\Component\Utility\SortArray', 'sortByTitleProperty'));
 
-    $form['#attached']['library'][] = array('system', 'drupal.system.modules');
+    $form['#attached']['library'][] = 'system/drupal.system.modules';
     $form['actions'] = array('#type' => 'actions');
     $form['actions']['submit'] = array(
       '#type' => 'submit',
@@ -176,14 +178,14 @@ class ModulesListForm extends FormBase {
    *
    * @param array $modules
    *   The list existing modules.
-   * @param object $module
+   * @param \Drupal\Core\Extension\Extension $module
    *   The module for which to build the form row.
    * @param $distribution
    *
    * @return array
    *   The form row for the given module.
    */
-  protected function buildRow(array $modules, $module, $distribution) {
+  protected function buildRow(array $modules, Extension $module, $distribution) {
     // Set the basic properties.
     $row['#required'] = array();
     $row['#requires'] = array();
@@ -199,12 +201,12 @@ class ModulesListForm extends FormBase {
 
     // Generate link for module's help page, if there is one.
     $row['links']['help'] = array();
-    if ($help && $module->status && in_array($module->name, $this->moduleHandler->getImplementations('help'))) {
-      if ($this->moduleHandler->invoke($module->name, 'help', array("admin/help#$module->name", $help))) {
+    if ($help && $module->status && in_array($module->getName(), $this->moduleHandler->getImplementations('help'))) {
+      if ($this->moduleHandler->invoke($module->getName(), 'help', array('admin/help#' . $module->getName(), $help))) {
         $row['links']['help'] = array(
           '#type' => 'link',
           '#title' => $this->t('Help'),
-          '#href' => "admin/help/$module->name",
+          '#href' => 'admin/help/' . $module->getName(),
           '#options' => array('attributes' => array('class' =>  array('module-link', 'module-link-help'), 'title' => $this->t('Help'))),
         );
       }
@@ -212,12 +214,12 @@ class ModulesListForm extends FormBase {
 
     // Generate link for module's permission, if the user has access to it.
     $row['links']['permissions'] = array();
-    if ($module->status && user_access('administer permissions') && in_array($module->name, $this->moduleHandler->getImplementations('permission'))) {
+    if ($module->status && user_access('administer permissions') && in_array($module->getName(), $this->moduleHandler->getImplementations('permission'))) {
       $row['links']['permissions'] = array(
         '#type' => 'link',
         '#title' => $this->t('Permissions'),
         '#href' => 'admin/people/permissions',
-        '#options' => array('fragment' => 'module-' . $module->name, 'attributes' => array('class' => array('module-link', 'module-link-permissions'), 'title' => $this->t('Configure permissions'))),
+        '#options' => array('fragment' => 'module-' . $module->getName(), 'attributes' => array('class' => array('module-link', 'module-link-permissions'), 'title' => $this->t('Configure permissions'))),
       );
     }
 
@@ -228,7 +230,7 @@ class ModulesListForm extends FormBase {
         $result = $this->queryFactory->get('menu_link')
           ->condition('route_name', $module->info['configure'])
           ->execute();
-        $menu_items = $this->entityManager->getStorageController('menu_link')->loadMultiple($result);
+        $menu_items = $this->entityManager->getStorage('menu_link')->loadMultiple($result);
         $item = reset($menu_items);
         $row['links']['configure'] = array(
           '#type' => 'link',

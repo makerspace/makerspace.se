@@ -10,7 +10,7 @@ namespace Drupal\views_ui;
 use Drupal\Component\Utility\String;
 use Drupal\Component\Utility\Timer;
 use Drupal\views\Views;
-use Drupal\Core\Entity\EntityStorageControllerInterface;
+use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\views\ViewExecutable;
 use Drupal\Core\Database\Database;
 use Drupal\Core\TypedData\TypedDataInterface;
@@ -149,6 +149,13 @@ class ViewUI implements ViewStorageInterface {
   private $isSyncing = FALSE;
 
   /**
+   * Whether the config is being deleted through the uninstall process.
+   *
+   * @var bool
+   */
+  private $isUninstalling = FALSE;
+
+  /**
    * Constructs a View UI object.
    *
    * @param \Drupal\views\ViewStorageInterface $storage
@@ -207,8 +214,22 @@ class ViewUI implements ViewStorageInterface {
   /**
    * {@inheritdoc}
    */
+  public function setUninstalling($isUninstalling) {
+    $this->isUninstalling = $isUninstalling;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function isSyncing() {
     return $this->isSyncing;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isUninstalling() {
+    return $this->isUninstalling;
   }
 
   /**
@@ -454,7 +475,7 @@ class ViewUI implements ViewStorageInterface {
    */
   public function submitItemAdd($form, &$form_state) {
     $type = $form_state['type'];
-    $types = ViewExecutable::viewsHandlerTypes();
+    $types = ViewExecutable::getHandlerTypes();
     $section = $types[$type]['plural'];
 
     // Handle the override select.
@@ -712,7 +733,7 @@ class ViewUI implements ViewStorageInterface {
     // Assemble the preview, the query info, and the query statistics in the
     // requested order.
     $table = array(
-      '#theme' => 'table',
+      '#type' => 'table',
       '#prefix' => '<div class="views-query-info">',
       '#suffix' => '</div>',
     );
@@ -910,10 +931,10 @@ class ViewUI implements ViewStorageInterface {
   }
 
   /**
-   * Implements \Drupal\Core\Entity\EntityInterface::getExportProperties().
+   * {@inheritdoc}
    */
-  public function getExportProperties() {
-    return $this->storage->getExportProperties();
+  public function toArray() {
+    return $this->storage->toArray();
   }
 
 
@@ -1102,46 +1123,46 @@ class ViewUI implements ViewStorageInterface {
   /**
    * {@inheritdoc}
    */
-  public function preSave(EntityStorageControllerInterface $storage_controller) {
-    $this->storage->presave($storage_controller);
+  public function preSave(EntityStorageInterface $storage) {
+    $this->storage->presave($storage);
   }
 
   /**
    * {@inheritdoc}
    */
-  public function postSave(EntityStorageControllerInterface $storage_controller, $update = TRUE) {
-    $this->storage->postSave($storage_controller, $update);
+  public function postSave(EntityStorageInterface $storage, $update = TRUE) {
+    $this->storage->postSave($storage, $update);
   }
 
   /**
    * {@inheritdoc}
    */
-  public static function preCreate(EntityStorageControllerInterface $storage_controller, array &$values) {
+  public static function preCreate(EntityStorageInterface $storage, array &$values) {
   }
 
   /**
    * {@inheritdoc}
    */
-  public function postCreate(EntityStorageControllerInterface $storage_controller) {
-    $this->storage->postCreate($storage_controller);
+  public function postCreate(EntityStorageInterface $storage) {
+    $this->storage->postCreate($storage);
   }
 
   /**
    * {@inheritdoc}
    */
-  public static function preDelete(EntityStorageControllerInterface $storage_controller, array $entities) {
+  public static function preDelete(EntityStorageInterface $storage, array $entities) {
   }
 
   /**
    * {@inheritdoc}
    */
-  public static function postDelete(EntityStorageControllerInterface $storage_controller, array $entities) {
+  public static function postDelete(EntityStorageInterface $storage, array $entities) {
   }
 
   /**
    * {@inheritdoc}
    */
-  public static function postLoad(EntityStorageControllerInterface $storage_controller, array &$entities) {
+  public static function postLoad(EntityStorageInterface $storage, array &$entities) {
   }
 
   /**
@@ -1177,6 +1198,18 @@ class ViewUI implements ViewStorageInterface {
    */
   public function hasLinkTemplate($key) {
     return $this->storage->hasLinkTemplate($key);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function calculateDependencies() {
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getConfigDependencyName() {
   }
 
 }

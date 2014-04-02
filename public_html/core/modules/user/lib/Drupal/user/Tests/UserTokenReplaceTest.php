@@ -57,7 +57,7 @@ class UserTokenReplaceTest extends WebTestBase {
     $this->drupalLogin($user2);
 
     $account = user_load($user1->id());
-    $global_account = user_load($GLOBALS['user']->id());
+    $global_account = user_load(\Drupal::currentUser()->id());
 
     // Generate and test sanitized tokens.
     $tests = array();
@@ -105,14 +105,14 @@ class UserTokenReplaceTest extends WebTestBase {
     // Generate tokens with the user's preferred language.
     $account->preferred_langcode = 'de';
     $account->save();
-    $link = url('user', array('language' => language_load($account->getPreferredLangcode()), 'absolute' => TRUE));
+    $link = url('user', array('language' => \Drupal::languageManager()->getLanguage($account->getPreferredLangcode()), 'absolute' => TRUE));
     foreach ($tests as $input => $expected) {
       $output = $token_service->replace($input, array('user' => $account), array('callback' => 'user_mail_tokens', 'sanitize' => FALSE, 'clear' => TRUE));
       $this->assertTrue(strpos($output, $link) === 0, "Generated URL is in the user's preferred language.");
     }
 
     // Generate tokens with one specific language.
-    $link = url('user', array('language' => language_load('de'), 'absolute' => TRUE));
+    $link = url('user', array('language' => \Drupal::languageManager()->getLanguage('de'), 'absolute' => TRUE));
     foreach ($tests as $input => $expected) {
       foreach (array($user1, $user2) as $account) {
         $output = $token_service->replace($input, array('user' => $account), array('langcode' => 'de', 'callback' => 'user_mail_tokens', 'sanitize' => FALSE, 'clear' => TRUE));

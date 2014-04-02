@@ -7,12 +7,12 @@
 
 namespace Drupal\file\Plugin\Field\FieldType;
 
-use Drupal\Core\Field\ConfigFieldItemList;
+use Drupal\Core\Field\FieldItemList;
 
 /**
  * Represents a configurable entity file field.
  */
-class FileFieldItemList extends ConfigFieldItemList {
+class FileFieldItemList extends FieldItemList {
 
   /**
    * {@inheritdoc}
@@ -62,7 +62,7 @@ class FileFieldItemList extends ConfigFieldItemList {
 
     // Decrement file usage by 1 for files that were removed from the field.
     $removed_fids = array_filter(array_diff($original_fids, $fids));
-    $removed_files = \Drupal::entityManager()->getStorageController('file')->loadMultiple($removed_fids);
+    $removed_files = \Drupal::entityManager()->getStorage('file')->loadMultiple($removed_fids);
     foreach ($removed_files as $file) {
       \Drupal::service('file.usage')->delete($file, 'file', $entity->getEntityTypeId(), $entity->id());
     }
@@ -120,7 +120,7 @@ class FileFieldItemList extends ConfigFieldItemList {
     // Prevent NULLs as target IDs.
     $ids = array_filter($ids);
 
-    return $ids ? \Drupal::entityManager()->getStorageController('file')->loadMultiple($ids) : array();
+    return $ids ? \Drupal::entityManager()->getStorage('file')->loadMultiple($ids) : array();
   }
 
 }

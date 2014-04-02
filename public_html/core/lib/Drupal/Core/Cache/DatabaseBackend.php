@@ -15,6 +15,8 @@ use Drupal\Core\Database\SchemaObjectExistsException;
  *
  * This is Drupal's default cache implementation. It uses the database to store
  * cached data. Each cache bin corresponds to a database table by the same name.
+ *
+ * @ingroup cache
  */
 class DatabaseBackend implements CacheBackendInterface {
 
@@ -40,11 +42,9 @@ class DatabaseBackend implements CacheBackendInterface {
    *   The cache bin for which the object is created.
    */
   public function __construct(Connection $connection, $bin) {
-    // All cache tables should be prefixed with 'cache_', except for the
-    // default 'cache' bin.
-    if ($bin != 'cache') {
-      $bin = 'cache_' . $bin;
-    }
+    // All cache tables should be prefixed with 'cache_'.
+    $bin = 'cache_' . $bin;
+
     $this->bin = $bin;
     $this->connection = $connection;
   }
@@ -224,7 +224,7 @@ class DatabaseBackend implements CacheBackendInterface {
     catch (\Exception $e) {
       // Create the cache table, which will be empty. This fixes cases during
       // core install where a cache table is cleared before it is set
-      // with {cache_block} and {cache_menu}.
+      // with {cache_render} and {cache_data}.
       if (!$this->ensureBinExists()) {
         $this->catchException($e);
       }
@@ -267,7 +267,7 @@ class DatabaseBackend implements CacheBackendInterface {
     catch (\Exception $e) {
       // Create the cache table, which will be empty. This fixes cases during
       // core install where a cache table is cleared before it is set
-      // with {cache_block} and {cache_menu}.
+      // with {cache_render} and {cache_data}.
       if (!$this->ensureBinExists()) {
         $this->catchException($e);
       }

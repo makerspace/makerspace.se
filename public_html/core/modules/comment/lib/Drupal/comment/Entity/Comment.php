@@ -10,7 +10,7 @@ namespace Drupal\comment\Entity;
 use Drupal\Component\Utility\Number;
 use Drupal\Core\Entity\ContentEntityBase;
 use Drupal\comment\CommentInterface;
-use Drupal\Core\Entity\EntityStorageControllerInterface;
+use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Field\FieldDefinition;
 use Drupal\Core\Language\Language;
@@ -25,7 +25,7 @@ use Drupal\user\UserInterface;
  *   label = @Translation("Comment"),
  *   bundle_label = @Translation("Content type"),
  *   controllers = {
- *     "storage" = "Drupal\comment\CommentStorageController",
+ *     "storage" = "Drupal\comment\CommentStorage",
  *     "access" = "Drupal\comment\CommentAccessController",
  *     "view_builder" = "Drupal\comment\CommentViewBuilder",
  *     "form" = {
@@ -69,8 +69,8 @@ class Comment extends ContentEntityBase implements CommentInterface {
   /**
    * {@inheritdoc}
    */
-  public function preSave(EntityStorageControllerInterface $storage_controller) {
-    parent::preSave($storage_controller);
+  public function preSave(EntityStorageInterface $storage) {
+    parent::preSave($storage);
 
     if (is_null($this->get('status')->value)) {
       $published = \Drupal::currentUser()->hasPermission('skip comment approval') ? CommentInterface::PUBLISHED : CommentInterface::NOT_PUBLISHED;
@@ -89,7 +89,7 @@ class Comment extends ContentEntityBase implements CommentInterface {
         if (!$this->hasParentComment()) {
           // This is a comment with no parent comment (depth 0): we start
           // by retrieving the maximum thread level.
-          $max = $storage_controller->getMaxThread($this);
+          $max = $storage->getMaxThread($this);
           // Strip the "/" from the end of the thread.
           $max = rtrim($max, '/');
           // We need to get the value at the correct depth.
@@ -107,7 +107,7 @@ class Comment extends ContentEntityBase implements CommentInterface {
           $parent->setThread((string) rtrim((string) $parent->getThread(), '/'));
           $prefix = $parent->getThread() . '.';
           // Get the max value in *this* thread.
-          $max = $storage_controller->getMaxThreadPerThread($this);
+          $max = $storage->getMaxThreadPerThread($this);
 
           if ($max == '') {
             // First child of this parent. As the other two cases do an
@@ -133,12 +133,6 @@ class Comment extends ContentEntityBase implements CommentInterface {
         } while (!\Drupal::lock()->acquire($lock_name));
         $this->threadLock = $lock_name;
       }
-      if (is_null($this->getCreatedTime())) {
-        $this->setCreatedTime(REQUEST_TIME);
-      }
-      if (is_null($this->getChangedTime())) {
-        $this->set('changed', $this->getCreatedTime());
-      }
       // We test the value with '===' because we need to modify anonymous
       // users as well.
       if ($this->getOwnerId() === \Drupal::currentUser()->id() && \Drupal::currentUser()->isAuthenticated()) {
@@ -153,12 +147,12 @@ class Comment extends ContentEntityBase implements CommentInterface {
   /**
    * {@inheritdoc}
    */
-  public function postSave(EntityStorageControllerInterface $storage_controller, $update = TRUE) {
-    parent::postSave($storage_controller, $update);
+  public function postSave(EntityStorageInterface $storage, $update = TRUE) {
+    parent::postSave($storage, $update);
 
     $this->releaseThreadLock();
     // Update the {comment_entity_statistics} table prior to executing the hook.
-    $storage_controller->updateEntityStatistics($this);
+    $storage->updateEntityStatistics($this);
     if ($this->isPublished()) {
       \Drupal::moduleHandler()->invokeAll('comment_publish', array($this));
     }
@@ -177,14 +171,14 @@ class Comment extends ContentEntityBase implements CommentInterface {
   /**
    * {@inheritdoc}
    */
-  public static function postDelete(EntityStorageControllerInterface $storage_controller, array $entities) {
-    parent::postDelete($storage_controller, $entities);
+  public static function postDelete(EntityStorageInterface $storage, array $entities) {
+    parent::postDelete($storage, $entities);
 
-    $child_cids = $storage_controller->getChildCids($entities);
+    $child_cids = $storage->getChildCids($entities);
     entity_delete_multiple('comment', $child_cids);
 
     foreach ($entities as $id => $entity) {
-      $storage_controller->updateEntityStatistics($entity);
+      $storage->updateEntityStatistics($entity);
     }
   }
 
@@ -205,8 +199,7 @@ class Comment extends ContentEntityBase implements CommentInterface {
   public function permalink() {
     $entity = $this->getCommentedEntity();
     $uri = $entity->urlInfo();
-    $uri['options'] = array('fragment' => 'comment-' . $this->id());
-
+    $uri->setOption('fragment', 'comment-' . $this->id());
     return $uri;
   }
 
@@ -217,7 +210,8 @@ class Comment extends ContentEntityBase implements CommentInterface {
     $fields['cid'] = FieldDefinition::create('integer')
       ->setLabel(t('Comment ID'))
       ->setDescription(t('The comment ID.'))
-      ->setReadOnly(TRUE);
+      ->setReadOnly(TRUE)
+      ->setSetting('unsigned', TRUE);
 
     $fields['uuid'] = FieldDefinition::create('uuid')
       ->setLabel(t('UUID'))
@@ -276,16 +270,13 @@ class Comment extends ContentEntityBase implements CommentInterface {
       ->setDescription(t("The comment author's hostname."))
       ->setSetting('max_length', 128);
 
-    // @todo Convert to a "created" field in https://drupal.org/node/2145103.
-    $fields['created'] = FieldDefinition::create('integer')
+    $fields['created'] = FieldDefinition::create('created')
       ->setLabel(t('Created'))
       ->setDescription(t('The time that the comment was created.'));
 
-    // @todo Convert to a "changed" field in https://drupal.org/node/2145103.
-    $fields['changed'] = FieldDefinition::create('integer')
+    $fields['changed'] = FieldDefinition::create('changed')
       ->setLabel(t('Changed'))
-      ->setDescription(t('The time that the comment was last edited.'))
-      ->setPropertyConstraints('value', array('EntityChanged' => array()));
+      ->setDescription(t('The time that the comment was last edited.'));
 
     $fields['status'] = FieldDefinition::create('boolean')
       ->setLabel(t('Publishing status'))
@@ -512,7 +503,7 @@ class Comment extends ContentEntityBase implements CommentInterface {
   /**
    * {@inheritdoc}
    */
-  public static function preCreate(EntityStorageControllerInterface $storage_controller, array &$values) {
+  public static function preCreate(EntityStorageInterface $storage, array &$values) {
     if (empty($values['field_id']) && !empty($values['field_name']) && !empty($values['entity_type'])) {
       $values['field_id'] = $values['entity_type'] . '__' . $values['field_name'];
     }

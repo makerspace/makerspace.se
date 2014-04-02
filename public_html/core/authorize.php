@@ -20,7 +20,7 @@
  * @link authorize Authorized operation helper functions @endlink
  */
 
-use Symfony\Component\HttpFoundation\Request;
+use Drupal\Component\Utility\Settings;
 
 // Change the directory to the Drupal root.
 chdir('..');
@@ -46,9 +46,9 @@ const MAINTENANCE_MODE = 'update';
  *   TRUE if the current user can run authorize.php, and FALSE if not.
  */
 function authorize_access_allowed() {
-  require_once DRUPAL_ROOT . '/' . settings()->get('session_inc', 'core/includes/session.inc');
+  require_once DRUPAL_ROOT . '/' . Settings::get('session_inc', 'core/includes/session.inc');
   drupal_session_initialize();
-  return settings()->get('allow_authorize_operations', TRUE) && user_access('administer software updates');
+  return Settings::get('allow_authorize_operations', TRUE) && user_access('administer software updates');
 }
 
 // *** Real work of the script begins here. ***
@@ -65,14 +65,10 @@ $request = \Drupal::request();
 
 // We have to enable the user and system modules, even to check access and
 // display errors via the maintenance theme.
-$module_list['system'] = 'core/modules/system/system.module';
-$module_list['user'] = 'core/modules/user/user.module';
-\Drupal::moduleHandler()->setModuleList($module_list);
+\Drupal::moduleHandler()->addModule('system', 'core/modules/system');
+\Drupal::moduleHandler()->addModule('user', 'core/modules/user');
 \Drupal::moduleHandler()->load('system');
 \Drupal::moduleHandler()->load('user');
-
-// Initialize the language system.
-drupal_language_initialize();
 
 // Initialize the maintenance theme for this administrative script.
 drupal_maintenance_theme();
@@ -143,7 +139,7 @@ if (authorize_access_allowed()) {
     }
     elseif (!$batch = batch_get()) {
       // We have a batch to process, show the filetransfer form.
-      $elements = drupal_get_form('authorize_filetransfer_form');
+      $elements = \Drupal::formBuilder()->getForm('authorize_filetransfer_form');
       $output = drupal_render($elements);
     }
   }

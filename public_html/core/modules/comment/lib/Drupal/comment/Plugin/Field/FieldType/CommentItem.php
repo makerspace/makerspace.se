@@ -9,7 +9,8 @@ namespace Drupal\comment\Plugin\Field\FieldType;
 
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\TypedData\DataDefinition;
-use Drupal\Core\Field\ConfigFieldItemBase;
+use Drupal\Core\Field\FieldItemBase;
+use Drupal\Core\Session\AnonymousUserSession;
 
 /**
  * Plugin implementation of the 'comment' field type.
@@ -18,19 +19,34 @@ use Drupal\Core\Field\ConfigFieldItemBase;
  *   id = "comment",
  *   label = @Translation("Comments"),
  *   description = @Translation("This field manages configuration and presentation of comments on an entity."),
- *   instance_settings = {
- *     "default_mode" = COMMENT_MODE_THREADED,
- *     "per_page" = 50,
- *     "form_location" = COMMENT_FORM_BELOW,
- *     "anonymous" = COMMENT_ANONYMOUS_MAYNOT_CONTACT,
- *     "subject" = 1,
- *     "preview" = DRUPAL_OPTIONAL,
- *   },
  *   default_widget = "comment_default",
  *   default_formatter = "comment_default"
  * )
  */
-class CommentItem extends ConfigFieldItemBase {
+class CommentItem extends FieldItemBase implements CommentItemInterface {
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function defaultSettings() {
+    return array(
+      'description' => '',
+    ) + parent::defaultSettings();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function defaultInstanceSettings() {
+    return array(
+      'default_mode' => COMMENT_MODE_THREADED,
+      'per_page' => 50,
+      'form_location' => COMMENT_FORM_BELOW,
+      'anonymous' => COMMENT_ANONYMOUS_MAYNOT_CONTACT,
+      'subject' => 1,
+      'preview' => DRUPAL_OPTIONAL,
+    ) + parent::defaultInstanceSettings();
+  }
 
   /**
    * {@inheritdoc}
@@ -88,6 +104,7 @@ class CommentItem extends ConfigFieldItemBase {
 
     $entity_type = $this->getEntity()->getEntityTypeId();
     $field_name = $this->getFieldDefinition()->getName();
+    $anonymous_user = new AnonymousUserSession();
 
     $element['comment'] = array(
       '#type' => 'details',
@@ -99,7 +116,7 @@ class CommentItem extends ConfigFieldItemBase {
         'class' => array('comment-instance-settings-form'),
       ),
       '#attached' => array(
-        'library' => array(array('comment', 'drupal.comment')),
+        'library' => array('comment/drupal.comment'),
       ),
     );
     $element['comment']['default_mode'] = array(
@@ -123,7 +140,7 @@ class CommentItem extends ConfigFieldItemBase {
         COMMENT_ANONYMOUS_MAY_CONTACT => t('Anonymous posters may leave their contact information'),
         COMMENT_ANONYMOUS_MUST_CONTACT => t('Anonymous posters must leave their contact information'),
       ),
-      '#access' => drupal_anonymous_user()->hasPermission('post comments'),
+      '#access' => $anonymous_user->hasPermission('post comments'),
     );
     $element['comment']['subject'] = array(
       '#type' => 'checkbox',
@@ -167,8 +184,9 @@ class CommentItem extends ConfigFieldItemBase {
    * {@inheritdoc}
    */
   public function isEmpty() {
-    // There is always a value for this field, it is one of COMMENT_OPEN,
-    // COMMENT_CLOSED or COMMENT_HIDDEN.
+    // There is always a value for this field, it is one of
+    // CommentItemInterface::OPEN, CommentItemInterface::CLOSED or
+    // CommentItemInterface::HIDDEN.
     return FALSE;
   }
 
@@ -192,6 +210,21 @@ class CommentItem extends ConfigFieldItemBase {
         'content_translation'
       );
     }
+    return $element;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function settingsForm(array $form, array &$form_state, $has_data) {
+    $element = array();
+
+    $element['description'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Field description'),
+      '#description' => t('Describe this comment field. The text will be displayed on the <em>Comments Forms</em> page.'),
+      '#default_value' => $this->getSetting('description'),
+    );
     return $element;
   }
 

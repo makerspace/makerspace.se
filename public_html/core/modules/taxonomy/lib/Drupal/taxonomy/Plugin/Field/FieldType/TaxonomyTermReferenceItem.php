@@ -7,7 +7,6 @@
 
 namespace Drupal\taxonomy\Plugin\Field\FieldType;
 
-use Drupal\Core\Field\ConfigFieldItemInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\Plugin\Field\FieldType\EntityReferenceItem;
 use Drupal\Core\Session\AccountInterface;
@@ -20,23 +19,28 @@ use Drupal\Core\TypedData\AllowedValuesInterface;
  *   id = "taxonomy_term_reference",
  *   label = @Translation("Term Reference"),
  *   description = @Translation("This field stores a reference to a taxonomy term."),
- *   settings = {
- *     "target_type" = "taxonomy_term",
- *     "options_list_callback" = NULL,
- *     "allowed_values" = {
- *       {
- *         "vocabulary" = "",
- *         "parent" = "0"
- *       }
- *     }
- *   },
- *   instance_settings = { },
  *   default_widget = "options_select",
  *   default_formatter = "taxonomy_term_reference_link",
  *   list_class = "\Drupal\taxonomy\Plugin\Field\FieldType\TaxonomyTermReferenceFieldItemList"
  * )
  */
-class TaxonomyTermReferenceItem extends EntityReferenceItem implements ConfigFieldItemInterface, AllowedValuesInterface {
+class TaxonomyTermReferenceItem extends EntityReferenceItem implements AllowedValuesInterface {
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function defaultSettings() {
+    return array(
+      'target_type' => 'taxonomy_term',
+      'options_list_callback' => NULL,
+      'allowed_values' => array(
+        array(
+          'vocabulary' => '',
+          'parent' => 0,
+        ),
+      ),
+    ) + parent::defaultSettings();
+  }
 
   /**
    * {@inheritdoc}
@@ -78,7 +82,7 @@ class TaxonomyTermReferenceItem extends EntityReferenceItem implements ConfigFie
         if ($vocabulary = entity_load('taxonomy_vocabulary', $tree['vocabulary'])) {
           if ($terms = taxonomy_get_tree($vocabulary->id(), $tree['parent'], NULL, TRUE)) {
             foreach ($terms as $term) {
-              $options[$term->id()] = str_repeat('-', $term->depth) . $term->label();
+              $options[$term->id()] = str_repeat('-', $term->depth) . $term->getName();
             }
           }
         }

@@ -61,7 +61,7 @@
  * @link http://drupal.org/project/examples Examples module @endlink follows:
  * @code
  * function main_page() {
- *   return drupal_get_form('ajax_example_simplest');
+ *   return \Drupal::formBuilder()->getForm('ajax_example_simplest');
  * }
  *
  * function ajax_example_simplest($form, &$form_state) {
@@ -332,8 +332,8 @@ function ajax_pre_render_element($element) {
 
   // Attach JavaScript settings to the element.
   if (isset($element['#ajax']['event'])) {
-    $element['#attached']['library'][] = array('core', 'jquery.form');
-    $element['#attached']['library'][] = array('core', 'drupal.ajax');
+    $element['#attached']['library'][] = 'core/jquery.form';
+    $element['#attached']['library'][] = 'core/drupal.ajax';
 
     $settings = $element['#ajax'];
 

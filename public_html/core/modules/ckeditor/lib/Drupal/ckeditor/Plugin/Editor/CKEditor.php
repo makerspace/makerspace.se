@@ -12,6 +12,7 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\ckeditor\CKEditorPluginManager;
 use Drupal\Core\Language\Language;
 use Drupal\Core\Language\LanguageManager;
+use Drupal\Core\Render\Element;
 use Drupal\editor\Plugin\EditorBase;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\editor\Entity\Editor as EditorEntity;
@@ -136,7 +137,7 @@ class CKEditor extends EditorBase implements ContainerFactoryPluginInterface {
     $form['toolbar'] = array(
       '#type' => 'container',
       '#attached' => array(
-        'library' => array(array('ckeditor', 'drupal.ckeditor.admin')),
+        'library' => array('ckeditor/drupal.ckeditor.admin'),
         'js' => array(
           array(
             'type' => 'setting',
@@ -165,7 +166,7 @@ class CKEditor extends EditorBase implements ContainerFactoryPluginInterface {
       ),
     );
     $this->ckeditorPluginManager->injectPluginSettingsForm($form, $form_state, $editor);
-    if (count(element_children($form['plugins'])) === 0) {
+    if (count(Element::children($form['plugins'])) === 0) {
       unset($form['plugins']);
       unset($form['plugin_settings']);
     }
@@ -353,16 +354,14 @@ class CKEditor extends EditorBase implements ContainerFactoryPluginInterface {
    */
   public function getLibraries(EditorEntity $editor) {
     $libraries = array(
-      array('ckeditor', 'drupal.ckeditor'),
+      'ckeditor/drupal.ckeditor',
     );
 
     // Get the required libraries for any enabled plugins.
     $enabled_plugins = array_keys($this->ckeditorPluginManager->getEnabledPluginFiles($editor));
     foreach ($enabled_plugins as $plugin_id) {
       $plugin = $this->ckeditorPluginManager->createInstance($plugin_id);
-      $additional_libraries = array_udiff($plugin->getLibraries($editor), $libraries, function($a, $b) {
-        return $a[0] === $b[0] && $a[1] === $b[1] ? 0 : 1;
-      });
+      $additional_libraries = array_diff($plugin->getLibraries($editor), $libraries);
       $libraries = array_merge($libraries, $additional_libraries);
     }
 

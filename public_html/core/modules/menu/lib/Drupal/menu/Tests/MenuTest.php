@@ -7,6 +7,8 @@
 
 namespace Drupal\menu\Tests;
 
+use Drupal\Component\Utility\Json;
+
 /**
  * Defines a test class for testing menu and menu link functionality.
  */
@@ -462,7 +464,7 @@ class MenuTest extends MenuWebTestBase {
   public function testBlockContextualLinks() {
     $this->drupalLogin($this->drupalCreateUser(array('administer menu', 'access contextual links', 'administer blocks')));
     $this->addMenuLink();
-    $block = $this->drupalPlaceBlock('system_menu_block:tools', array('label' => 'Tools', 'module' => 'system'));
+    $block = $this->drupalPlaceBlock('system_menu_block:tools', array('label' => 'Tools', 'provider' => 'system'));
     $this->drupalGet('test-page');
 
     $id = 'block:block=' . $block->id() . ':|menu:menu=tools:';
@@ -474,68 +476,8 @@ class MenuTest extends MenuWebTestBase {
     $post = array('ids[0]' => $id);
     $response =  $this->drupalPost('contextual/render', 'application/json', $post, array('query' => array('destination' => 'test-page')));
     $this->assertResponse(200);
-    $json = drupal_json_decode($response);
+    $json = Json::decode($response);
     $this->assertIdentical($json[$id], '<ul class="contextual-links"><li class="block-configure"><a href="' . base_path() . 'admin/structure/block/manage/' . $block->id() . '">Configure block</a></li><li class="menu-edit"><a href="' . base_path() . 'admin/structure/menu/manage/tools">Edit menu</a></li></ul>');
-  }
-
-  /**
-   * Test that cache tags are properly set and bubbled up to the page cache.
-   *
-   * Ensures that invalidation of the "menu:<menu name>" cache tags works.
-   */
-  public function testMenuBlockPageCacheTags() {
-    // Enable page caching.
-    $config = \Drupal::config('system.performance');
-    $config->set('cache.page.use_internal', 1);
-    $config->set('cache.page.max_age', 300);
-    $config->save();
-
-    // Create a Llama menu, add a link to it and place the corresponding block.
-    $menu = entity_create('menu', array(
-      'id' => 'llama',
-      'label' => 'Llama',
-      'description' => 'Description text',
-    ));
-    $menu->save();
-    $menu_link = entity_create('menu_link', array(
-      'link_path' => '<front>',
-      'link_title' => 'Vicuña',
-      'menu_name' => 'llama',
-    ));
-    $menu_link->save();
-    $block = $this->drupalPlaceBlock('system_menu_block:llama', array('label' => 'Llama', 'module' => 'system', 'region' => 'footer'));
-
-    // Prime the page cache.
-    $this->drupalGet('test-page');
-    $this->assertEqual($this->drupalGetHeader('X-Drupal-Cache'), 'MISS');
-
-    // Verify a cache hit, but also the presence of the correct cache tags.
-    $this->drupalGet('test-page');
-    $this->assertEqual($this->drupalGetHeader('X-Drupal-Cache'), 'HIT');
-    $cid_parts = array(url('test-page', array('absolute' => TRUE)), 'html');
-    $cid = sha1(implode(':', $cid_parts));
-    $cache_entry = \Drupal::cache('page')->get($cid);
-    $this->assertIdentical($cache_entry->tags, array('content:1', 'menu:llama'));
-
-    // The "Llama" menu is modified.
-    $menu->label = 'Awesome llama';
-    $menu->save();
-
-    // Verify that after the modified menu, there is a cache miss.
-    $this->drupalGet('test-page');
-    $this->assertEqual($this->drupalGetHeader('X-Drupal-Cache'), 'MISS');
-
-    // Verify a cache hit.
-    $this->drupalGet('test-page');
-    $this->assertEqual($this->drupalGetHeader('X-Drupal-Cache'), 'HIT');
-
-    // A link in the "Llama" menu is modified.
-    $menu_link->link_title = 'Guanaco';
-    $menu_link->save();
-
-    // Verify that after the modified menu link, there is a cache miss.
-    $this->drupalGet('test-page');
-    $this->assertEqual($this->drupalGetHeader('X-Drupal-Cache'), 'MISS');
   }
 
   /**
@@ -839,8 +781,8 @@ class MenuTest extends MenuWebTestBase {
     // Retrieve menu link id of the Log out menu link, which will always be on
     // the front page.
     $query = \Drupal::entityQuery('menu_link')
-      ->condition('module', 'system')
-      ->condition('link_path', 'user/logout');
+      ->condition('module', 'user')
+      ->condition('machine_name', 'user.logout');
     $result = $query->execute();
     if (!empty($result)) {
       $mlid = reset($result);

@@ -120,7 +120,7 @@ function update_results_page() {
     $output .= '</p>';
   }
 
-  if (settings()->get('update_free_access')) {
+  if (Settings::get('update_free_access')) {
     $output .= "<p><strong>Reminder: don't forget to set the <code>\$settings['update_free_access']</code> value in your <code>settings.php</code> file back to <code>FALSE</code>.</strong></p>";
   }
 
@@ -211,7 +211,7 @@ function update_info_page() {
   $output .= "</ol>\n";
   $output .= "<p>When you have performed the steps above, you may proceed.</p>\n";
   $form_action = check_url(drupal_current_script_url(array('op' => 'selection', 'token' => $token)));
-  $output .= '<form method="post" action="' . $form_action . '"><p><input type="submit" value="Continue" class="form-submit button button-primary" /></p></form>';
+  $output .= '<form method="post" action="' . $form_action . '"><div class="form-actions form-wrapper" id="edit-actions"><input type="submit" value="Continue" class="button button--primary form-submit" /></div></form>';
   $output .= "\n";
 
   $build = array(
@@ -256,17 +256,16 @@ function update_access_allowed() {
   $user = \Drupal::currentUser();
 
   // Allow the global variable in settings.php to override the access check.
-  if (settings()->get('update_free_access')) {
+  if (Settings::get('update_free_access')) {
     return TRUE;
   }
   // Calls to user_access() might fail during the Drupal 6 to 7 update process,
   // so we fall back on requiring that the user be logged in as user #1.
   try {
     $module_handler = \Drupal::moduleHandler();
-    $module_filenames = $module_handler->getModuleList();
-    $module_filenames['user'] = 'core/modules/user/user.module';
-    $module_handler->setModuleList($module_filenames);
+    $module_handler->addModule('user', 'core/modules/user');
     $module_handler->reload();
+    $module_filenames = $module_handler->getModuleList();
     \Drupal::service('kernel')->updateModules($module_filenames, $module_filenames);
     return user_access('administer software updates');
   }
@@ -336,17 +335,19 @@ $GLOBALS['conf']['update_service_provider_overrides'] = TRUE;
 // below.
 require_once __DIR__ . '/includes/module.inc';
 
-$settings = settings()->getAll();
+$settings = Settings::getAll();
 new Settings($settings);
 $kernel = new DrupalKernel('update', drupal_classloader(), FALSE);
 $kernel->boot();
 $request = Request::createFromGlobals();
-\Drupal::getContainer()->set('request', $request);
+$container = \Drupal::getContainer();
+$container->set('request', $request);
+$container->get('request_stack')->push($request);
 
 // Determine if the current user has access to run update.php.
 drupal_bootstrap(DRUPAL_BOOTSTRAP_PAGE_CACHE);
 
-require_once DRUPAL_ROOT . '/' . settings()->get('session_inc', 'core/includes/session.inc');
+require_once DRUPAL_ROOT . '/' . Settings::get('session_inc', 'core/includes/session.inc');
 drupal_session_initialize();
 
 // Ensure that URLs generated for the home and admin pages don't have 'update.php'
@@ -369,9 +370,6 @@ if (is_null($op)) {
 if (is_null($op) && update_access_allowed()) {
   require_once __DIR__ . '/includes/install.inc';
   require_once DRUPAL_ROOT . '/core/modules/system/system.install';
-
-  // Set up $language, since the installer components require it.
-  drupal_language_initialize();
 
   // Set up theme system for the maintenance page.
   drupal_maintenance_theme();

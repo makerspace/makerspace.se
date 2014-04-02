@@ -10,7 +10,7 @@ namespace Drupal\node\Entity;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Config\Entity\ConfigEntityBase;
-use Drupal\Core\Entity\EntityStorageControllerInterface;
+use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\node\NodeTypeInterface;
 
 /**
@@ -26,7 +26,7 @@ use Drupal\node\NodeTypeInterface;
  *       "edit" = "Drupal\node\NodeTypeFormController",
  *       "delete" = "Drupal\node\Form\NodeTypeDeleteConfirm"
  *     },
- *     "list" = "Drupal\node\NodeTypeListController",
+ *     "list_builder" = "Drupal\node\NodeTypeListBuilder",
  *   },
  *   admin_permission = "administer content types",
  *   config_prefix = "type",
@@ -52,13 +52,6 @@ class NodeType extends ConfigEntityBase implements NodeTypeInterface {
    * @todo Rename to $id.
    */
   public $type;
-
-  /**
-   * The UUID of the node type.
-   *
-   * @var string
-   */
-  public $uuid;
 
   /**
    * The human-readable name of the node type.
@@ -160,8 +153,8 @@ class NodeType extends ConfigEntityBase implements NodeTypeInterface {
   /**
    * {@inheritdoc}
    */
-  public function postSave(EntityStorageControllerInterface $storage_controller, $update = TRUE) {
-    parent::postSave($storage_controller, $update);
+  public function postSave(EntityStorageInterface $storage, $update = TRUE) {
+    parent::postSave($storage, $update);
 
     if (!$update) {
       // Clear the node type cache, so the new type appears.
@@ -195,20 +188,17 @@ class NodeType extends ConfigEntityBase implements NodeTypeInterface {
     else {
       // Invalidate the cache tag of the updated node type only.
       Cache::invalidateTags(array('node_type' => $this->id()));
-
-      // Invalidate the render cache for all nodes.
-      \Drupal::entityManager()->getViewBuilder('node')->resetCache();
     }
   }
 
   /**
    * {@inheritdoc}
    */
-  public static function postDelete(EntityStorageControllerInterface $storage_controller, array $entities) {
-    parent::postDelete($storage_controller, $entities);
+  public static function postDelete(EntityStorageInterface $storage, array $entities) {
+    parent::postDelete($storage, $entities);
 
     // Clear the node type cache to reflect the removal.
-    $storage_controller->resetCache(array_keys($entities));
+    $storage->resetCache(array_keys($entities));
     foreach ($entities as $entity) {
       entity_invoke_bundle_hook('delete', 'node', $entity->id());
     }
@@ -217,8 +207,8 @@ class NodeType extends ConfigEntityBase implements NodeTypeInterface {
   /**
    * {@inheritdoc}
    */
-  public static function preCreate(EntityStorageControllerInterface $storage_controller, array &$values) {
-    parent::preCreate($storage_controller, $values);
+  public static function preCreate(EntityStorageInterface $storage, array &$values) {
+    parent::preCreate($storage, $values);
 
     // Ensure default values are set.
     if (!isset($values['settings']['node'])) {

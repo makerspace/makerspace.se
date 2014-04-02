@@ -5,6 +5,7 @@
  * Preprocessors and theme functions for the Views UI.
  */
 
+use Drupal\Core\Render\Element;
 use Drupal\Core\Template\Attribute;
 
 /**
@@ -182,7 +183,7 @@ function theme_views_ui_build_group_filter_form($variables) {
     ),
   );
 
-  foreach (element_children($form['group_items']) as $group_id) {
+  foreach (Element::children($form['group_items']) as $group_id) {
     $form['group_items'][$group_id]['value']['#title'] = '';
     $data = array(
       'default' => drupal_render($form['default_group'][$group_id]) . drupal_render($form['default_group_multiple'][$group_id]),
@@ -195,7 +196,7 @@ function theme_views_ui_build_group_filter_form($variables) {
     $rows[] = array('data' => $data, 'id' => 'views-row-' . $group_id, 'class' => array('draggable'));
   }
   $table = array(
-    '#theme' => 'table',
+    '#type' => 'table',
     '#header' => $header,
     '#rows' => $rows,
     '#attributes' => array(
@@ -297,7 +298,7 @@ function theme_views_ui_rearrange_filter_form(&$variables) {
   if (!empty($ungroupable_rows)) {
     $header = array(t('Ungroupable filters'), t('Weight'), array('class' => array('views-hide-label'), 'data' => t('Group')), array('class' => array('views-hide-label'), 'data' => t('Remove')));
     $table = array(
-      '#theme' => 'table',
+      '#type' => 'table',
       '#header' => $header,
       '#rows' => $ungroupable_rows,
       '#attributes' => array(
@@ -317,7 +318,7 @@ function theme_views_ui_rearrange_filter_form(&$variables) {
 
   // Set up tabledrag so that the weights are changed when rows are dragged.
   $table = array(
-    '#theme' => 'table',
+    '#type' => 'table',
     '#rows' => $rows,
     '#attributes' => array(
       'id' => 'views-rearrange-filters',
@@ -382,7 +383,7 @@ function template_preprocess_views_ui_style_plugin_table(&$variables) {
     ),
   );
   $rows = array();
-  foreach (element_children($form['columns']) as $id) {
+  foreach (Element::children($form['columns']) as $id) {
     $row = array();
     $row[]['data'] = $form['info'][$id]['name'];
     $row[]['data'] = $form['columns'][$id];
@@ -499,7 +500,7 @@ function template_preprocess_views_ui_view_preview_section(&$variables) {
       '#links' => $links,
       '#attributes' => array('class' => array('contextual-links')),
       '#attached' => array(
-        'library' => array(array('contextual', 'drupal.contextual-links')),
+        'library' => array('contextual/drupal.contextual-links'),
       ),
     );
     $variables['links'] = $build;

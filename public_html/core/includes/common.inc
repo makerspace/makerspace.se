@@ -18,9 +18,11 @@ use Symfony\Component\Yaml\Exception\ParseException;
 use Drupal\Component\PhpStorage\PhpStorageFactory;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Datetime\DrupalDateTime;
+use Drupal\Core\EventSubscriber\HtmlViewSubscriber;
 use Drupal\Core\Routing\GeneratorNotInitializedException;
 use Drupal\Core\Template\Attribute;
 use Drupal\Core\Render\Element;
+use Drupal\Core\Session\AnonymousUserSession;
 
 /**
  * @file
@@ -132,78 +134,6 @@ const JS_DEFAULT = 0;
 const JS_THEME = 100;
 
 /**
- * @defgroup block_caching Block Caching
- * @{
- * Constants that define each block's caching state.
- *
- * Modules specify how their blocks can be cached in their hook_block_info()
- * implementations. Caching can be turned off (DRUPAL_NO_CACHE), managed by the
- * module declaring the block (DRUPAL_CACHE_CUSTOM), or managed by the core
- * Block module. If the Block module is managing the cache, you can specify that
- * the block is the same for every page and user (DRUPAL_CACHE_GLOBAL), or that
- * it can change depending on the page (DRUPAL_CACHE_PER_PAGE) or by user
- * (DRUPAL_CACHE_PER_ROLE or DRUPAL_CACHE_PER_USER). Page and user settings can
- * be combined with a bitwise-binary or operator; for example,
- * DRUPAL_CACHE_PER_ROLE | DRUPAL_CACHE_PER_PAGE means that the block can change
- * depending on the user role or page it is on.
- *
- * The block cache is cleared when the 'content' cache tag is invalidated,
- * following the same pattern as the page cache (node, comment, user, taxonomy
- * added or updated...).
- *
- * Note that user 1 is excluded from block caching.
- */
-
-/**
- * The block should not get cached.
- *
- * This setting should be used:
- * - For simple blocks (notably those that do not perform any db query), where
- *   querying the db cache would be more expensive than directly generating the
- *   content.
- * - For blocks that change too frequently.
- */
-const DRUPAL_NO_CACHE = -1;
-
-/**
- * The block is handling its own caching in its hook_block_view().
- *
- * This setting is useful when time based expiration is needed or a site uses a
- * node access which invalidates standard block cache.
- */
-const DRUPAL_CACHE_CUSTOM = -2;
-
-/**
- * The block or element can change depending on the user's roles.
- *
- * This is the default setting for blocks, used when the block does not specify
- * anything.
- */
-const DRUPAL_CACHE_PER_ROLE = 0x0001;
-
-/**
- * The block or element can change depending on the user.
- *
- * This setting can be resource-consuming for sites with large number of users,
- * and thus should only be used when DRUPAL_CACHE_PER_ROLE is not sufficient.
- */
-const DRUPAL_CACHE_PER_USER = 0x0002;
-
-/**
- * The block or element can change depending on the page being viewed.
- */
-const DRUPAL_CACHE_PER_PAGE = 0x0004;
-
-/**
- * The block or element is the same for every user and page that it is visible.
- */
-const DRUPAL_CACHE_GLOBAL = 0x0008;
-
-/**
- * @} End of "defgroup block_caching".
- */
-
-/**
  * The delimiter used to split plural strings.
  *
  * This is the ETX (End of text) character and is used as a minimal means to
@@ -279,7 +209,7 @@ function drupal_get_profile() {
     }
   }
   else {
-    $profile = settings()->get('install_profile') ?: 'standard';
+    $profile = Settings::get('install_profile') ?: 'standard';
   }
 
   return $profile;
@@ -568,7 +498,7 @@ function _external_url_is_local($url) {
  *   TRUE if a proxy should be used for this host.
  */
 function _drupal_http_use_proxy($host) {
-  $proxy_exceptions = settings()->get('proxy_exceptions', array('localhost', '127.0.0.1'));
+  $proxy_exceptions = Settings::get('proxy_exceptions', array('localhost', '127.0.0.1'));
   return !in_array(strtolower($host), $proxy_exceptions, TRUE);
 }
 
@@ -703,8 +633,6 @@ function filter_xss_admin($string) {
  *   valid UTF-8.
  *
  * @see \Drupal\Component\Utility\Xss::filter()
- *
- * @ingroup sanitization
  */
 function filter_xss($string, $allowed_tags = array('a', 'em', 'strong', 'cite', 'blockquote', 'code', 'ul', 'ol', 'li', 'dl', 'dt', 'dd')) {
   return Xss::filter($string, $allowed_tags);
@@ -2129,8 +2057,8 @@ function _drupal_add_js($data = NULL, $options = NULL) {
           $current_path = current_path();
           $current_path_is_admin = FALSE;
           // The function path_is_admin() is not available on update.php pages.
-          if (!(defined('MAINTENANCE_MODE') && MAINTENANCE_MODE === 'update')) {
-            $current_path_is_admin = path_is_admin($current_path);
+          if (!(defined('MAINTENANCE_MODE'))) {
+            $current_path_is_admin = \Drupal::service('router.admin_context')->isAdminRoute();
           }
           $path = array(
             'basePath' => base_path(),
@@ -2145,7 +2073,12 @@ function _drupal_add_js($data = NULL, $options = NULL) {
             ksort($current_query);
             $path['currentQuery'] = (object) $current_query;
           }
-          $javascript['settings']['data'][] = array('path' => $path);
+          $javascript['settings']['data'][] = array(
+            'path' => $path,
+            'locale' => array(
+              'pluralDelimiter' => LOCALE_PLURAL_DELIMITER,
+            ),
+          );
         }
         // All JavaScript settings are placed in the header of the page with
         // the library weight so that inline scripts appear afterwards.
@@ -2457,7 +2390,7 @@ function drupal_pre_render_scripts($elements) {
  *   FALSE if there were any missing library dependencies; TRUE if all library
  *   dependencies were met.
  *
- * @see drupal_add_library()
+ * @see _drupal_add_library()
  * @see _drupal_add_js()
  * @see _drupal_add_css()
  * @see drupal_render()
@@ -2473,7 +2406,7 @@ function drupal_process_attached($elements, $dependency_check = FALSE) {
   // Add the libraries first.
   $success = TRUE;
   foreach ($elements['#attached']['library'] as $library) {
-    if (drupal_add_library($library[0], $library[1]) === FALSE) {
+    if (_drupal_add_library($library) === FALSE) {
       $success = FALSE;
       // Exit if the dependency is missing.
       if ($dependency_check) {
@@ -2641,7 +2574,7 @@ function drupal_process_attached($elements, $dependency_check = FALSE) {
  * @see form_example_states_form()
  */
 function drupal_process_states(&$elements) {
-  $elements['#attached']['library'][] = array('core', 'drupal.states');
+  $elements['#attached']['library'][] = 'core/drupal.states';
   // Elements of '#type' => 'item' are not actual form input elements, but we
   // still want to be able to show/hide them. Since there's no actual HTML input
   // element available, setting #attributes does not make sense, but a wrapper
@@ -2660,9 +2593,7 @@ function drupal_process_states(&$elements) {
  * depending module, without having to add all files of the library separately.
  * Each library is only loaded once.
  *
- * @param $module
- *   The name of the module that registered the library.
- * @param $name
+ * @param $library_name
  *   The name of the library to add.
  * @param $every_page
  *   Set to TRUE if this library is added to every page on the site.
@@ -2671,18 +2602,21 @@ function drupal_process_states(&$elements) {
  *   TRUE if the library was successfully added; FALSE if the library or one of
  *   its dependencies could not be added.
  *
- * @see drupal_get_library()
+ * @see \Drupal\Core\Asset\LibraryDiscovery
  * @see hook_library_info_alter()
  */
-function drupal_add_library($module, $name, $every_page = NULL) {
+function _drupal_add_library($library_name, $every_page = NULL) {
   $added = &drupal_static(__FUNCTION__, array());
+  /** @var \Drupal\Core\Asset\LibraryDiscoveryInterface $library_discovery */
+  $library_discovery = \Drupal::service('library.discovery');
 
+  list($extension, $name) = explode('/', $library_name, 2);
   // Only process the library if it exists and it was not added already.
-  if (!isset($added[$module][$name])) {
-    if ($library = drupal_get_library($module, $name)) {
+  if (!isset($added[$extension][$name])) {
+    if ($library = $library_discovery->getLibraryByName($extension, $name)) {
       // Allow modules and themes to dynamically attach request and context
       // specific data for this library; e.g., localization.
-      \Drupal::moduleHandler()->alter('library', $library, $module, $name);
+      \Drupal::moduleHandler()->alter('library', $library, $library_name);
 
       // Add all components within the library.
       $elements['#attached'] = array(
@@ -2699,203 +2633,15 @@ function drupal_add_library($module, $name, $every_page = NULL) {
         }
       }
 
-      $added[$module][$name] = drupal_process_attached($elements, TRUE);
+      $added[$extension][$name] = drupal_process_attached($elements, TRUE);
     }
     else {
       // Requested library does not exist.
-      $added[$module][$name] = FALSE;
+      $added[$extension][$name] = FALSE;
     }
   }
 
-  return $added[$module][$name];
-}
-
-/**
- * Retrieves information for a JavaScript/CSS library.
- *
- * Library information is statically cached. Libraries are keyed by module for
- * several reasons:
- * - Libraries are not unique. Multiple modules might ship with the same library
- *   in a different version or variant. This registry cannot (and does not
- *   attempt to) prevent library conflicts.
- * - Modules implementing and thereby depending on a library that is registered
- *   by another module can only rely on that module's library.
- * - Two (or more) modules can still register the same library and use it
- *   without conflicts in case the libraries are loaded on certain pages only.
- *
- * @param $extension
- *   The name of the extension that registered a library.
- * @param $name
- *   (optional) The name of a registered library to retrieve. By default, all
- *   libraries registered by $extension are returned.
- *
- * @return
- *   The definition of the requested library, if $name was passed and it exists,
- *   or FALSE if it does not exist. If no $name was passed, an associative array
- *   of libraries registered by $extension is returned (which may be empty).
- *
- * @see drupal_add_library()
- * @see hook_library_info_alter()
- *
- * @todo The purpose of drupal_get_*() is completely different to other page
- *   requisite API functions; find and use a different name.
- */
-function drupal_get_library($extension, $name = NULL) {
-  $libraries = &drupal_static(__FUNCTION__, array());
-
-  if (!isset($libraries[$extension]) && ($cache = \Drupal::cache()->get('library:info:' . $extension))) {
-    $libraries[$extension] = $cache->data;
-  }
-
-  if (!isset($libraries[$extension])) {
-    $libraries[$extension] = array();
-    if ($extension === 'core') {
-      $path = 'core';
-      $extension_type = 'core';
-    }
-    else {
-      // @todo Add a $type argument OR automatically figure out the type based
-      //   on current extension data, possibly using a module->theme fallback.
-      $path = drupal_get_path('module', $extension);
-      $extension_type = 'module';
-      if (!$path) {
-        $path = drupal_get_path('theme', $extension);
-        $extension_type = 'theme';
-      }
-    }
-    $library_file = $path . '/' . $extension . '.libraries.yml';
-
-    if ($library_file && file_exists(DRUPAL_ROOT . '/' . $library_file)) {
-      $libraries[$extension] = array();
-      $parser = new Parser();
-      try {
-        $libraries[$extension] = $parser->parse(file_get_contents(DRUPAL_ROOT . '/' . $library_file));
-      }
-      catch (ParseException $e) {
-        // Rethrow a more helpful exception, since ParseException lacks context.
-        throw new \RuntimeException(sprintf('Invalid library definition in %s: %s', $library_file, $e->getMessage()), 0, $e);
-      }
-      // Allow modules to alter the module's registered libraries.
-      \Drupal::moduleHandler()->alter('library_info', $libraries[$extension], $extension);
-    }
-
-    foreach ($libraries[$extension] as $id => &$library) {
-      if (!isset($library['js']) && !isset($library['css']) && !isset($library['settings'])) {
-        throw new \RuntimeException(sprintf("Incomplete library definition for '%s' in %s", $id, $library_file));
-      }
-      $library += array('dependencies' => array(), 'js' => array(), 'css' => array());
-
-      if (isset($library['version'])) {
-        // @todo Retrieve version of a non-core extension.
-        if ($library['version'] === 'VERSION') {
-          $library['version'] = \Drupal::VERSION;
-        }
-        // Remove 'v' prefix from external library versions.
-        elseif ($library['version'][0] === 'v') {
-          $library['version'] = substr($library['version'], 1);
-        }
-      }
-
-      foreach (array('js', 'css') as $type) {
-        // Prepare (flatten) the SMACSS-categorized definitions.
-        // @todo After Asset(ic) changes, retain the definitions as-is and
-        //   properly resolve dependencies for all (css) libraries per category,
-        //   and only once prior to rendering out an HTML page.
-        if ($type == 'css' && !empty($library[$type])) {
-          foreach ($library[$type] as $category => $files) {
-            foreach ($files as $source => $options) {
-              if (!isset($options['weight'])) {
-                $options['weight'] = 0;
-              }
-              // Apply the corresponding weight defined by CSS_* constants.
-              $options['weight'] += constant('CSS_' . strtoupper($category));
-              $library[$type][$source] = $options;
-            }
-            unset($library[$type][$category]);
-          }
-        }
-        foreach ($library[$type] as $source => $options) {
-          unset($library[$type][$source]);
-          // Allow to omit the options hashmap in YAML declarations.
-          if (!is_array($options)) {
-            $options = array();
-          }
-          if ($type == 'js' && isset($options['weight']) && $options['weight'] > 0) {
-            throw new \UnexpectedValueException("The $extension/$id library defines a positive weight for '$source'. Only negative weights are allowed (but should be avoided). Instead of a positive weight, specify accurate dependencies for this library.");
-          }
-          // Unconditionally apply default groups for the defined asset files.
-          // The library system is a dependency management system. Each library
-          // properly specifies its dependencies instead of relying on a custom
-          // processing order.
-          if ($type == 'js') {
-            $options['group'] = JS_LIBRARY;
-          }
-          elseif ($type == 'css') {
-            $options['group'] = $extension_type == 'theme' ? CSS_AGGREGATE_THEME : CSS_AGGREGATE_DEFAULT;
-          }
-          // By default, all library assets are files.
-          if (!isset($options['type'])) {
-            $options['type'] = 'file';
-          }
-          if ($options['type'] == 'external') {
-            $options['data'] = $source;
-          }
-          // Determine the file asset URI.
-          else {
-            if ($source[0] === '/') {
-              // An absolute path maps to DRUPAL_ROOT / base_path().
-              if ($source[1] !== '/') {
-                $options['data'] = substr($source, 1);
-              }
-              // A protocol-free URI (e.g., //cdn.com/example.js) is external.
-              else {
-                $options['type'] = 'external';
-                $options['data'] = $source;
-              }
-            }
-            // A stream wrapper URI (e.g., public://generated_js/example.js).
-            elseif (file_valid_uri($source)) {
-              $options['data'] = $source;
-            }
-            // By default, file paths are relative to the registering extension.
-            else {
-              $options['data'] = $path . '/' . $source;
-            }
-          }
-          $options['version'] = $library['version'];
-
-          $library[$type][] = $options;
-        }
-      }
-      // @todo Introduce drupal_add_settings().
-      if (isset($library['settings'])) {
-        $library['js'][] = array(
-          'type' => 'setting',
-          'data' => $library['settings'],
-        );
-        unset($library['settings']);
-      }
-      // @todo Convert all uses of #attached[library][]=array('provider','name')
-      //   into #attached[library][]='provider/name' and remove this.
-      foreach ($library['dependencies'] as $i => $dependency) {
-        if (!is_array($dependency)) {
-          $library['dependencies'][$i] = explode('/', $dependency, 2);
-        }
-      }
-    }
-    \Drupal::cache()->set('library:info:' . $extension, $libraries[$extension], Cache::PERMANENT, array(
-      'extension' => array(TRUE, $extension),
-      'library_info' => array(TRUE),
-    ));
-  }
-
-  if (isset($name)) {
-    if (!isset($libraries[$extension][$name])) {
-      $libraries[$extension][$name] = FALSE;
-    }
-    return $libraries[$extension][$name];
-  }
-  return $libraries[$extension];
+  return $added[$extension][$name];
 }
 
 /**
@@ -3046,7 +2792,7 @@ function drupal_attach_tabledrag(&$element, array $options) {
     'limit' => $options['limit'],
   );
 
-  $element['#attached']['library'][] = array('core', 'drupal.tabledrag');
+  $element['#attached']['library'][] = 'core/drupal.tabledrag';
   $element['#attached']['js'][] = array('data' => $settings, 'type' => 'setting');
 }
 
@@ -3158,11 +2904,11 @@ function drupal_valid_token($token, $value = '', $skip_anonymous = FALSE) {
  * Loads code for subsystems and modules, and registers stream wrappers.
  */
 function _drupal_bootstrap_code() {
-  require_once __DIR__ . '/../../' . settings()->get('path_inc', 'core/includes/path.inc');
+  require_once __DIR__ . '/../../' . Settings::get('path_inc', 'core/includes/path.inc');
   require_once __DIR__ . '/module.inc';
   require_once __DIR__ . '/theme.inc';
   require_once __DIR__ . '/pager.inc';
-  require_once __DIR__ . '/../../' . settings()->get('menu_inc', 'core/includes/menu.inc');
+  require_once __DIR__ . '/../../' . Settings::get('menu_inc', 'core/includes/menu.inc');
   require_once __DIR__ . '/tablesort.inc';
   require_once __DIR__ . '/file.inc';
   require_once __DIR__ . '/unicode.inc';
@@ -3210,10 +2956,6 @@ function _drupal_bootstrap_full($skip = FALSE) {
     return;
   }
 
-  // Initialize language (which can strip path prefix) prior to initializing
-  // current_path().
-  drupal_language_initialize();
-
   // Let all modules take action before the menu system handles the request.
   // We do not want this while running update.php.
   if (!defined('MAINTENANCE_MODE') || MAINTENANCE_MODE != 'update') {
@@ -3254,7 +2996,7 @@ function drupal_page_set_cache(Response $response, Request $request) {
         // because by the time it is read, the configuration might change.
         'page_compressed' => $page_compressed,
       ),
-      'tags' => array('content' => TRUE) + drupal_cache_tags_page_get($response),
+      'tags' => HtmlViewSubscriber::convertHeaderToCacheTags($response->headers->get('X-Drupal-Cache-Tags')),
       'expire' => Cache::PERMANENT,
       'created' => REQUEST_TIME,
     );
@@ -3277,7 +3019,7 @@ function drupal_page_set_cache(Response $response, Request $request) {
       if ($page_compressed) {
         $cache->data['body'] = gzencode($cache->data['body'], 9, FORCE_GZIP);
       }
-      \Drupal::cache('page')->set($cache->cid, $cache->data, $cache->expire, $cache->tags);
+      \Drupal::cache('render')->set($cache->cid, $cache->data, $cache->expire, $cache->tags);
     }
     return $cache;
   }
@@ -3576,7 +3318,7 @@ function drupal_pre_render_link($element) {
  */
 function drupal_pre_render_links($element) {
   $element += array('#links' => array(), '#attached' => array());
-  foreach (element_children($element) as $key) {
+  foreach (Element::children($element) as $key) {
     $child = &$element[$key];
     // If the child has links which have not been printed yet and the user has
     // access to it, merge its links in to the parent.
@@ -3598,7 +3340,7 @@ function drupal_pre_render_links($element) {
  * Pre-render callback: Attaches the dropbutton library and required markup.
  */
 function drupal_pre_render_dropbutton($element) {
-  $element['#attached']['library'][] = array('core', 'drupal.dropbutton');
+  $element['#attached']['library'][] = 'core/drupal.dropbutton';
   $element['#attributes']['class'][] = 'dropbutton';
   if (!isset($element['#theme_wrappers'])) {
     $element['#theme_wrappers'] = array();
@@ -3731,18 +3473,15 @@ function drupal_render_page($page) {
  *     associative array with one or several of the following keys:
  *     - 'keys': An array of one or more keys that identify the element. If
  *       'keys' is set, the cache ID is created automatically from these keys.
- *       See drupal_render_cid_create().
- *     - 'granularity' (optional): Define the cache granularity using binary
- *       combinations of the cache granularity constants, e.g.
- *       DRUPAL_CACHE_PER_USER to cache for each user separately or
- *       DRUPAL_CACHE_PER_PAGE | DRUPAL_CACHE_PER_ROLE to cache separately for
- *       each page and role. If not specified the element is cached globally for
- *       each theme and language.
+ *       Cache keys may either be static (just strings) or tokens (placeholders
+ *       that are converted to static keys by the @cache_contexts service,
+ *       depending on the request). See drupal_render_cid_create().
  *     - 'cid': Specify the cache ID directly. Either 'keys' or 'cid' is
- *       required. If 'cid' is set, 'keys' and 'granularity' are ignored. Use
- *       only if you have special requirements.
+ *       required. If 'cid' is set, 'keys' is ignored. Use only if you have
+ *       special requirements.
  *     - 'expire': Set to one of the cache lifetime constants.
- *     - 'bin': Specify a cache bin to cache the element in. Default is 'cache'.
+ *     - 'bin': Specify a cache bin to cache the element in. Default is
+ *       'default'.
  *   - If this element has #type defined and the default attributes for this
  *     element have not already been merged in (#defaults_loaded = TRUE) then
  *     the defaults for this type of element, defined in hook_element_info(),
@@ -3754,9 +3493,10 @@ function drupal_render_page($page) {
  *     #pre_render functions have been called, #printed is checked a second time
  *     in case a #pre_render function flags the element as printed.
  *   - The child elements of this element are sorted by weight using uasort() in
- *     element_children(). Since this is expensive, when passing already sorted
- *     elements to drupal_render(), for example from a database query, set
- *     $elements['#sorted'] = TRUE to avoid sorting them a second time.
+ *     \Drupal\Core\Render\Element::children(). Since this is expensive, when
+ *     passing already sorted elements to drupal_render(), for example from a
+ *     database query, set $elements['#sorted'] = TRUE to avoid sorting them a
+ *     second time.
  *   - The main render phase to produce #children for this element takes place:
  *     - If this element has #theme defined and #theme is an implemented theme
  *       hook/suggestion then _theme() is called and must render both the element
@@ -3905,6 +3645,12 @@ function drupal_render(&$elements, $is_recursive_call = FALSE) {
     drupal_process_states($elements);
   }
 
+  // Add additional libraries, CSS, JavaScript and other custom
+  // attached data associated with this element.
+  if (!empty($elements['#attached'])) {
+    drupal_process_attached($elements);
+  }
+
   // Get the children of the element, sorted by weight.
   $children = Element::children($elements, TRUE);
 
@@ -3948,12 +3694,6 @@ function drupal_render(&$elements, $is_recursive_call = FALSE) {
   // #children to be a single string as #children.
   if (!$theme_is_implemented && isset($elements['#markup'])) {
     $elements['#children'] = $elements['#markup'] . $elements['#children'];
-  }
-
-  // Add additional libraries, CSS, JavaScript an other custom
-  // attached data associated with this element.
-  if (!empty($elements['#attached'])) {
-    drupal_process_attached($elements);
   }
 
   // Let the theme functions in #theme_wrappers add markup around the rendered
@@ -4003,6 +3743,12 @@ function drupal_render(&$elements, $is_recursive_call = FALSE) {
   $suffix = isset($elements['#suffix']) ? $elements['#suffix'] : '';
   $elements['#markup'] = $prefix . $elements['#children'] . $suffix;
 
+  // Collect all cache tags. This allows the caller of drupal_render() to also
+  // access the complete list of cache tags.
+  if (!$is_recursive_call || isset($elements['#cache'])) {
+    $elements['#cache']['tags'] = drupal_render_collect_cache_tags($elements);
+  }
+
   // Cache the processed element if #cache is set.
   if (isset($elements['#cache'])) {
     drupal_render_cache_set($elements['#markup'], $elements);
@@ -4032,7 +3778,8 @@ function drupal_render(&$elements, $is_recursive_call = FALSE) {
  *   The structured array whose children shall be rendered.
  * @param array $children_keys
  *   (optional) If the keys of the element's children are already known, they
- *   can be passed in to save another run of element_children().
+ *   can be passed in to save another run of
+ *   \Drupal\Core\Render\Element::children().
  *
  * @return string
  *   The rendered HTML of all children of the element.
@@ -4041,7 +3788,7 @@ function drupal_render(&$elements, $is_recursive_call = FALSE) {
  */
 function drupal_render_children(&$element, $children_keys = NULL) {
   if ($children_keys === NULL) {
-    $children_keys = element_children($element);
+    $children_keys = Element::children($element);
   }
   $output = '';
   foreach ($children_keys as $key) {
@@ -4156,7 +3903,7 @@ function drupal_render_cache_get(array $elements) {
   if (!\Drupal::request()->isMethodSafe() || !$cid = drupal_render_cid_create($elements)) {
     return FALSE;
   }
-  $bin = isset($elements['#cache']['bin']) ? $elements['#cache']['bin'] : 'cache';
+  $bin = isset($elements['#cache']['bin']) ? $elements['#cache']['bin'] : 'render';
 
   if (!empty($cid) && $cache = \Drupal::cache($bin)->get($cid)) {
     $cached_element = $cache->data;
@@ -4209,10 +3956,14 @@ function drupal_render_cache_set(&$markup, array $elements) {
     $data['#post_render_cache'] = $elements['#post_render_cache'];
   }
 
-  $bin = isset($elements['#cache']['bin']) ? $elements['#cache']['bin'] : 'cache';
+  // Persist cache tags associated with this element.
+  if (isset($elements['#cache']['tags'])) {
+    $data['#cache']['tags'] = $elements['#cache']['tags'];
+  }
+
+  $bin = isset($elements['#cache']['bin']) ? $elements['#cache']['bin'] : 'render';
   $expire = isset($elements['#cache']['expire']) ? $elements['#cache']['expire'] : Cache::PERMANENT;
-  $tags = drupal_render_collect_cache_tags($elements);
-  \Drupal::cache($bin)->set($cid, $data, $expire, $tags);
+  \Drupal::cache($bin)->set($cid, $data, $expire, $elements['#cache']['tags']);
 }
 
 /**
@@ -4405,7 +4156,7 @@ function drupal_render_collect_post_render_cache(array &$elements, array $callba
   // Collect the #post_render_cache callbacks for all child elements, unless
   // we've already collected them above by retrieving this element (and its
   // children) from the render cache.
-  if (!$retrieved_from_cache && $children = element_children($elements)) {
+  if (!$retrieved_from_cache && $children = Element::children($elements)) {
     foreach ($children as $child) {
       $callbacks = drupal_render_collect_post_render_cache($elements[$child], $callbacks, FALSE);
     }
@@ -4437,7 +4188,7 @@ function drupal_render_collect_attached($elements, $return = FALSE) {
   if (isset($elements['#attached'])) {
     $attached = drupal_merge_attached($attached, $elements['#attached']);
   }
-  if ($children = element_children($elements)) {
+  if ($children = Element::children($elements)) {
     foreach ($children as $child) {
       drupal_render_collect_attached($elements[$child]);
     }
@@ -4487,7 +4238,7 @@ function drupal_render_collect_cache_tags($element, $tags = array()) {
       }
     }
   }
-  if ($children = element_children($element)) {
+  if ($children = Element::children($element)) {
     foreach ($children as $child) {
       $tags = drupal_render_collect_cache_tags($element[$child], $tags);
     }
@@ -4497,117 +4248,10 @@ function drupal_render_collect_cache_tags($element, $tags = array()) {
 }
 
 /**
- * Return the cache tags that were stored during drupal_render_page().
- *
- * @param \Symfony\Component\HttpFoundation\Response $response
- *   The response object.
- * @return array
- *   An array of cache tags.
- *
- * @see \Drupal\Core\EventSubscriber\HtmlViewSubscriber::onHtmlPage()
- */
-function drupal_cache_tags_page_get(Response $response) {
-  if (($tags = $response->headers->get('cache_tags')) && $tags = unserialize($tags)) {
-    return $tags;
-  }
-  return array();
-}
-
-/**
- * Prepares an element for caching based on a query.
- *
- * This smart caching strategy saves Drupal from querying and rendering to HTML
- * when the underlying query is unchanged.
- *
- * Expensive queries should use the query builder to create the query and then
- * call this function. Executing the query and formatting results should happen
- * in a #pre_render callback.
- *
- * @param $query
- *   A select query object as returned by db_select().
- * @param $function
- *   The name of the function doing this caching. A _pre_render suffix will be
- *   added to this string and is also part of the cache key in
- *   drupal_render_cache_set() and drupal_render_cache_get().
- * @param $expire
- *   The cache expire time, passed eventually to \Drupal::cache()->set().
- * @param $granularity
- *   One or more granularity constants passed to drupal_render_cid_parts().
- *
- * @return
- *   A renderable array with the following keys and values:
- *   - #query: The passed-in $query.
- *   - #pre_render: $function with a _pre_render suffix.
- *   - #cache: An associative array prepared for drupal_render_cache_set().
- */
-function drupal_render_cache_by_query($query, $function, $expire = Cache::PERMANENT, $granularity = NULL) {
-  $cache_keys = array_merge(array($function), drupal_render_cid_parts($granularity));
-  $query->preExecute();
-  $cache_keys[] = hash('sha256', serialize(array((string) $query, $query->getArguments())));
-  return array(
-    '#query' => $query,
-    '#pre_render' => array($function . '_pre_render'),
-    '#cache' => array(
-      'keys' => $cache_keys,
-      'expire' => $expire,
-    ),
-  );
-}
-
-/**
- * Returns cache ID parts for building a cache ID.
- *
- * @param $granularity
- *   One or more cache granularity constants. For example, to cache separately
- *   for each user, use DRUPAL_CACHE_PER_USER. To cache separately for each
- *   page and role, use the expression:
- *   @code
- *   DRUPAL_CACHE_PER_PAGE | DRUPAL_CACHE_PER_ROLE
- *   @endcode
- *
- * @return
- *   An array of cache ID parts, always containing the active theme. If the
- *   locale module is enabled it also contains the active language. If
- *   $granularity was passed in, more parts are added.
- */
-function drupal_render_cid_parts($granularity = NULL) {
-  global $theme, $base_root, $user;
-
-  $cid_parts[] = $theme;
-
-  // If we have only one language enabled we do not need it as cid part.
-  $language_manager = \Drupal::languageManager();
-  if ($language_manager->isMultilingual()) {
-    foreach ($language_manager->getLanguageTypes() as $type) {
-      $cid_parts[] = $language_manager->getCurrentLanguage($type)->id;
-    }
-  }
-
-  if (!empty($granularity)) {
-    // 'PER_ROLE' and 'PER_USER' are mutually exclusive. 'PER_USER' can be a
-    // resource drag for sites with many users, so when a module is being
-    // equivocal, we favor the less expensive 'PER_ROLE' pattern.
-    if ($granularity & DRUPAL_CACHE_PER_ROLE) {
-      $cid_parts[] = 'r.' . implode(',', $user->getRoles());
-    }
-    elseif ($granularity & DRUPAL_CACHE_PER_USER) {
-      $cid_parts[] = 'u.' . $user->id();
-    }
-
-    if ($granularity & DRUPAL_CACHE_PER_PAGE) {
-      $cid_parts[] = $base_root . request_uri();
-    }
-  }
-
-  return $cid_parts;
-}
-
-/**
  * Creates the cache ID for a renderable element.
  *
  * This creates the cache ID string, either by returning the #cache['cid']
- * property if present or by building the cache ID out of the #cache['keys']
- * and, optionally, the #cache['granularity'] properties.
+ * property if present or by building the cache ID out of the #cache['keys'].
  *
  * @param $elements
  *   A renderable array.
@@ -4620,56 +4264,14 @@ function drupal_render_cid_create($elements) {
     return $elements['#cache']['cid'];
   }
   elseif (isset($elements['#cache']['keys'])) {
-    $granularity = isset($elements['#cache']['granularity']) ? $elements['#cache']['granularity'] : NULL;
-    // Merge in additional cache ID parts based provided by drupal_render_cid_parts().
-    $cid_parts = array_merge($elements['#cache']['keys'], drupal_render_cid_parts($granularity));
-    return implode(':', $cid_parts);
+    // Cache keys may either be static (just strings) or tokens (placeholders
+    // that are converted to static keys by the @cache_contexts service,
+    // depending on the request).
+    $cache_contexts = \Drupal::service("cache_contexts");
+    $keys = $cache_contexts->convertTokensToKeys($elements['#cache']['keys']);
+    return implode(':', $keys);
   }
   return FALSE;
-}
-
-/**
- * Sorts a structured array by '#weight' property.
- *
- * Callback for uasort() within element_children().
- *
- * @param $a
- *   First item for comparison. The compared items should be associative arrays
- *   that optionally include a '#weight' key.
- * @param $b
- *   Second item for comparison.
- *
- * @return int
- *   The comparison result for uasort().
- *
- * @deprecated in Drupal 8.x-dev, will be removed before Drupal 8.0.
- *   Use \Drupal\Component\Utility\SortArray::sortByWeightProperty().
- */
-function element_sort($a, $b) {
-  return SortArray::sortByWeightProperty($a, $b);
-}
-
-/**
- * Sorts a structured array by '#title' property.
- *
- * Callback for uasort() within:
- * - system_modules()
- * - theme_simpletest_test_table()
- *
- * @param $a
- *   First item for comparison. The compared items should be associative arrays
- *   that optionally include a '#title' key.
- * @param $b
- *   Second item for comparison.
- *
- * @return int
- *   The comparison result for uasort().
- *
- * @deprecated in Drupal 8.x-dev, will be removed before Drupal 8.0.
- *   Use \Drupal\Component\Utility\SortArray::sortByTitleProperty().
- */
-function element_sort_by_title($a, $b) {
-  return SortArray::sortByTitleProperty($a, $b);
 }
 
 /**
@@ -4711,27 +4313,6 @@ function element_info($type) {
  */
 function element_info_property($type, $property_name, $default = NULL) {
   return (($info = element_info($type)) && array_key_exists($property_name, $info)) ? $info[$property_name] : $default;
-}
-
-/**
- * Sorts a structured array by 'title' key (no # prefix).
- *
- * Callback for uasort() within system_admin_index().
- *
- * @param $a
- *   First item for comparison. The compared items should be associative arrays
- *   that optionally include a 'title' key.
- * @param $b
- *   Second item for comparison.
- *
- * @return int
- *   The comparison result for uasort().
- *
- * @deprecated in Drupal 8.x-dev, will be removed before Drupal 8.0.
- *   Use \Drupal\Component\Utility\SortArray::sortByTitleElement().
- */
-function drupal_sort_title($a, $b) {
-  return SortArray::sortByTitleElement($a, $b);
 }
 
 /**
@@ -4843,31 +4424,6 @@ function watchdog_severity_levels() {
   );
 }
 
-
-/**
- * Explodes a string of tags into an array.
- *
- * @see drupal_implode_tags()
- *
- * @deprecated in Drupal 8.x-dev, will be removed before Drupal 8.0.
- *   Use \Drupal\Component\Utility\Tags::explode().
- */
-function drupal_explode_tags($tags) {
-  return Tags::explode($tags);
-}
-
-/**
- * Implodes an array of tags into a string.
- *
- * @see drupal_explode_tags()
- *
- * @deprecated in Drupal 8.x-dev, will be removed before Drupal 8.0.
- *   Use \Drupal\Component\Utility\Tags::implode().
- */
-function drupal_implode_tags($tags) {
-  return Tags::implode($tags);
-}
-
 /**
  * Flushes all persistent caches, resets all variables, and rebuilds all data structures.
  *
@@ -4876,7 +4432,7 @@ function drupal_implode_tags($tags) {
  * - Clears all persistent caches:
  *   - The bootstrap cache bin containing base system, module system, and theme
  *     system information.
- *   - The common 'cache' cache bin containing arbitrary caches.
+ *   - The common 'default' cache bin containing arbitrary caches.
  *   - The page cache.
  *   - The URL alias path cache.
  * - Resets all static variables that have been defined via drupal_static().
@@ -4929,9 +4485,7 @@ function drupal_flush_all_caches() {
   // sufficient, since new extensions cannot have any primed caches yet.
   $module_handler->invokeAll('cache_flush');
   foreach (Cache::getBins() as $service_id => $cache_backend) {
-    if ($service_id != 'cache.menu') {
-      $cache_backend->deleteAll();
-    }
+    $cache_backend->deleteAll();
   }
 
   // Flush asset file caches.
@@ -4957,9 +4511,9 @@ function drupal_flush_all_caches() {
   // sufficient, since the list of enabled modules might have been adjusted
   // above due to changed code.
   $files = array();
-  foreach ($module_data as $module => $data) {
-    if (isset($data->uri) && $data->status) {
-      $files[$module] = $data->uri;
+  foreach ($module_data as $name => $extension) {
+    if ($extension->status) {
+      $files[$name] = $extension;
     }
   }
   \Drupal::service('kernel')->updateModules($module_handler->getModuleList(), $files);

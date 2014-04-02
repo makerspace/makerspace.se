@@ -5,6 +5,7 @@
  * Provides discussion forums.
  */
 
+use Drupal\comment\Plugin\Field\FieldType\CommentItemInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Component\Utility\String;
 use Drupal\field\Field;
@@ -92,24 +93,6 @@ function forum_theme() {
       'render element' => 'form',
     ),
   );
-}
-
-/**
- * Implements hook_menu_link_defaults().
- */
-function forum_menu_link_defaults() {
-  $items['forum'] = array(
-    'link_title' => 'Forums',
-    'route_name' => 'forum.index',
-    'menu_name' => 'tools',
-  );
-  $items['forum.admin.overview'] = array(
-    'link_title' => 'Forums',
-    'parent' => 'system.admin.structure',
-    'description' => 'Control forum hierarchy settings.',
-    'route_name' => 'forum.overview',
-  );
-  return $items;
 }
 
 /**
@@ -236,7 +219,7 @@ function forum_node_validate(EntityInterface $node, $form, &$form_state) {
           ->count()
           ->execute();
         if ($used && !empty($term->forum_container->value)) {
-          form_set_error('taxonomy_forums', $form_state, t('The item %forum is a forum container, not a forum. Select one of the forums below instead.', array('%forum' => $term->label())));
+          form_set_error('taxonomy_forums', $form_state, t('The item %forum is a forum container, not a forum. Select one of the forums below instead.', array('%forum' => $term->getName())));
         }
       }
     }
@@ -538,27 +521,10 @@ function forum_form_node_form_alter(&$form, &$form_state, $form_id) {
 }
 
 /**
- * Render API callback: Lists nodes based on the element's #query property.
- *
- * This function can be used as a #pre_render callback.
- *
- * @see \Drupal\forum\Plugin\block\block\NewTopicsBlock::build()
- * @see \Drupal\forum\Plugin\block\block\ActiveTopicsBlock::build()
- */
-function forum_block_view_pre_render($elements) {
-  $result = $elements['#query']->execute();
-  if ($node_title_list = node_title_list($result)) {
-    $elements['forum_list'] = $node_title_list;
-    $elements['forum_more'] = array('#theme' => 'more_link', '#url' => 'forum', '#title' => t('Read the latest forum topics.'));
-  }
-  return $elements;
-}
-
-/**
  * Implements hook_preprocess_HOOK() for block templates.
  */
 function forum_preprocess_block(&$variables) {
-  if ($variables['configuration']['module'] == 'forum') {
+  if ($variables['configuration']['provider'] == 'forum') {
     $variables['attributes']['role'] = 'navigation';
   }
 }
@@ -805,7 +771,7 @@ function template_preprocess_forum_icon(&$variables) {
     $variables['icon_title'] = $variables['new_posts'] ? t('New comments') : t('Normal topic');
   }
 
-  if ($variables['comment_mode'] == COMMENT_CLOSED || $variables['comment_mode'] == COMMENT_HIDDEN) {
+  if ($variables['comment_mode'] == CommentItemInterface::CLOSED || $variables['comment_mode'] == CommentItemInterface::HIDDEN) {
     $icon_status_class = 'closed';
     $variables['icon_title'] = t('Closed topic');
   }

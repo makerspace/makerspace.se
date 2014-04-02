@@ -88,10 +88,11 @@ class BreadcrumbTest extends MenuTestBase {
     );
     $this->assertBreadcrumb('admin/structure/menu/manage/tools', $trail);
 
-    $mlid_node_add = db_query('SELECT mlid FROM {menu_links} WHERE link_path = :href AND module = :module', array(
-      ':href' => 'node/add',
-      ':module' => 'system',
-    ))->fetchField();
+    $mlid_node_add = \Drupal::entityQuery('menu_link')
+      ->condition('machine_name', 'node.add_page')
+      ->condition('module', 'node')
+      ->execute();
+    $mlid_node_add = reset($mlid_node_add);
     $trail += array(
       'admin/structure/menu/manage/tools' => t('Tools'),
     );
@@ -270,7 +271,7 @@ class BreadcrumbTest extends MenuTestBase {
       $tree += array(
         $link['link_path'] => $link['link_title'],
       );
-      $this->assertBreadcrumb($link['link_path'], $trail, $term->label(), $tree);
+      $this->assertBreadcrumb($link['link_path'], $trail, $term->getName(), $tree);
       $this->assertRaw(check_plain($parent->getTitle()), 'Tagged node found.');
 
       // Additionally make sure that this link appears only once; i.e., the
@@ -286,7 +287,7 @@ class BreadcrumbTest extends MenuTestBase {
       // Next iteration should expect this tag as parent link.
       // Note: Term name, not link name, due to taxonomy_term_page().
       $trail += array(
-        $link['link_path'] => $term->label(),
+        $link['link_path'] => $term->getName(),
       );
     }
 

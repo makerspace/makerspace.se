@@ -17,16 +17,21 @@ use Drupal\Core\Field\WidgetBase;
  *   id = "string",
  *   label = @Translation("String field"),
  *   field_types = {
- *     "string",
- *     "email"
- *   },
- *   settings = {
- *     "size" = "60",
- *     "placeholder" = ""
+ *     "string"
  *   }
  * )
  */
 class StringWidget extends WidgetBase {
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function defaultSettings() {
+    return array(
+      'size' => 60,
+      'placeholder' => '',
+    ) + parent::defaultSettings();
+  }
 
   /**
    * {@inheritdoc}

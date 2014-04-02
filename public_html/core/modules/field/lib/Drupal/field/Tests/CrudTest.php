@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\field\Tests\CrudTest.
+ * Contains \Drupal\field\Tests\CrudTest.
  */
 
 namespace Drupal\field\Tests;
@@ -17,7 +17,7 @@ class CrudTest extends FieldUnitTestBase {
    *
    * @var array
    */
-  public static $modules = array('number');
+  public static $modules = array();
 
   public static function getInfo() {
     return array(
@@ -63,8 +63,8 @@ class CrudTest extends FieldUnitTestBase {
     $this->assertEqual($field_config['cardinality'], 1, 'Cardinality defaults to 1.');
 
     // Ensure that default settings are present.
-    $field_type = \Drupal::service('plugin.manager.field.field_type')->getDefinition($field_definition['type']);
-    $this->assertEqual($field_config['settings'], $field_type['settings'], 'Default field settings have been written.');
+    $field_type_manager = \Drupal::service('plugin.manager.field.field_type');
+    $this->assertEqual($field_config['settings'], $field_type_manager->getDefaultSettings($field_definition['type']), 'Default field settings have been written.');
 
     // Guarantee that the name is unique.
     try {
@@ -364,13 +364,13 @@ class CrudTest extends FieldUnitTestBase {
     $field_definition = array(
       'name' => 'field_type',
       'entity_type' => 'entity_test',
-      'type' => 'number_decimal',
+      'type' => 'decimal',
     );
     $field = entity_create('field_config', $field_definition);
     $field->save();
 
     try {
-      $field->type = 'number_integer';
+      $field->type = 'integer';
       $field->save();
       $this->fail(t('Cannot update a field to a different type.'));
     }

@@ -11,6 +11,7 @@ use Drupal\Component\Utility\String;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\views\ViewExecutable;
 use Drupal\views\ViewStorageInterface;
+use Drupal\views\Views;
 use Drupal\views_ui\ViewUI;
 use Drupal\views\ViewsData;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -57,12 +58,12 @@ class ViewsUIController extends ControllerBase {
    *   The Views fields report page.
    */
   public function reportFields() {
-    $views = $this->entityManager()->getStorageController('view')->loadMultiple();
+    $views = $this->entityManager()->getStorage('view')->loadMultiple();
 
     // Fetch all fieldapi fields which are used in views
     // Therefore search in all views, displays and handler-types.
     $fields = array();
-    $handler_types = ViewExecutable::viewsHandlerTypes();
+    $handler_types = ViewExecutable::getHandlerTypes();
     foreach ($views as $view) {
       $executable = $view->getExecutable();
       $executable->initDisplay();
@@ -97,7 +98,7 @@ class ViewsUIController extends ControllerBase {
     // Sort rows by field name.
     ksort($rows);
     $output = array(
-      '#theme' => 'table',
+      '#type' => 'table',
       '#header' => $header,
       '#rows' => $rows,
       '#empty' => t('No fields have been used in views yet.'),
@@ -113,7 +114,7 @@ class ViewsUIController extends ControllerBase {
    *   The Views plugins report page.
    */
   public function reportPlugins() {
-    $rows = views_plugin_list();
+    $rows = Views::pluginList();
     foreach ($rows as &$row) {
       // Link each view name to the view itself.
       foreach ($row['views'] as $row_name => $view) {
@@ -125,7 +126,7 @@ class ViewsUIController extends ControllerBase {
     // Sort rows by field name.
     ksort($rows);
     return array(
-      '#theme' => 'table',
+      '#type' => 'table',
       '#header' => array(t('Type'), t('Name'), t('Provided by'), t('Used in')),
       '#rows' => $rows,
       '#empty' => t('There are no enabled views.'),
@@ -153,7 +154,7 @@ class ViewsUIController extends ControllerBase {
 
     // If the request is via AJAX, return the rendered list as JSON.
     if ($request->request->get('js')) {
-      $list = $this->entityManager()->getListController('view')->render();
+      $list = $this->entityManager()->getListBuilder('view')->render();
       $response = new AjaxResponse();
       $response->addCommand(new ReplaceCommand('#views-entity-list', drupal_render($list)));
       return $response;
@@ -176,7 +177,7 @@ class ViewsUIController extends ControllerBase {
     $matches = array();
     $string = $request->query->get('q');
     // Get matches from default views.
-    $views = $this->entityManager()->getStorageController('view')->loadMultiple();
+    $views = $this->entityManager()->getStorage('view')->loadMultiple();
     foreach ($views as $view) {
       $tag = $view->get('tag');
       if ($tag && strpos($tag, $string) === 0) {

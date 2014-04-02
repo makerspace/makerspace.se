@@ -9,7 +9,7 @@ namespace Drupal\image\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Config\Entity\EntityWithPluginBagInterface;
-use Drupal\Core\Entity\EntityStorageControllerInterface;
+use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\image\ImageEffectBag;
 use Drupal\image\ImageEffectInterface;
 use Drupal\image\ImageStyleInterface;
@@ -30,7 +30,7 @@ use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
  *       "delete" = "Drupal\image\Form\ImageStyleDeleteForm",
  *       "flush" = "Drupal\image\Form\ImageStyleFlushForm"
  *     },
- *     "list" = "Drupal\image\ImageStyleListController",
+ *     "list_builder" = "Drupal\image\ImageStyleListBuilder",
  *   },
  *   admin_permission = "administer image styles",
  *   config_prefix = "style",
@@ -69,13 +69,6 @@ class ImageStyle extends ConfigEntityBase implements ImageStyleInterface, Entity
   public $label;
 
   /**
-   * The UUID for this entity.
-   *
-   * @var string
-   */
-  public $uuid;
-
-  /**
    * The array of image effects for this image style.
    *
    * @var array
@@ -104,8 +97,8 @@ class ImageStyle extends ConfigEntityBase implements ImageStyleInterface, Entity
   /**
    * {@inheritdoc}
    */
-  public function postSave(EntityStorageControllerInterface $storage_controller, $update = TRUE) {
-    parent::postSave($storage_controller, $update);
+  public function postSave(EntityStorageInterface $storage, $update = TRUE) {
+    parent::postSave($storage, $update);
 
     if ($update) {
       if (!empty($this->original) && $this->id() !== $this->original->id()) {
@@ -124,8 +117,8 @@ class ImageStyle extends ConfigEntityBase implements ImageStyleInterface, Entity
   /**
    * {@inheritdoc}
    */
-  public static function postDelete(EntityStorageControllerInterface $storage_controller, array $entities) {
-    parent::postDelete($storage_controller, $entities);
+  public static function postDelete(EntityStorageInterface $storage, array $entities) {
+    parent::postDelete($storage, $entities);
 
     foreach ($entities as $style) {
       // Flush cached media for the deleted style.
@@ -266,8 +259,9 @@ class ImageStyle extends ConfigEntityBase implements ImageStyleInterface, Entity
     field_info_cache_clear();
     drupal_theme_rebuild();
 
-    // Clear page caches when flushing.
-    \Drupal::cache('page')->deleteAll();
+    // Clear render cache when flushing.
+    \Drupal::cache('render')->deleteAll();
+
     return $this;
   }
 
@@ -285,7 +279,7 @@ class ImageStyle extends ConfigEntityBase implements ImageStyleInterface, Entity
     }
 
     $image = \Drupal::service('image.factory')->get($original_uri);
-    if (!$image->getResource()) {
+    if (!$image->isExisting()) {
       return FALSE;
     }
 
@@ -376,8 +370,8 @@ class ImageStyle extends ConfigEntityBase implements ImageStyleInterface, Entity
   /**
    * {@inheritdoc}
    */
-  public function getExportProperties() {
-    $properties = parent::getExportProperties();
+  public function toArray() {
+    $properties = parent::toArray();
     $names = array(
       'effects',
     );

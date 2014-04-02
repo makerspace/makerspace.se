@@ -561,6 +561,7 @@ display:
           empty_zero: false
           hide_alter_empty: true
           text: Translate
+          optional: true
           plugin_id: content_translation_link
           provider: content_translation
         dropbutton:
@@ -951,7 +952,10 @@ display:
       defaults:
         show_admin_links: false
 label: People
-module: views
+module: user
 id: user_admin_people
 tag: default
 langcode: und
+dependencies:
+  module:
+    - user
