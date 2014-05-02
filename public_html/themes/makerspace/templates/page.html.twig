@@ -1,10 +1,13 @@
 <div class="wrapper">
+	<span class="visible-xs">SIZE XS</span><span class="visible-sm">SIZE SM</span><span class="visible-md">SIZE MD</span><span class="visible-lg">SIZE LG</span> 
+
 	<div class="row">
 		<div class="col-md-1"></div>
 		<div class="col-md-10">
 			<header id="navbar" role="banner" class="navbar">
-				<div class="navbar-inner">
-					<a href="/"><img width="150" src="https://beta.makerspace.se/themes/makerspace/images/makerspace_logo.svg" class="logo" alt="Makerspace Logo"></a>
+				<div class="navbar-inner ">
+					<a href="/">
+						<img width="300" src="https://beta.makerspace.se/themes/makerspace/images/makerspace_logo.svg" class="logo" alt="Makerspace Logo"></a>
 					{% if site_name %}
 						<h1 id="site-name">
 							<a href="{{ front_page }}" title="{{ 'Home'|t }}" class="brand">{{ site_name }}</a>
