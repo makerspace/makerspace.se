@@ -32,6 +32,10 @@ function makerspace_preprocess_breadcrumb(&$variables) {
  * Bootstrap drop down navbar
  */
 function makerspace_preprocess_page(&$variables) {
+_drupal_add_js("themes/makerspace/js/jquery.min.js");
+_drupal_add_js("themes/makerspace/js/bootstrap.min.js");
+_drupal_add_js("themes/makerspace/js/makerspace.js");
+
   // Add information about the number of sidebars.
   if (!empty($variables['page']['sidebar_first']) && !empty($variables['page']['sidebar_second'])) {
     $variables['columns'] = 3;
@@ -50,7 +54,11 @@ function makerspace_preprocess_page(&$variables) {
     $variables['content_span'] = 12;
   }
 
-  $menu = menu_tree_all_data('main', NULL, 2);
+
+//  $menu = menu_tree_all_data('main', NULL, 2);
+$menu = menu_load_links('main');
+//print_r($menu);
+
   $trail = menu_get_active_trail();
 
   foreach($menu as &$element) {
@@ -61,6 +69,7 @@ function makerspace_preprocess_page(&$variables) {
     }
     $element['link']['link_path'] = url($element['link']['link_path']);
 
+/*
     foreach($element['below'] as &$element2) {
       if(isset($trail[2]) && ($element2['link']['href'] == $trail[2]['href'])) {
         $element2['classes'] = 'active';
@@ -69,11 +78,19 @@ function makerspace_preprocess_page(&$variables) {
       }
       $element2['link']['link_path'] = url($element2['link']['link_path']);
     }
+*/
     unset($element2);
+
   }
+
   unset($element);
 
-  $variables['makerspace_menu'] = theme('menu', array('menu' => $menu));
+//  $variables['makerspace_menu'] = 'TODO: theme()';//theme('menu', array('menu' => $menu));
+//print_r($menu);
+  $variables['makerspace_menu'] = _theme('menu', array('menu' => $menu)).'meep';
+
+//print_r($variables);
+//die();
 }
 
 /**
