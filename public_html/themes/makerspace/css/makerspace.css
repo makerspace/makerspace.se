@@ -1,5 +1,6 @@
 body {
 	margin-top: 20px;
+	background-color:#f4f4f4;
 }
 
 .wrapper {
@@ -10,7 +11,10 @@ body {
 .logo {
 	margin-bottom: 20px;
 }
-
+.navbar-inner{
+	background-color:#f4f4f4;
+	
+}
 h1#site-name {
 	display: none;
 }
