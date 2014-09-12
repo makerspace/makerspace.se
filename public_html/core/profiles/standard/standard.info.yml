@@ -14,14 +14,16 @@ dependencies:
   - comment
   - contextual
   - contact
+  - menu_link_content
   - datetime
-  - custom_block
-  - edit
+  - block_content
+  - quickedit
   - editor
+  - entity
   - entity_reference
   - help
   - image
-  - menu
+  - menu_ui
   - options
   - path
   - taxonomy
@@ -35,3 +37,6 @@ dependencies:
   - views
   - views_ui
   - tour
+themes:
+  - bartik
+  - seven

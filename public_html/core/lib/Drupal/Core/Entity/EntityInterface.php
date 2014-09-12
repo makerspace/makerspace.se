@@ -37,7 +37,7 @@ interface EntityInterface extends AccessibleInterface {
   /**
    * Returns the language of the entity.
    *
-   * @return \Drupal\Core\Language\Language
+   * @return \Drupal\Core\Language\LanguageInterface
    *   The language object.
    */
   public function language();
@@ -65,7 +65,7 @@ interface EntityInterface extends AccessibleInterface {
    *   (optional) Whether the entity should be forced to be new. Defaults to
    *   TRUE.
    *
-   * @return self
+   * @return $this
    *
    * @see \Drupal\Core\Entity\EntityInterface::isNew()
    */
@@ -103,9 +103,9 @@ interface EntityInterface extends AccessibleInterface {
    * example:
    * @code
    * links = {
-   *   "canonical" = "node.view",
-   *   "edit-form" = "node.page_edit",
-   *   "version-history" = "node.revision_overview"
+   *   "canonical" = "entity.node.canonical",
+   *   "edit-form" = "entity.node.edit_form",
+   *   "version-history" = "entity.node.version_history"
    * }
    * @endcode
    * or specified in a callback function set like:
@@ -170,6 +170,40 @@ interface EntityInterface extends AccessibleInterface {
    *   An array of link relationships supported by this entity.
    */
   public function uriRelationships();
+
+  /**
+   * Loads an entity.
+   *
+   * @param mixed $id
+   *   The id of the entity to load.
+   *
+   * @return static
+   *   The entity object or NULL if there is no entity with the given ID.
+   */
+  public static function load($id);
+
+  /**
+   * Loads one or more entities.
+   *
+   * @param array $ids
+   *   An array of entity IDs, or NULL to load all entities.
+   *
+   * @return static[]
+   *   An array of entity objects indexed by their IDs.
+   */
+  public static function loadMultiple(array $ids = NULL);
+
+  /**
+   * Constructs a new entity object, without permanently saving it.
+   *
+   * @param array $values
+   *   (optional) An array of values to set, keyed by property name. If the
+   *   entity type has bundles, the bundle key has to be specified.
+   *
+   * @return static
+   *   The entity object.
+   */
+  public static function create(array $values = array());
 
   /**
    * Saves an entity permanently.
@@ -323,5 +357,24 @@ interface EntityInterface extends AccessibleInterface {
    *   An array of property values, keyed by property name.
    */
   public function toArray();
+
+  /**
+   * The unique cache tag associated with this entity.
+   *
+   * @return array
+   *   An array of cache tags.
+   */
+  public function getCacheTag();
+
+  /**
+   * The list cache tags associated with this entity.
+   *
+   * Enables code listing entities of this type to ensure that newly created
+   * entities show up immediately.
+   *
+   * @return array
+   *   An array of cache tags.
+   */
+  public function getListCacheTags();
 
 }

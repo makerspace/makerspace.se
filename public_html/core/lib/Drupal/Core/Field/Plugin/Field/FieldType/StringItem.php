@@ -2,13 +2,16 @@
 
 /**
  * @file
- * Contains \Drupal\Core\Entity\Plugin\Field\FieldType\StringItem.
+ * Contains \Drupal\Core\Field\Plugin\Field\FieldType\StringItem.
  */
 
 namespace Drupal\Core\Field\Plugin\Field\FieldType;
 
+use Drupal\Component\Utility\Random;
 use Drupal\Core\Field\FieldDefinitionInterface;
+use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\Field\FieldItemBase;
+use Drupal\Core\StringTranslation\TranslationWrapper;
 use Drupal\Core\TypedData\DataDefinition;
 
 /**
@@ -37,9 +40,11 @@ class StringItem extends FieldItemBase {
   /**
    * {@inheritdoc}
    */
-  public static function propertyDefinitions(FieldDefinitionInterface $field_definition) {
+  public static function propertyDefinitions(FieldStorageDefinitionInterface $field_definition) {
+    // This is called very early by the user entity roles field. Prevent
+    // early t() calls by using the TranslationWrapper.
     $properties['value'] = DataDefinition::create('string')
-      ->setLabel(t('Text value'));
+      ->setLabel(new TranslationWrapper('Text value'));
 
     return $properties;
   }
@@ -47,7 +52,7 @@ class StringItem extends FieldItemBase {
   /**
    * {@inheritdoc}
    */
-  public static function schema(FieldDefinitionInterface $field_definition) {
+  public static function schema(FieldStorageDefinitionInterface $field_definition) {
     return array(
       'columns' => array(
         'value' => array(
@@ -78,6 +83,16 @@ class StringItem extends FieldItemBase {
     }
 
     return $constraints;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function generateSampleValue(FieldDefinitionInterface $field_definition) {
+    $random = new Random();
+    $max = $field_definition->getSetting('max_length');
+    $values['value'] = $random->word(mt_rand(1, $max));
+    return $values;
   }
 
 }

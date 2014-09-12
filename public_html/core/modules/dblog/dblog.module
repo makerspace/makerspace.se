@@ -11,14 +11,15 @@
  * @see watchdog()
  */
 
-use Drupal\Core\Database\Database;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Routing\RouteMatchInterface;
 
 /**
  * Implements hook_help().
  */
-function dblog_help($path, $arg) {
-  switch ($path) {
-    case 'admin/help#dblog':
+function dblog_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    case 'help.page.dblog':
       $output = '';
       $output .= '<h3>' . t('About') . '</h3>';
       $output .= '<p>' . t('The Database Logging module logs system events in the Drupal database. For more information, see the online handbook entry for the <a href="!dblog">Database Logging module</a>.', array('!dblog' => 'http://drupal.org/documentation/modules/dblog')) . '</p>';
@@ -30,15 +31,16 @@ function dblog_help($path, $arg) {
       $output .= '<dd>' . t('In case of errors or problems with the site, the <a href="!dblog">Recent log messages</a> page can be useful for debugging, since it shows the sequence of events. The log messages include usage information, warnings, and errors.', array('!dblog' => \Drupal::url('dblog.overview'))) . '</dd>';
       $output .= '</dl>';
       return $output;
-    case 'admin/reports/dblog':
+
+    case 'dblog.overview':
       return '<p>' . t('The Database Logging module monitors your website, capturing system events in a log (shown here) to be reviewed by an authorized individual at a later time. This log is a list of recorded events containing usage data, performance data, errors, warnings and operational information. It is vital to check the Recent log messages report on a regular basis, as it is often the only way to tell what is going on.') . '</p>';
   }
 }
 
 /**
- * Implements hook_menu_link_defaults_alter().
+ * Implements hook_menu_links_discovered_alter().
  */
-function dblog_menu_link_defaults_alter(&$links) {
+function dblog_menu_links_discovered_alter(&$links) {
   if (\Drupal::moduleHandler()->moduleExists('search')) {
     $links['dblog.search'] = array(
       'title' => 'Top search phrases',
@@ -49,15 +51,6 @@ function dblog_menu_link_defaults_alter(&$links) {
   }
 
   return $links;
-}
-
-/**
- * Implements hook_page_build().
- */
-function dblog_page_build(&$page) {
-  if (arg(0) == 'admin' && arg(1) == 'reports') {
-    $page['#attached']['css'][] = drupal_get_path('module', 'dblog') . '/css/dblog.module.css';
-  }
 }
 
 /**
@@ -95,45 +88,14 @@ function dblog_cron() {
  *   List of uniquely defined database log message types.
  */
 function _dblog_get_message_types() {
-  $types = array();
-
-  $result = db_query('SELECT DISTINCT(type) FROM {watchdog} ORDER BY type');
-  foreach ($result as $object) {
-    $types[] = $object->type;
-  }
-
-  return array_combine($types, $types);
-}
-
-/**
- * Implements hook_watchdog().
- *
- * Note: Some values may be truncated to meet database column size restrictions.
- */
-function dblog_watchdog(array $log_entry) {
-  // Remove any backtraces since they may contain an unserializable variable.
-  unset($log_entry['variables']['backtrace']);
-
-  Database::getConnection('default', 'default')->insert('watchdog')
-    ->fields(array(
-      'uid' => $log_entry['uid'],
-      'type' => substr($log_entry['type'], 0, 64),
-      'message' => $log_entry['message'],
-      'variables' => serialize($log_entry['variables']),
-      'severity' => $log_entry['severity'],
-      'link' => substr($log_entry['link'], 0, 255),
-      'location' => $log_entry['request_uri'],
-      'referer' => $log_entry['referer'],
-      'hostname' => substr($log_entry['ip'], 0, 128),
-      'timestamp' => $log_entry['timestamp'],
-    ))
-    ->execute();
+  return db_query('SELECT DISTINCT(type) FROM {watchdog} ORDER BY type')
+    ->fetchAllKeyed(0, 0);
 }
 
 /**
  * Implements hook_form_FORM_ID_alter() for system_logging_settings().
  */
-function dblog_form_system_logging_settings_alter(&$form, $form_state) {
+function dblog_form_system_logging_settings_alter(&$form, FormStateInterface $form_state) {
   $row_limits = array(100, 1000, 10000, 100000, 1000000);
   $form['dblog_row_limit'] = array(
     '#type' => 'select',
@@ -151,6 +113,6 @@ function dblog_form_system_logging_settings_alter(&$form, $form_state) {
  *
  * @see dblog_form_system_logging_settings_alter()
  */
-function dblog_logging_settings_submit($form, &$form_state) {
-  \Drupal::config('dblog.settings')->set('row_limit', $form_state['values']['dblog_row_limit'])->save();
+function dblog_logging_settings_submit($form, FormStateInterface $form_state) {
+  \Drupal::config('dblog.settings')->set('row_limit', $form_state->getValue('dblog_row_limit'))->save();
 }

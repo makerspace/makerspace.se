@@ -5,8 +5,9 @@
  * Provides support for field data purge after mass deletion.
  */
 
-use Drupal\field\Entity\FieldConfig;
-use Drupal\field\FieldException;
+use Drupal\Core\Field\FieldException;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\field\FieldStorageConfigInterface;
 
 /**
  * @defgroup field_purge Field API bulk data deletion
@@ -68,12 +69,19 @@ use Drupal\field\FieldException;
  *
  * @param $batch_size
  *   The maximum number of field data records to purge before returning.
+ * @param string $field_storage_uuid
+ *   (optional) Limit the purge to a specific field storage.
  */
-function field_purge_batch($batch_size) {
-  // Retrieve all deleted field instances. We cannot use field_info_instances()
-  // because that function does not return deleted instances.
-  $instances = entity_load_multiple_by_properties('field_instance_config', array('deleted' => TRUE, 'include_deleted' => TRUE));
-  $factory = \Drupal::service('entity.query');
+function field_purge_batch($batch_size, $field_storage_uuid = NULL) {
+  $properties = array(
+    'deleted' => TRUE,
+    'include_deleted' => TRUE,
+  );
+  if ($field_storage_uuid) {
+    $properties['field_storage_uuid'] = $field_storage_uuid;
+  }
+  $instances = entity_load_multiple_by_properties('field_instance_config', $properties);
+
   $info = \Drupal::entityManager()->getDefinitions();
   foreach ($instances as $instance) {
     $entity_type = $instance->entity_type;
@@ -85,48 +93,38 @@ function field_purge_batch($batch_size) {
       continue;
     }
 
-    $ids = (object) array(
-      'entity_type' => $entity_type,
-      'bundle' => $instance->bundle,
-    );
-    // Retrieve some entities.
-    $query = $factory->get($entity_type)
-      ->condition('id:' . $instance->getField()->uuid() . '.deleted', 1)
-      ->range(0, $batch_size);
-    // If there's no bundle key, all results will have the same bundle.
-    if ($bundle_key = $info[$entity_type]->getKey('bundle')) {
-      $query->condition($bundle_key, $ids->bundle);
-    }
-    $results = $query->execute();
-    if ($results) {
-      foreach ($results as $revision_id => $entity_id) {
-        $ids->revision_id = $revision_id;
-        $ids->entity_id = $entity_id;
-        $entity = _field_create_entity_from_ids($ids);
-        \Drupal::entityManager()->getStorage($entity_type)->onFieldItemsPurge($entity, $instance);
-      }
-    }
-    else {
+    $count_purged = \Drupal::entityManager()->getStorage($entity_type)->purgeFieldData($instance, $batch_size);
+    if ($count_purged < $batch_size || $count_purged == 0) {
       // No field data remains for the instance, so we can remove it.
       field_purge_instance($instance);
     }
+    $batch_size -= $count_purged;
+    // Only delete up to the maximum number of records.
+    if ($batch_size == 0) {
+      break;
+    }
   }
 
-  // Retrieve all deleted fields. Any that have no instances can be purged.
-  $deleted_fields = \Drupal::state()->get('field.field.deleted') ?: array();
-  foreach ($deleted_fields as $field) {
-    $field = new FieldConfig($field);
+  // Retrieve all deleted field storages. Any that have no instances can be
+  // purged.
+  $deleted_storages = \Drupal::state()->get('field.storage.deleted') ?: array();
+  foreach ($deleted_storages as $field_storage) {
+    $field_storage = new FieldStorageConfig($field_storage);
+    if ($field_storage_uuid && $field_storage->uuid() != $field_storage_uuid) {
+      // If a specific UUID is provided, only purge the corresponding field.
+      continue;
+    }
 
     // We cannot purge anything if the entity type is unknown (e.g. the
     // providing module was uninstalled).
     // @todo Revisit after https://drupal.org/node/2080823.
-    if (!isset($info[$field->entity_type])) {
+    if (!isset($info[$field_storage->entity_type])) {
       continue;
     }
 
-    $instances = entity_load_multiple_by_properties('field_instance_config', array('field_id' => $field->uuid(), 'include_deleted' => TRUE));
+    $instances = entity_load_multiple_by_properties('field_instance_config', array('field_storage_uuid' => $field_storage->uuid(), 'include_deleted' => TRUE));
     if (empty($instances)) {
-      field_purge_field($field);
+      field_purge_field_storage($field_storage);
     }
   }
 }
@@ -146,9 +144,6 @@ function field_purge_instance($instance) {
   unset($deleted_instances[$instance->uuid()]);
   $state->set('field.instance.deleted', $deleted_instances);
 
-  // Clear the cache.
-  field_info_cache_clear();
-
   // Invoke external hooks after the cache is cleared for API consistency.
   \Drupal::moduleHandler()->invokeAll('field_purge_instance', array($instance));
 }
@@ -159,28 +154,25 @@ function field_purge_instance($instance) {
  * This function assumes all instances for the field has already been purged,
  * and should only be called by field_purge_batch().
  *
- * @param $field
- *   The field record to purge.
+ * @param \Drupal\field\FieldStorageConfigInterface $field_storage
+ *   The field storage to purge.
  */
-function field_purge_field($field) {
-  $instances = entity_load_multiple_by_properties('field_instance_config', array('field_id' => $field->uuid(), 'include_deleted' => TRUE));
+function field_purge_field_storage(FieldStorageConfigInterface $field_storage) {
+  $instances = entity_load_multiple_by_properties('field_instance_config', array('field_storage_uuid' => $field_storage->uuid(), 'include_deleted' => TRUE));
   if (count($instances) > 0) {
-    throw new FieldException(t('Attempt to purge a field @field_name that still has instances.', array('@field_name' => $field->getName())));
+    throw new FieldException(t('Attempt to purge a field storage @field_name that still has instances.', array('@field_name' => $field_storage->getName())));
   }
 
   $state = \Drupal::state();
-  $deleted_fields = $state->get('field.field.deleted');
-  unset($deleted_fields[$field->uuid()]);
-  $state->set('field.field.deleted', $deleted_fields);
+  $deleted_storages = $state->get('field.storage.deleted');
+  unset($deleted_storages[$field_storage->uuid()]);
+  $state->set('field.storage.deleted', $deleted_storages);
 
   // Notify the storage layer.
-  \Drupal::entityManager()->getStorage($field->entity_type)->onFieldPurge($field);
-
-  // Clear the cache.
-  field_info_cache_clear();
+  \Drupal::entityManager()->getStorage($field_storage->entity_type)->finalizePurge($field_storage);
 
   // Invoke external hooks after the cache is cleared for API consistency.
-  \Drupal::moduleHandler()->invokeAll('field_purge_field', array($field));
+  \Drupal::moduleHandler()->invokeAll('field_purge_field_storage', array($field_storage));
 }
 
 /**

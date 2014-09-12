@@ -1,6 +1,11 @@
 <?php
 
-namespace Drupal\Tests\Core\Config;
+/**
+ * @file
+ * Contains \Drupal\Tests\Core\Config\Entity\ConfigEntityDependencyTest.
+ */
+
+namespace Drupal\Tests\Core\Config\Entity;
 
 use Drupal\Tests\UnitTestCase;
 use Drupal\Core\Config\Entity\ConfigEntityDependency;
@@ -8,18 +13,9 @@ use Drupal\Core\Config\Entity\ConfigEntityDependency;
 /**
  * Tests the ConfigEntityDependency class.
  *
- * @group Drupal
  * @group Config
  */
 class ConfigEntityDependencyTest extends UnitTestCase {
-
-  public static function getInfo() {
-    return array(
-      'name' => 'ConfigEntityDependency test',
-      'description' => 'Tests the ConfigEntityDependency class.',
-      'group' => 'Configuration'
-    );
-  }
 
   public function testEmptyDependencies() {
     $dep = new ConfigEntityDependency('config_test.dynamic.entity_id', array());

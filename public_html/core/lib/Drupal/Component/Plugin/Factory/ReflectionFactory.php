@@ -19,7 +19,7 @@ class ReflectionFactory extends DefaultFactory {
    */
   public function createInstance($plugin_id, array $configuration = array()) {
     $plugin_definition = $this->discovery->getDefinition($plugin_id);
-    $plugin_class = static::getPluginClass($plugin_id, $plugin_definition);
+    $plugin_class = static::getPluginClass($plugin_id, $plugin_definition, $this->interface);
 
     // Lets figure out of there's a constructor for this class and pull
     // arguments from the $options array if so to populate it.
@@ -45,7 +45,7 @@ class ReflectionFactory extends DefaultFactory {
    *   The reflector object being used to inspect the plugin class.
    * @param string $plugin_id
    *   The identifier of the plugin implementation.
-   * @param array $plugin_definition
+   * @param mixed $plugin_definition
    *   The definition associated to the plugin_id.
    * @param array $configuration
    *   An array of configuration that may be passed to the instance.
@@ -53,7 +53,7 @@ class ReflectionFactory extends DefaultFactory {
    * @return array
    *   An array of arguments to be passed to the constructor.
    */
-  protected function getInstanceArguments(\ReflectionClass $reflector, $plugin_id, array $plugin_definition, array $configuration) {
+  protected function getInstanceArguments(\ReflectionClass $reflector, $plugin_id, $plugin_definition, array $configuration) {
 
     $arguments = array();
     foreach ($reflector->getMethod('__construct')->getParameters() as $param) {

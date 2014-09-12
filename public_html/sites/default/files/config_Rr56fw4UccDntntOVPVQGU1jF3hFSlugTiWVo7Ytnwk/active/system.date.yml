@@ -1,9 +1,0 @@
-country:
-  default: SE
-first_day: '1'
-timezone:
-  default: Europe/Stockholm
-  user:
-    configurable: 0
-    warn: 0
-    default: '0'

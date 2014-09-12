@@ -7,7 +7,7 @@
 
 namespace Drupal\Core\Field;
 
-use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\TypedData\ListDataDefinitionInterface;
 
 /**
@@ -27,20 +27,20 @@ use Drupal\Core\TypedData\ListDataDefinitionInterface;
  * It is up to the class implementing this interface to manage where the
  * information comes from. For example, field.module provides an implementation
  * based on two levels of configuration. It allows the site administrator to add
- * custom fields to any entity type and bundle via the "field_config" and
- * "field_instance_config" configuration entities. The former for storing
+ * custom fields to any entity type and bundle via the "field_storage_config"
+ * and "field_instance_config" configuration entities. The former for storing
  * configuration that is independent of which entity type and bundle the field
  * is added to, and the latter for storing configuration that is specific to the
  * entity type and bundle. The class that implements "field_instance_config"
  * configuration entities also implements this interface, returning information
- * from either itself, or from the corresponding "field_config" configuration,
- * as appropriate.
+ * from either itself, or from the corresponding "field_storage_config"
+ * configuration, as appropriate.
  *
  * However, entity base fields, such as $node->title, are not managed by
- * field.module and its "field_config"/"field_instance_config" configuration
- * entities. Therefore, their definitions are provided by different objects
- * based on the class \Drupal\Core\Field\FieldDefinition, which implements this
- * interface as well.
+ * field.module and its "field_storage_config"/"field_instance_config"
+ * configuration entities. Therefore, their definitions are provided by
+ * different objects based on the class \Drupal\Core\Field\BaseFieldDefinition,
+ * which implements this interface as well.
  *
  * Field definitions may fully define a concrete data object (e.g.,
  * $node_1->body), or may provide a best-guess definition for a data object that
@@ -53,11 +53,6 @@ use Drupal\Core\TypedData\ListDataDefinitionInterface;
  * differ from the concrete definition of any particular node's body field.
  */
 interface FieldDefinitionInterface extends ListDataDefinitionInterface {
-
-  /**
-   * Value indicating a field accepts an unlimited number of values.
-   */
-  const CARDINALITY_UNLIMITED = -1;
 
   /**
    * Returns the machine name of the field.
@@ -81,51 +76,13 @@ interface FieldDefinitionInterface extends ListDataDefinitionInterface {
   public function getType();
 
   /**
-   * Returns the field settings.
+   * Gets the bundle the field is defined for.
    *
-   * Each field type defines the settings that are meaningful for that type.
-   * For example, a text field can define a 'max_length' setting, and an image
-   * field can define a 'alt_field_required' setting.
-   *
-   * @return array
-   *   An array of key/value pairs.
+   * @return string|null
+   *   The bundle the field is defined for, or NULL if it is a base field; i.e.,
+   *   it is not bundle-specific.
    */
-  public function getSettings();
-
-  /**
-   * Returns the value of a given field setting.
-   *
-   * @param string $setting_name
-   *   The setting name.
-   *
-   * @return mixed
-   *   The setting value.
-   */
-  public function getSetting($setting_name);
-
-  /**
-   * Returns the name of the provider of this field.
-   *
-   * @return string
-   *   The provider name; e.g., the module name.
-   */
-  public function getProvider();
-
-  /**
-   * Returns whether the field is translatable.
-   *
-   * @return bool
-   *   TRUE if the field is translatable.
-   */
-  public function isTranslatable();
-
-  /**
-   * Returns whether the field is revisionable.
-   *
-   * @return bool
-   *   TRUE if the field is revisionable.
-   */
-  public function isRevisionable();
+  public function getBundle();
 
   /**
    * Returns whether the display for the field can be configured.
@@ -164,6 +121,8 @@ interface FieldDefinitionInterface extends ListDataDefinitionInterface {
    *     for the field type will be used.
    *   - settings: (array) Settings for the plugin specified above. The default
    *     settings for the plugin will be used for settings left unspecified.
+   *   - third_party_settings: (array) Settings provided by other extensions
+   *     through hook_field_formatter_third_party_settings_form().
    *   - weight: (float) The weight of the element. Not needed if 'type' is
    *     'hidden'.
    *   The defaults of the various display options above get applied by the used
@@ -172,45 +131,6 @@ interface FieldDefinitionInterface extends ListDataDefinitionInterface {
    * @see \Drupal\Core\Entity\Display\EntityDisplayInterface
    */
   public function getDisplayOptions($display_context);
-
-  /**
-   * Determines whether the field is queryable via QueryInterface.
-   *
-   * @return bool
-   *   TRUE if the field is queryable.
-   */
-  public function isQueryable();
-
-  /**
-   * Returns the human-readable label for the field.
-   *
-   * @return string
-   *   The field label.
-   */
-  public function getLabel();
-
-  /**
-   * Returns the human-readable description for the field.
-   *
-   * This is displayed in addition to the label in places where additional
-   * descriptive information is helpful. For example, as help text below the
-   * form element in entity edit forms.
-   *
-   * @return string|null
-   *   The field description, or NULL if no description is available.
-   */
-  public function getDescription();
-
-  /**
-   * Returns the maximum number of items allowed for the field.
-   *
-   * Possible values are positive integers or
-   * FieldDefinitionInterface::CARDINALITY_UNLIMITED.
-   *
-   * @return integer
-   *   The field cardinality.
-   */
-  public function getCardinality();
 
   /**
    * Returns whether at least one non-empty item is required for this field.
@@ -224,136 +144,53 @@ interface FieldDefinitionInterface extends ListDataDefinitionInterface {
   public function isRequired();
 
   /**
-   * Returns whether the field can contain multiple items.
-   *
-   * @return bool
-   *   TRUE if the field can contain multiple items, FALSE otherwise.
-   */
-  public function isMultiple();
-
-  /**
    * Returns the default value for the field in a newly created entity.
    *
-   * @param \Drupal\Core\Entity\EntityInterface $entity
-   *   The entity being created.
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The entity for which the default value is generated.
    *
    * @return mixed
    *   The default value for the field, as accepted by
-   *   Drupal\field\Plugin\Core\Entity\Field::setValue(). This can be either:
+   *   \Drupal\field\Plugin\Core\Entity\FieldItemListInterface::setValue(). This
+   *   can be either:
    *   - a literal, in which case it will be assigned to the first property of
    *     the first item.
    *   - a numerically indexed array of items, each item being a property/value
    *     array.
    *   - NULL or array() for no default value.
    */
-  public function getDefaultValue(EntityInterface $entity);
+  public function getDefaultValue(ContentEntityInterface $entity);
 
   /**
-   * Gets the definition of a contained property.
-   *
-   * @param string $name
-   *   The name of property.
-   *
-   * @return \Drupal\Core\TypedData\DataDefinitionInterface|null
-   *   The definition of the property or NULL if the property does not exist.
-   */
-  public function getPropertyDefinition($name);
-
-  /**
-   * Gets an array of property definitions of contained properties.
-   *
-   * @return \Drupal\Core\TypedData\DataDefinitionInterface[]
-   *   An array of property definitions of contained properties, keyed by
-   *   property name.
-   */
-  public function getPropertyDefinitions();
-
-  /**
-   * Returns the names of the field's subproperties.
-   *
-   * A field is a list of items, and each item can contain one or more
-   * properties. All items for a given field contain the same property names,
-   * but the values can be different for each item.
-   *
-   * For example, an email field might just contain a single 'value' property,
-   * while a link field might contain 'title' and 'url' properties, and a text
-   * field might contain 'value', 'summary', and 'format' properties.
-   *
-   * @return array
-   *   The property names.
-   */
-  public function getPropertyNames();
-
-  /**
-   * Returns the name of the main property, if any.
-   *
-   * Some field items consist mainly of one main property, e.g. the value of a
-   * text field or the @code target_id @endcode of an entity reference. If the
-   * field item has no main property, the method returns NULL.
-   *
-   * @return string|null
-   *   The name of the value property, or NULL if there is none.
-   */
-  public function getMainPropertyName();
-
-  /**
-   * Returns the ID of the type of the entity this field is attached to.
-   *
-   * This method should not be confused with EntityInterface::entityType()
-   * (configurable fields are config entities, and thus implement both
-   * interfaces):
-   *   - FieldDefinitionInterface::getTargetEntityTypeId() answers "as a field,
-   *     which entity type are you attached to?".
-   *   - EntityInterface::getEntityTypeId() answers "as a (config) entity, what
-   *     is your own entity type".
-   *
-   * @return string
-   *   The name of the entity type.
-   */
-  public function getTargetEntityTypeId();
-
-  /**
-   * Returns the field schema.
-   *
-   * Note that this method returns an empty array for computed fields which have
-   * no schema.
-   *
-   * @return array
-   *   The field schema, as an array of key/value pairs in the format returned
-   *   by hook_field_schema():
-   *   - columns: An array of Schema API column specifications, keyed by column
-   *     name. This specifies what comprises a single value for a given field.
-   *     No assumptions should be made on how storage backends internally use
-   *     the original column name to structure their storage.
-   *   - indexes: An array of Schema API index definitions. Some storage
-   *     backends might not support indexes.
-   *   - foreign keys: An array of Schema API foreign key definitions. Note,
-   *     however, that depending on the storage backend specified for the field,
-   *     the field data is not necessarily stored in SQL.
-   */
-  public function getSchema();
-
-  /**
-   * Returns the field columns, as defined in the field schema.
-   *
-   * @return array
-   *   The array of field columns, keyed by column name, in the same format
-   *   returned by getSchema().
-   *
-   * @see \Drupal\Core\Field\FieldDefinitionInterface::getSchema()
-   */
-  public function getColumns();
-
-  /**
-   * Returns the storage behavior for this field.
-   *
-   * Indicates whether the entity type's storage should take care of storing the
-   * field values or whether it is handled separately; e.g. by the
-   * module providing the field.
+   * Returns whether the field is translatable.
    *
    * @return bool
-   *   FALSE if the storage takes care of storing the field, TRUE otherwise.
+   *   TRUE if the field is translatable.
    */
-  public function hasCustomStorage();
+  public function isTranslatable();
+
+  /**
+   * Returns the field storage definition.
+   *
+   * @return \Drupal\Core\Field\FieldStorageDefinitionInterface
+   *   The field storage definition.
+   */
+  public function getFieldStorageDefinition();
+
+  /**
+   * Gets an object that can be saved in configuration.
+   *
+   * Base fields are defined in code. In order to configure field definition
+   * properties per bundle use this method to create an override that can be
+   * saved in configuration.
+   *
+   * @see \Drupal\Core\Field\Entity\BaseFieldBundleOverride
+   *
+   * @param string $bundle
+   *   The bundle to get the configurable field for.
+   *
+   * @return \Drupal\Core\Field\FieldConfigInterface
+   */
+  public function getConfig($bundle);
 
 }

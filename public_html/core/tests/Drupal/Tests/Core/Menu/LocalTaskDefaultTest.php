@@ -15,9 +15,8 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Route;
 
 /**
- * Tests the local task default class.
- *
- * @see \Drupal\Core\Menu\LocalTaskDefaultTest
+ * @coversDefaultClass \Drupal\Core\Menu\LocalTaskDefaultTest
+ * @group Menu
  */
 class LocalTaskDefaultTest extends UnitTestCase {
 
@@ -65,14 +64,6 @@ class LocalTaskDefaultTest extends UnitTestCase {
    */
   protected $routeProvider;
 
-  public static function getInfo() {
-    return array(
-      'name' => 'Local tasks default plugin.',
-      'description' => 'Tests the local task default class.',
-      'group' => 'Menu',
-    );
-  }
-
   protected function setUp() {
     parent::setUp();
 
@@ -87,7 +78,7 @@ class LocalTaskDefaultTest extends UnitTestCase {
     $this->localTaskBase = new TestLocalTaskDefault($this->config, $this->pluginId, $this->pluginDefinition);
     $this->localTaskBase
       ->setRouteProvider($this->routeProvider)
-      ->setTranslationManager($this->stringTranslation);
+      ->setStringTranslation($this->stringTranslation);
 
   }
 
@@ -233,7 +224,7 @@ class LocalTaskDefaultTest extends UnitTestCase {
    *
    * @see \Drupal\Core\Menu\LocalTaskDefault::getWeight()
    */
-  public function testGetWeight(array $plugin_definition, $plugin_id, $expected_weight) {
+  public function testGetWeight($plugin_definition, $plugin_id, $expected_weight) {
     $this->pluginDefinition = $plugin_definition;
     $this->pluginId = $plugin_id;
     $this->setupLocalTaskDefault();

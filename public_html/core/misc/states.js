@@ -428,7 +428,6 @@
     }
   };
 
-
   /**
    * A state object is used for describing the state and performing aliasing.
    */
@@ -522,12 +521,12 @@
       if (e.value) {
         var $label = $(e.target).attr({ 'required': 'required', 'aria-required': 'aria-required' }).closest('.form-item, .form-wrapper').find('label');
         // Avoids duplicate required markers on initialization.
-        if (!$label.find('.form-required').length) {
-          $label.append(Drupal.theme('requiredMarker'));
+        if (!$label.hasClass('form-required').length) {
+          $label.addClass('form-required');
         }
       }
       else {
-        $(e.target).removeAttr('required aria-required').closest('.form-item, .form-wrapper').find('label .form-required').remove();
+        $(e.target).removeAttr('required aria-required').closest('.form-item, .form-wrapper').find('label.form-required').removeClass('form-required');
       }
     }
   });
@@ -552,31 +551,30 @@
     }
   });
 
-
   /**
    * These are helper functions implementing addition "operators" and don't
    * implement any logic that is particular to states.
    */
 
-  // Bitwise AND with a third undefined state.
+  /**
+   * Bitwise AND with a third undefined state.
+   */
   function ternary(a, b) {
     return typeof a === 'undefined' ? b : (typeof b === 'undefined' ? a : a && b);
   }
 
-  // Inverts a (if it's not undefined) when invertState is true.
+  /**
+   * Inverts a (if it's not undefined) when invertState is true.
+   */
   function invert(a, invertState) {
     return (invertState && typeof a !== 'undefined') ? !a : a;
   }
 
-  // Compares two values while ignoring undefined values.
+  /**
+   * Compares two values while ignoring undefined values.
+   */
   function compare(a, b) {
     return (a === b) ? (typeof a === 'undefined' ? a : true) : (typeof a === 'undefined' || typeof b === 'undefined');
   }
-
-  $.extend(Drupal.theme, {
-    requiredMarker: function () {
-      return '<abbr class="form-required" title="' + Drupal.t('This field is required.') + '">*</abbr>';
-    }
-  });
 
 })(jQuery);

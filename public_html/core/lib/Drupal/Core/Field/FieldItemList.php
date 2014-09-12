@@ -7,11 +7,13 @@
 
 namespace Drupal\Core\Field;
 
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Language\LanguageInterface;
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\TypedData\DataDefinitionInterface;
-use Drupal\Core\TypedData\TypedDataInterface;
 use Drupal\Core\TypedData\Plugin\DataType\ItemList;
-use Drupal\Core\Language\Language;
+use Drupal\Core\TypedData\TypedDataInterface;
 
 /**
  * Represents an entity field; that is, a list of field item objects.
@@ -36,7 +38,7 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
    *
    * @var string
    */
-  protected $langcode = Language::LANGCODE_NOT_SPECIFIED;
+  protected $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;
 
   /**
    * {@inheritdoc}
@@ -186,8 +188,8 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
    * {@inheritdoc}
    */
   public function access($operation = 'view', AccountInterface $account = NULL) {
-    $access_controller = \Drupal::entityManager()->getAccessController($this->getEntity()->getEntityTypeId());
-    return $access_controller->fieldAccess($operation, $this->getFieldDefinition(), $account, $this);
+    $access_control_handler = \Drupal::entityManager()->getAccessControlHandler($this->getEntity()->getEntityTypeId());
+    return $access_control_handler->fieldAccess($operation, $this->getFieldDefinition(), $account, $this);
   }
 
   /**
@@ -202,7 +204,7 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
    * {@inheritdoc}
    */
   public function applyDefaultValue($notify = TRUE) {
-    $value = $this->getDefaultValue();
+    $value = $this->getFieldDefinition()->getDefaultValue($this->getEntity());
 
     // NULL or array() mean "no default value", but  0, '0' and the empty string
     // are valid default values.
@@ -217,23 +219,13 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
   }
 
   /**
-   * Returns the default value for the field.
-   *
-   * @return array
-   *   The default value for the field.
-   */
-  protected function getDefaultValue() {
-    return $this->getFieldDefinition()->getDefaultValue($this->getEntity());
-  }
-
-  /**
    * {@inheritdoc}
    */
   public function preSave() {
     // Filter out empty items.
     $this->filterEmptyItems();
 
-    $this->delegateMethod('presave');
+    $this->delegateMethod('preSave');
   }
 
   /**
@@ -289,13 +281,25 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
   /**
    * {@inheritdoc}
    */
+   public function generateSampleItems($count = 1) {
+    $field_definition = $this->getFieldDefinition();
+    $field_type_class = \Drupal::service('plugin.manager.field.field_type')->getPluginClass($field_definition->getType());
+    for ($delta = 0; $delta < $count; $delta++) {
+      $values[$delta] = $field_type_class::generateSampleValue($field_definition);
+    }
+    $this->setValue($values);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getConstraints() {
     $constraints = parent::getConstraints();
     // Check that the number of values doesn't exceed the field cardinality. For
     // form submitted values, this can only happen with 'multiple value'
     // widgets.
-    $cardinality = $this->getFieldDefinition()->getCardinality();
-    if ($cardinality != FieldDefinitionInterface::CARDINALITY_UNLIMITED) {
+    $cardinality = $this->getFieldDefinition()->getFieldStorageDefinition()->getCardinality();
+    if ($cardinality != FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED) {
       $constraints[] = \Drupal::typedDataManager()
         ->getValidationConstraintManager()
         ->create('Count', array(
@@ -310,7 +314,7 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
   /**
    * {@inheritdoc}
    */
-  public function defaultValuesForm(array &$form, array &$form_state) {
+  public function defaultValuesForm(array &$form, FormStateInterface $form_state) {
     if (empty($this->getFieldDefinition()->default_value_function)) {
       // Place the input in a separate place in the submitted values tree.
       $widget = $this->defaultValueWidget($form_state);
@@ -325,7 +329,7 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
   /**
    * {@inheritdoc}
    */
-  public function defaultValuesFormValidate(array $element, array &$form, array &$form_state) {
+  public function defaultValuesFormValidate(array $element, array &$form, FormStateInterface $form_state) {
     // Extract the submitted value, and validate it.
     $widget = $this->defaultValueWidget($form_state);
     $widget->extractFormValues($this, $element, $form_state);
@@ -340,7 +344,7 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
   /**
    * {@inheritdoc}
    */
-  public function defaultValuesFormSubmit(array $element, array &$form, array &$form_state) {
+  public function defaultValuesFormSubmit(array $element, array &$form, FormStateInterface $form_state) {
     // Extract the submitted value, and return it as an array.
     $widget = $this->defaultValueWidget($form_state);
     $widget->extractFormValues($this, $element, $form_state);
@@ -348,15 +352,22 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public static function processDefaultValue($default_value, ContentEntityInterface $entity, FieldDefinitionInterface $definition) {
+    return $default_value;
+  }
+
+  /**
    * Returns the widget object used in default value form.
    *
-   * @param array $form_state
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state of the (entire) configuration form.
    *
    * @return \Drupal\Core\Field\WidgetInterface
    *   A Widget object.
    */
-  protected function defaultValueWidget(array &$form_state) {
+  protected function defaultValueWidget(FormStateInterface $form_state) {
     if (!isset($form_state['default_value_widget'])) {
       $entity = $this->getEntity();
 

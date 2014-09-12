@@ -11,15 +11,13 @@ use Drupal\Core\Extension\Extension;
 use Drupal\Core\Extension\InfoParser;
 use Drupal\Core\Extension\ThemeHandler;
 use Drupal\Core\Config\ConfigInstaller;
+use Drupal\Core\KeyValueStore\KeyValueMemoryFactory;
+use Drupal\Core\State\State;
 use Drupal\Tests\UnitTestCase;
 
 /**
- * Tests the theme handler.
- *
- * @group Drupal
- * @group Theme
- *
- * @see \Drupal\Core\Extension\ThemeHandler
+ * @coversDefaultClass \Drupal\Core\Extension\ThemeHandler
+ * @group Extension
  */
 class ThemeHandlerTest extends UnitTestCase {
 
@@ -38,11 +36,11 @@ class ThemeHandlerTest extends UnitTestCase {
   protected $infoParser;
 
   /**
-   * The mocked cache backend.
+   * The mocked state backend.
    *
-   * @var \Drupal\Core\Cache\CacheBackendInterface|\PHPUnit_Framework_MockObject_MockObject
+   * @var \Drupal\Core\State\StateInterface|\PHPUnit_Framework_MockObject_MockObject
    */
-  protected $cacheBackend;
+  protected $state;
 
   /**
    * The mocked config factory.
@@ -73,6 +71,13 @@ class ThemeHandlerTest extends UnitTestCase {
   protected $extensionDiscovery;
 
   /**
+   * The CSS asset collection optimizer service.
+   *
+   * @var \Drupal\Core\Asset\AssetCollectionOptimizerInterface|\PHPUnit_Framework_MockObject_MockObject
+   */
+  protected $cssCollectionOptimizer;
+
+  /**
    * The tested theme handler.
    *
    * @var \Drupal\Core\Extension\ThemeHandler|\Drupal\Tests\Core\Extension\TestThemeHandler
@@ -82,21 +87,18 @@ class ThemeHandlerTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  public static function getInfo() {
-    return array(
-      'name' => 'Theme handler',
-      'description' => 'Tests the theme handler.',
-      'group' => 'Theme',
-    );
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   protected function setUp() {
-    $this->configFactory = $this->getConfigFactoryStub(array('system.theme' => array(), 'system.theme.disabled' => array()));
+    $this->configFactory = $this->getConfigFactoryStub(array(
+      'core.extension' => array(
+        'module' => array(),
+        'theme' => array(),
+        'disabled' => array(
+          'theme' => array(),
+        ),
+      ),
+    ));
     $this->moduleHandler = $this->getMock('Drupal\Core\Extension\ModuleHandlerInterface');
-    $this->cacheBackend = $this->getMock('Drupal\Core\Cache\CacheBackendInterface');
+    $this->state = new State(new KeyValueMemoryFactory());
     $this->infoParser = $this->getMock('Drupal\Core\Extension\InfoParserInterface');
     $this->configInstaller = $this->getMock('Drupal\Core\Config\ConfigInstallerInterface');
     $this->routeBuilder = $this->getMockBuilder('Drupal\Core\Routing\RouteBuilder')
@@ -105,131 +107,14 @@ class ThemeHandlerTest extends UnitTestCase {
     $this->extensionDiscovery = $this->getMockBuilder('Drupal\Core\Extension\ExtensionDiscovery')
       ->disableOriginalConstructor()
       ->getMock();
-    $this->themeHandler = new TestThemeHandler($this->configFactory, $this->moduleHandler, $this->cacheBackend, $this->infoParser, $this->configInstaller, $this->routeBuilder, $this->extensionDiscovery);
+    $this->cssCollectionOptimizer = $this->getMockBuilder('\Drupal\Core\Asset\CssCollectionOptimizer') //\Drupal\Core\Asset\AssetCollectionOptimizerInterface');
+      ->disableOriginalConstructor()
+      ->getMock();
+    $logger = $this->getMock('Psr\Log\LoggerInterface');
+    $this->themeHandler = new TestThemeHandler($this->configFactory, $this->moduleHandler, $this->state, $this->infoParser, $logger, $this->cssCollectionOptimizer, $this->configInstaller, $this->routeBuilder, $this->extensionDiscovery);
 
-    $this->getContainerWithCacheBins($this->cacheBackend);
-  }
-
-  /**
-   * Tests enabling a theme with a name longer than 50 chars.
-   *
-   * @expectedException \Drupal\Core\Extension\ExtensionNameLengthException
-   * @expectedExceptionMessage Theme name <em class="placeholder">thisNameIsFarTooLong0000000000000000000000000000051</em> is over the maximum allowed length of 50 characters.
-   */
-  public function testThemeEnableWithTooLongName() {
-    $this->themeHandler->enable(array('thisNameIsFarTooLong0000000000000000000000000000051'));
-  }
-
-  /**
-   * Tests enabling a single theme.
-   *
-   * @see \Drupal\Core\Extension\ThemeHandler::enable()
-   */
-  public function testEnableSingleTheme() {
-    $theme_list = array('theme_test');
-
-    $this->configFactory->get('system.theme')
-      ->expects($this->once())
-      ->method('set')
-      ->with('enabled.theme_test', 0)
-      ->will($this->returnSelf());
-    $this->configFactory->get('system.theme')
-      ->expects($this->once())
-      ->method('save');
-
-    $this->configFactory->get('system.theme.disabled')
-      ->expects($this->once())
-      ->method('clear')
-      ->with('theme_test')
-      ->will($this->returnSelf());
-    $this->configFactory->get('system.theme.disabled')
-      ->expects($this->once())
-      ->method('save');
-
-    $this->extensionDiscovery->expects($this->any())
-      ->method('scan')
-      ->will($this->returnValue(array()));
-
-    // Ensure that the themes_enabled hook is fired.
-    $this->moduleHandler->expects($this->at(0))
-      ->method('invokeAll')
-      ->with('themes_enabled', array($theme_list));
-
-    // Ensure the config installer will be called.
-    $this->configInstaller->expects($this->once())
-      ->method('installDefaultConfig')
-      ->with('theme', $theme_list[0]);
-
-    $this->themeHandler->enable($theme_list);
-
-    $this->assertTrue($this->themeHandler->clearedCssCache);
-    $this->assertTrue($this->themeHandler->registryRebuild);
-  }
-
-  /**
-   * Ensures that enabling a theme does clear the theme info listing.
-   *
-   * @see \Drupal\Core\Extension\ThemeHandler::listInfo()
-   */
-  public function testEnableAndListInfo() {
-    $this->configFactory->get('system.theme')
-      ->expects($this->exactly(2))
-      ->method('set')
-      ->will($this->returnSelf());
-
-    $this->configFactory->get('system.theme.disabled')
-      ->expects($this->exactly(2))
-      ->method('clear')
-      ->will($this->returnSelf());
-
-    $this->extensionDiscovery->expects($this->any())
-      ->method('scan')
-      ->will($this->returnValue(array()));
-
-    $this->themeHandler->enable(array('bartik'));
-    $this->themeHandler->systemList['bartik'] = new Extension('theme', DRUPAL_ROOT . '/core/themes/bartik/bartik.info.yml', 'bartik.info.yml');
-    $this->themeHandler->systemList['bartik']->info = array(
-      'stylesheets' => array(
-        'all' => array(
-          'css/layout.css',
-          'css/style.css',
-          'css/colors.css',
-        ),
-      ),
-      'libraries' => array(
-        'example/theme',
-      ),
-      'engine' => 'twig',
-      'base theme' => 'stark',
-    );
-
-    $list_info = $this->themeHandler->listInfo();
-    $this->assertCount(1, $list_info);
-
-    $this->assertEquals($this->themeHandler->systemList['bartik']->info['stylesheets'], $list_info['bartik']->stylesheets);
-    $this->assertEquals($this->themeHandler->systemList['bartik']->libraries, $list_info['bartik']->libraries);
-    $this->assertEquals('twig', $list_info['bartik']->engine);
-    $this->assertEquals('stark', $list_info['bartik']->base_theme);
-    $this->assertEquals(0, $list_info['bartik']->status);
-
-    $this->themeHandler->systemList['seven'] = new Extension('theme', DRUPAL_ROOT . '/core/themes/seven/seven.info.yml', 'seven.info.yml');
-    $this->themeHandler->systemList['seven']->info = array(
-      'stylesheets' => array(
-        'screen' => array(
-          'style.css',
-        ),
-      ),
-      'libraries' => array(),
-    );
-    $this->themeHandler->systemList['seven']->status = 1;
-
-    $this->themeHandler->enable(array('seven'));
-
-    $list_info = $this->themeHandler->listInfo();
-    $this->assertCount(2, $list_info);
-
-    $this->assertEquals($this->themeHandler->systemList['seven']->info['stylesheets'], $list_info['seven']->stylesheets);
-    $this->assertEquals(1, $list_info['seven']->status);
+    $cache_backend = $this->getMock('Drupal\Core\Cache\CacheBackendInterface');
+    $this->getContainerWithCacheBins($cache_backend);
   }
 
   /**
@@ -257,6 +142,9 @@ class ThemeHandlerTest extends UnitTestCase {
         $info_parser = new InfoParser();
         return $info_parser->parse($file);
       }));
+    $this->moduleHandler->expects($this->once())
+      ->method('buildModuleDependencies')
+      ->will($this->returnArgument(0));
 
     $this->moduleHandler->expects($this->once())
       ->method('alter');
@@ -279,10 +167,36 @@ class ThemeHandlerTest extends UnitTestCase {
     // Ensure that the css paths are set with the proper prefix.
     $this->assertEquals(array(
       'screen' => array(
-        'seven.base.css' => DRUPAL_ROOT . '/core/themes/seven/seven.base.css',
-        'style.css' => DRUPAL_ROOT . '/core/themes/seven/style.css',
+        'css/base/elements.css' => DRUPAL_ROOT . '/core/themes/seven/css/base/elements.css',
+        'css/components/admin-list.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/admin-list.css',
+        'css/components/admin-options.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/admin-options.css',
+        'css/components/admin-panel.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/admin-panel.css',
+        'css/components/block-recent-content.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/block-recent-content.css',
+        'css/components/branding.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/branding.css',
+        'css/components/breadcrumb.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/breadcrumb.css',
         'css/components/buttons.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/buttons.css',
         'css/components/buttons.theme.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/buttons.theme.css',
+        'css/components/comments.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/comments.css',
+        'css/components/console.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/console.css',
+        'css/components/dropbutton.component.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/dropbutton.component.css',
+        'css/components/entity-meta.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/entity-meta.css',
+        'css/components/field-ui.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/field-ui.css',
+        'css/components/form.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/form.css',
+        'css/components/help.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/help.css',
+        'css/components/menus-and-lists.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/menus-and-lists.css',
+        'css/components/modules-page.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/modules-page.css',
+        'css/components/node.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/node.css',
+        'css/components/page-title.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/page-title.css',
+        'css/components/pager.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/pager.css',
+        'css/components/skip-link.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/skip-link.css',
+        'css/components/tables.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/tables.css',
+        'css/components/tabs.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/tabs.css',
+        'css/components/tour.theme.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/tour.theme.css',
+        'css/components/update-status.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/update-status.css',
+        'css/components/views-ui.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/views-ui.css',
+        'css/layout/layout.css' => DRUPAL_ROOT . '/core/themes/seven/css/layout/layout.css',
+        'css/layout/node-add.css' => DRUPAL_ROOT . '/core/themes/seven/css/layout/node-add.css',
+        'css/theme/appearance-page.css' => DRUPAL_ROOT . '/core/themes/seven/css/theme/appearance-page.css',
       ),
     ), $info->info['stylesheets']);
     $this->assertEquals(DRUPAL_ROOT . '/core/themes/seven/screenshot.png', $info->info['screenshot']);
@@ -319,6 +233,9 @@ class ThemeHandlerTest extends UnitTestCase {
         $info_parser = new InfoParser();
         return $info_parser->parse($file);
       }));
+    $this->moduleHandler->expects($this->once())
+      ->method('buildModuleDependencies')
+      ->will($this->returnArgument(0));
 
     $theme_data = $this->themeHandler->rebuildThemeData();
     $this->assertCount(2, $theme_data);
@@ -478,9 +395,6 @@ if (!defined('DRUPAL_EXTENSION_NAME_MAX_LENGTH')) {
 }
 if (!defined('DRUPAL_PHP_FUNCTION_PATTERN')) {
   define('DRUPAL_PHP_FUNCTION_PATTERN', '[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*');
-}
-if (!defined('DRUPAL_ROOT')) {
-  define('DRUPAL_ROOT', dirname(dirname(substr(__DIR__, 0, -strlen(__NAMESPACE__)))));
 }
 if (!defined('DRUPAL_MINIMUM_PHP')) {
   define('DRUPAL_MINIMUM_PHP', '5.3.10');

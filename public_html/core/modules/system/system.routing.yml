@@ -187,7 +187,7 @@ system.image_toolkit_settings:
     _form: 'Drupal\system\Form\ImageToolkitForm'
     _title: 'Image toolkit'
   requirements:
-    _permission: 'access administration pages'
+    _permission: 'administer site configuration'
 
 system.site_maintenance_mode:
   path: '/admin/config/development/maintenance'
@@ -220,7 +220,7 @@ system.date_format_add:
   requirements:
     _permission: 'administer site configuration'
 
-system.date_format_edit:
+entity.date_format.edit_form:
   path: '/admin/config/regional/date-time/formats/manage/{date_format}'
   defaults:
     _entity_form: 'date_format.edit'
@@ -228,7 +228,7 @@ system.date_format_edit:
   requirements:
     _entity_access: 'date_format.update'
 
-system.date_format_delete:
+entity.date_format.delete_form:
   path: '/admin/config/regional/date-time/formats/manage/{date_format}/delete'
   defaults:
     _entity_form: 'date_format.delete'
@@ -272,7 +272,7 @@ system.theme_enable:
 system.status:
   path: '/admin/reports/status'
   defaults:
-    _content: 'Drupal\system\Controller\SystemInfoController::status'
+    _content: '\Drupal\system\Controller\SystemInfoController::status'
     _title: 'Status report'
   requirements:
     _permission: 'administer site configuration'
@@ -291,7 +291,7 @@ system.php:
 system.admin_index:
   path: '/admin/index'
   defaults:
-    _content: 'Drupal\system\Controller\AdminController::index'
+    _content: '\Drupal\system\Controller\AdminController::index'
     _title: 'Administration'
   requirements:
     _permission: 'access administration pages'
@@ -324,7 +324,7 @@ system.theme_set_default:
   path: '/admin/appearance/default'
   defaults:
     _title: 'Set as default theme'
-    _content: '\Drupal\system\Controller\SystemController::themeSetDefault'
+    _content: '\Drupal\system\Controller\ThemeController::setDefaultTheme'
   requirements:
     _permission: 'administer themes'
     _csrf_token: 'TRUE'
@@ -341,6 +341,7 @@ system.theme_settings_theme:
   path: '/admin/appearance/settings/{theme}'
   defaults:
     _form: '\Drupal\system\Form\ThemeSettingsForm'
+    _title_callback: 'theme_handler:getName'
   requirements:
     _permission: 'administer themes'
 
@@ -381,6 +382,7 @@ system.admin_config:
   path: '/admin/config'
   defaults:
     _content: '\Drupal\system\Controller\SystemController::overview'
+    link_id: 'system.admin_config'
     _title: 'Configuration'
   requirements:
     _permission: 'access administration pages'
@@ -405,5 +407,20 @@ system.batch_page.json:
   options:
     _admin_route: TRUE
 
-system.update:
-  path: '/core/update.php'
+system.db_update:
+  path: '/update.php/{op}'
+  defaults:
+    _title: 'Drupal database update'
+    _controller: '\Drupal\system\Controller\DbUpdateController::handle'
+    op: 'info'
+  requirements:
+    _access_system_update: 'TRUE'
+
+system.admin_content:
+  path: '/admin/content'
+  defaults:
+    _content: '\Drupal\system\Controller\SystemController::overview'
+    link_id: 'system.admin_content'
+    _title: 'Content'
+  requirements:
+    _permission: 'access administration pages'

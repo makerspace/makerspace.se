@@ -13,8 +13,11 @@ type: theme
 description: 'Theme for testing the theme system'
 version: VERSION
 core: 8.x
-hidden: true
 stylesheets-remove:
   - system.module.css
 settings:
   theme_test_setting: 'default value'
+regions:
+  content: Content
+  left: Left
+  right: Right

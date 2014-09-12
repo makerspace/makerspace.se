@@ -57,14 +57,21 @@ class EntityDataDefinition extends ComplexDataDefinitionBase implements EntityDa
   public function getPropertyDefinitions() {
     if (!isset($this->propertyDefinitions)) {
       if ($entity_type_id = $this->getEntityTypeId()) {
-        // @todo: Add support for handling multiple bundles.
-        // See https://drupal.org/node/2169813.
-        $bundles = $this->getBundles();
-        if (is_array($bundles) && count($bundles) == 1) {
-          $this->propertyDefinitions = \Drupal::entityManager()->getFieldDefinitions($entity_type_id, reset($bundles));
+        // Return an empty array for entity types that don't support typed data.
+        $entity_type_class = \Drupal::entityManager()->getDefinition($entity_type_id)->getClass();
+        if (!in_array('Drupal\Core\TypedData\TypedDataInterface', class_implements($entity_type_class))) {
+          $this->propertyDefinitions = array();
         }
         else {
-          $this->propertyDefinitions = \Drupal::entityManager()->getBaseFieldDefinitions($entity_type_id);
+          // @todo: Add support for handling multiple bundles.
+          // See https://drupal.org/node/2169813.
+          $bundles = $this->getBundles();
+          if (is_array($bundles) && count($bundles) == 1) {
+            $this->propertyDefinitions = \Drupal::entityManager()->getFieldDefinitions($entity_type_id, reset($bundles));
+          }
+          else {
+            $this->propertyDefinitions = \Drupal::entityManager()->getBaseFieldDefinitions($entity_type_id);
+          }
         }
       }
       else {
@@ -94,7 +101,7 @@ class EntityDataDefinition extends ComplexDataDefinitionBase implements EntityDa
    * {@inheritdoc}
    */
   public function getEntityTypeId() {
-    return $this->getConstraint('EntityType');
+    return isset($this->definition['constraints']['EntityType']) ? $this->definition['constraints']['EntityType'] : NULL;
   }
 
   /**
@@ -108,7 +115,7 @@ class EntityDataDefinition extends ComplexDataDefinitionBase implements EntityDa
    * {@inheritdoc}
    */
   public function getBundles() {
-    $bundle = $this->getConstraint('Bundle');
+    $bundle = isset($this->definition['constraints']['Bundle']) ? $this->definition['constraints']['Bundle'] : NULL;
     return is_string($bundle) ? array($bundle) : $bundle;
   }
 
@@ -121,9 +128,7 @@ class EntityDataDefinition extends ComplexDataDefinitionBase implements EntityDa
     }
     else {
       // Remove the constraint.
-      $constraints = $this->getConstraints();
-      unset($constraints['Bundle']);
-      $this->setConstraints($constraints);
+      unset($this->definition['constraints']['Bundle']);
     }
     return $this;
   }

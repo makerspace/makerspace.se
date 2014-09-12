@@ -7,18 +7,19 @@
 
 namespace Drupal\Tests\Core\Routing;
 
-use Drupal\Component\Utility\Settings;
 use Drupal\Core\PathProcessor\PathProcessorAlias;
 use Drupal\Core\PathProcessor\PathProcessorManager;
 use Drupal\Core\Routing\UrlGenerator;
+use Drupal\Core\Site\Settings;
 use Drupal\Tests\UnitTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Routing\RequestContext;
 
 /**
- * Basic tests for the Route.
+ * Confirm that the UrlGenerator is functioning properly.
  *
  * @group Routing
  */
@@ -52,15 +53,7 @@ class UrlGeneratorTest extends UnitTestCase {
    */
   protected $routeProcessorManager;
 
-  public static function getInfo() {
-    return array(
-      'name' => 'UrlGenerator',
-      'description' => 'Confirm that the UrlGenerator is functioning properly.',
-      'group' => 'Routing',
-    );
-  }
-
-  function setUp() {
+  protected function setUp() {
 
     $routes = new RouteCollection();
     $first_route = new Route('/test/one');
@@ -99,8 +92,8 @@ class UrlGeneratorTest extends UnitTestCase {
       ),
     );
     foreach ($return_map_values as $values) {
-      $route_name_return_map[] = array($values['route_name'], array(), $values['return']);
-      $routes_names_return_map[] = array(array($values['route_name']), array(), $values['return']);
+      $route_name_return_map[] = array($values['route_name'], $values['return']);
+      $routes_names_return_map[] = array(array($values['route_name']), $values['return']);
     }
     $provider->expects($this->any())
       ->method('getRouteByName')
@@ -115,13 +108,13 @@ class UrlGeneratorTest extends UnitTestCase {
       ->getMock();
 
     $alias_manager->expects($this->any())
-      ->method('getPathAlias')
+      ->method('getAliasByPath')
       ->will($this->returnCallback(array($this, 'aliasManagerCallback')));
 
     $this->aliasManager = $alias_manager;
 
     $context = new RequestContext();
-    $context->fromRequest(Request::create('/some/path'));
+    $context->fromRequest($request = Request::create('/some/path'));
 
     $processor = new PathProcessorAlias($this->aliasManager);
     $processor_manager = new PathProcessorManager();
@@ -133,22 +126,26 @@ class UrlGeneratorTest extends UnitTestCase {
 
     $config_factory_stub = $this->getConfigFactoryStub(array('system.filter' => array('protocols' => array('http', 'https'))));
 
-    $generator = new UrlGenerator($provider, $processor_manager, $this->routeProcessorManager, $config_factory_stub, new Settings(array()));
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $generator = new UrlGenerator($provider, $processor_manager, $this->routeProcessorManager, $config_factory_stub, new Settings(array()), NULL, $requestStack);
     $generator->setContext($context);
     $this->generator = $generator;
 
     // Second generator for mixed-mode sessions.
-    $generator = new UrlGenerator($provider, $processor_manager, $this->routeProcessorManager, $config_factory_stub, new Settings(array('mixed_mode_sessions' => TRUE)));
+    $generator = new UrlGenerator($provider, $processor_manager, $this->routeProcessorManager, $config_factory_stub, new Settings(array('mixed_mode_sessions' => TRUE)), NULL, $requestStack);
     $generator->setContext($context);
     $this->generatorMixedMode = $generator;
   }
 
   /**
-   * Return value callback for the getPathAlias() method on the mock alias manager.
+   * Return value callback for the getAliasByPath() method on the mock alias
+   * manager.
    *
-   * Ensures that by default the call to getPathAlias() will return the first argument
-   * that was passed in. We special-case the paths for which we wish it to return an
-   * actual alias.
+   * Ensures that by default the call to getAliasByPath() will return the first
+   * argument that was passed in. We special-case the paths for which we wish it
+   * to return an actual alias.
    *
    * @return string
    */

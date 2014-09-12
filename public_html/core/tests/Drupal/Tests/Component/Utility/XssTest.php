@@ -13,25 +13,16 @@ use Drupal\Component\Utility\Xss;
 use Drupal\Tests\UnitTestCase;
 
 /**
- * Tests the Xss utility.
+ * @coversDefaultClass \Drupal\Component\Utility\Xss
+ * @group Utility
  *
  * Script injection vectors mostly adopted from http://ha.ckers.org/xss.html.
  *
  * Relevant CVEs:
  * - CVE-2002-1806, ~CVE-2005-0682, ~CVE-2005-2106, CVE-2005-3973,
  *   CVE-2006-1226 (= rev. 1.112?), CVE-2008-0273, CVE-2008-3740.
- *
- * @see \Drupal\Component\Utility\Xss
  */
 class XssTest extends UnitTestCase {
-
-  public static function getInfo() {
-    return array(
-      'name' => 'Xss filter tests',
-      'description' => 'Confirm that Xss::filter() works as expected.',
-      'group' => 'Common',
-    );
-  }
 
   /**
    * {@inheritdoc}
@@ -68,11 +59,19 @@ class XssTest extends UnitTestCase {
    *   The expected result.
    * @param string $message
    *   The assertion message to display upon failure.
+   * @param array $allowed_tags
+   *   (optional) The allowed HTML tags to be passed to \Drupal\Component\Utility\Xss::filter().
    *
    * @dataProvider providerTestFilterXssNormalized
    */
-  public function testFilterXssNormalized($value, $expected, $message) {
-    $this->assertNormalized(Xss::filter($value), $expected, $message);
+  public function testFilterXssNormalized($value, $expected, $message, array $allowed_tags = NULL) {
+    if ($allowed_tags === NULL) {
+      $value = Xss::filter($value);
+    }
+    else {
+      $value = Xss::filter($value, $allowed_tags);
+    }
+    $this->assertNormalized($value, $expected, $message);
   }
 
   /**
@@ -85,6 +84,8 @@ class XssTest extends UnitTestCase {
    *     - The value to filter.
    *     - The value to expect after filtering.
    *     - The assertion message.
+   *     - (optional) The allowed HTML HTML tags array that should be passed to
+   *       \Drupal\Component\Utility\Xss::filter().
    */
   public function providerTestFilterXssNormalized() {
     return array(
@@ -103,6 +104,13 @@ class XssTest extends UnitTestCase {
         "who&amp;#039; online",
         'HTML filter -- double encoded html entity number',
       ),
+      // Custom elements with dashes in the tag name.
+      array(
+        "<test-element></test-element>",
+        "<test-element></test-element>",
+        'Custom element with dashes in tag name.',
+        array('test-element'),
+      ),
     );
   }
 
@@ -119,7 +127,7 @@ class XssTest extends UnitTestCase {
    * @param string $message
    *   The assertion message to display upon failure.
    * @param array $allowed_tags
-   *   (optional) The allowed HTML tags to be passed to Xss::filter().
+   *   (optional) The allowed HTML tags to be passed to \Drupal\Component\Utility\Xss::filter().
    *
    * @dataProvider providerTestFilterXssNotNormalized
    */
@@ -144,7 +152,7 @@ class XssTest extends UnitTestCase {
    *     - The value to expect that's missing after filtering.
    *     - The assertion message.
    *     - (optional) The allowed HTML HTML tags array that should be passed to
-   *       Xss::filter().
+   *       \Drupal\Component\Utility\Xss::filter().
    */
   public function providerTestFilterXssNotNormalized() {
     $cases = array(
@@ -437,9 +445,10 @@ class XssTest extends UnitTestCase {
   /**
    * Tests removing disallowed tags and XSS prevention.
    *
-   * Xss::filter() has the ability to run in blacklist mode, in which it still
-   * applies the exact same filtering, with one exception: it no longer works
-   * with a list of allowed tags, but with a list of disallowed tags.
+   * \Drupal\Component\Utility\Xss::filter() has the ability to run in blacklist
+   * mode, in which it still applies the exact same filtering, with one
+   * exception: it no longer works with a list of allowed tags, but with a list
+   * of disallowed tags.
    *
    * @param string $value
    *   The value to filter.
@@ -448,7 +457,7 @@ class XssTest extends UnitTestCase {
    * @param string $message
    *   The assertion message to display upon failure.
    * @param array $disallowed_tags
-   *   (optional) The disallowed HTML tags to be passed to Xss::filter().
+   *   (optional) The disallowed HTML tags to be passed to \Drupal\Component\Utility\Xss::filter().
    *
    * @dataProvider providerTestBlackListMode
    */
@@ -467,7 +476,7 @@ class XssTest extends UnitTestCase {
    *     - The value to filter.
    *     - The value to expect after filtering.
    *     - The assertion message.
-   *     - (optional) The disallowed HTML tags to be passed to Xss::filter().
+   *     - (optional) The disallowed HTML tags to be passed to \Drupal\Component\Utility\Xss::filter().
    */
   public function providerTestBlackListMode() {
     return array(
@@ -537,7 +546,7 @@ class XssTest extends UnitTestCase {
   }
 
   /**
-   * Checks that Xss::filterAdmin() correctly strips unallowed tags.
+   * Checks that \Drupal\Component\Utility\Xss::filterAdmin() correctly strips unallowed tags.
    */
   public function testFilterXSSAdmin() {
     $value = Xss::filterAdmin('<style /><iframe /><frame /><frameset /><meta /><link /><embed /><applet /><param /><layer />');

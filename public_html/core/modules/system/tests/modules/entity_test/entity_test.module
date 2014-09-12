@@ -6,13 +6,13 @@
  */
 
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Field\FieldItemListInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Session\AccountInterface;
-use Drupal\entity\Entity\EntityFormDisplay;
-use Drupal\field\FieldConfigInterface;
-use Drupal\field\FieldInstanceConfigInterface;
+use Drupal\Core\Entity\Entity\EntityFormDisplay;
 
 /**
  * Filter that limits test entity list to revisable ones.
@@ -82,6 +82,9 @@ function entity_test_entity_base_field_info_alter(&$fields, EntityTypeInterface 
       $fields[$name]->setTranslatable($value);
     }
   }
+  if ($entity_type->id() == 'node' && Drupal::state()->get('entity_test.node_remove_status_field')) {
+    unset($fields['status']);
+  }
 }
 
 /**
@@ -101,7 +104,7 @@ function entity_test_create_bundle($bundle, $text = NULL, $entity_type = 'entity
   $bundles += array($bundle => array('label' => $text ? $text : $bundle));
   \Drupal::state()->set($entity_type . '.bundles', $bundles);
 
-  entity_invoke_bundle_hook('create', $entity_type, $bundle);
+  \Drupal::entityManager()->onBundleCreate($entity_type, $bundle);
 }
 
 /**
@@ -110,7 +113,7 @@ function entity_test_create_bundle($bundle, $text = NULL, $entity_type = 'entity
  * @param string $bundle_old
  *   The machine-readable name of the bundle to rename.
  * @param string $bundle_new
- *   The new machine-readable name of the bundle
+ *   The new machine-readable name of the bundle.
  * @param string $entity_type
  *   (optional) The entity type for which the bundle is renamed. Defaults to
  *   'entity_test'.
@@ -121,7 +124,7 @@ function entity_test_rename_bundle($bundle_old, $bundle_new, $entity_type = 'ent
   unset($bundles[$bundle_old]);
   \Drupal::state()->set($entity_type . '.bundles', $bundles);
 
-  entity_invoke_bundle_hook('rename', $entity_type, $bundle_old, $bundle_new);
+  \Drupal::entityManager()->onBundleRename($entity_type, $bundle_old, $bundle_new);
 }
 
 /**
@@ -138,7 +141,7 @@ function entity_test_delete_bundle($bundle, $entity_type = 'entity_test') {
   unset($bundles[$bundle]);
   \Drupal::state()->set($entity_type . '.bundles', $bundles);
 
-  entity_invoke_bundle_hook('delete', $entity_type, $bundle);
+  \Drupal::entityManager()->onBundleDelete($entity_type, $bundle);
 }
 
 /**
@@ -203,7 +206,7 @@ function entity_test_entity_extra_field_info() {
     'display' => array(
       // Note: those extra fields do not currently display anything, they are
       // just used in \Drupal\entity\Tests\EntityDisplayTest to test the
-      // behavior of entity display objects,
+      // behavior of entity display objects.
       'display_extra_field' => array(
         'label' => t('Display extra field'),
         'description' => t('An extra field on the display side.'),
@@ -243,8 +246,8 @@ function entity_test_permission() {
 /**
  * Implements hook_form_BASE_FORM_ID_alter().
  */
-function entity_test_form_node_form_alter(&$form, &$form_state, $form_id) {
-  $langcode = $form_state['controller']->getFormLangcode($form_state);
+function entity_test_form_node_form_alter(&$form, FormStateInterface $form_state, $form_id) {
+  $langcode = $form_state->getFormObject()->getFormLangcode($form_state);
   \Drupal::state()->set('entity_test.form_langcode', $langcode);
 }
 
@@ -360,7 +363,7 @@ function entity_test_entity_form_display_alter(EntityFormDisplay $form_display, 
 }
 
 /**
- * Implements hook_entity_presave()
+ * Implements hook_entity_presave().
  */
 function entity_test_entity_presave(EntityInterface $entity) {
   if (isset($GLOBALS['entity_test_throw_exception'])) {
@@ -369,7 +372,7 @@ function entity_test_entity_presave(EntityInterface $entity) {
 }
 
 /**
- * Implements hook_entity_predelete()
+ * Implements hook_entity_predelete().
  */
 function entity_test_entity_predelete(EntityInterface $entity) {
   if (isset($GLOBALS['entity_test_throw_exception'])) {
@@ -419,17 +422,19 @@ function entity_test_entity_test_mul_translation_delete(EntityInterface $transla
 /**
  * Field default value callback.
  *
- * @param \Drupal\Core\Entity\EntityInterface $entity
- *   The entity the field belongs to.
- * @param \Drupal\field\FieldConfigInterface $field
- *   The field for which default values should be provided.
- * @param \Drupal\field\FieldInstanceConfigInterface $instance
- *   The field instance for which default values should be provided.
- * @param string $langcode
- *   The field language code to fill-in with the default value.
+ * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+ *   The entity being created.
+ * @param \Drupal\Core\Field\FieldDefinitionInterface $definition
+ *   The field definition.
+ *
+ * @return array
+ *   An array of default values, in the same format as the $default_value
+ *   property.
+ *
+ * @see \Drupal\field\Entity\FieldInstanceConfig::$default_value
  */
-function entity_test_field_default_value(EntityInterface $entity, FieldConfigInterface $field, FieldInstanceConfigInterface $instance, $langcode) {
-  return array(array('value' => $field->getName() . '_' . $langcode));
+function entity_test_field_default_value(ContentEntityInterface $entity, FieldDefinitionInterface $definition) {
+  return array(array('value' => $definition->getName() . '_' . $entity->language()->id));
 }
 
 /**
@@ -482,13 +487,13 @@ function entity_test_entity_test_access(EntityInterface $entity, $operation, Acc
 /**
  * Implements hook_entity_create_access().
  */
-function entity_test_entity_create_access(AccountInterface $account, $langcode) {
+function entity_test_entity_create_access(AccountInterface $account, $context, $entity_bundle) {
   \Drupal::state()->set('entity_test_entity_create_access', TRUE);
 }
 
 /**
  * Implements hook_ENTITY_TYPE_create_access().
  */
-function entity_test_entity_test_create_access(AccountInterface $account, $langcode) {
+function entity_test_entity_test_create_access(AccountInterface $account, $context, $entity_bundle) {
   \Drupal::state()->set('entity_test_entity_test_create_access', TRUE);
 }

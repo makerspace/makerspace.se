@@ -15,9 +15,8 @@ use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 
 /**
- * Tests the non admin routes preloader.
- *
- * @see \Drupal\Core\Routing\RoutePreloader
+ * @coversDefaultClass \Drupal\Core\Routing\RoutePreloader
+ * @group Routing
  */
 class RoutePreloaderTest extends UnitTestCase {
 
@@ -31,7 +30,7 @@ class RoutePreloaderTest extends UnitTestCase {
   /**
    * The mocked state.
    *
-   * @var \Drupal\Core\KeyValueStore\StateInterface|\PHPUnit_Framework_MockObject_MockObject
+   * @var \Drupal\Core\State\StateInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $state;
 
@@ -52,20 +51,9 @@ class RoutePreloaderTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  public static function getInfo() {
-    return array(
-      'name' => 'Route preloader',
-      'description' => 'Tests the non admin routes preloader.',
-      'group' => 'Routing',
-    );
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   protected function setUp() {
     $this->routeProvider = $this->getMock('Drupal\Core\Routing\RouteProviderInterface');
-    $this->state = $this->getMock('\Drupal\Core\KeyValueStore\StateInterface');
+    $this->state = $this->getMock('\Drupal\Core\State\StateInterface');
     $this->negotiation = $this->getMockBuilder('\Drupal\Core\ContentNegotiation')
       ->disableOriginalConstructor()
       ->getMock();

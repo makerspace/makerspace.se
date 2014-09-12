@@ -1,5 +1,4 @@
 #!/usr/bin/env php
-
 <?php
 
 /**
@@ -7,17 +6,20 @@
  * Command line token calculator for rebuild.php.
  */
 
-require_once __DIR__ . '/../vendor/autoload.php';
-require_once dirname(__DIR__) . '/includes/bootstrap.inc';
-
 use Drupal\Component\Utility\Crypt;
-use Drupal\Component\Utility\Settings;
+use Drupal\Core\DrupalKernel;
+use Drupal\Core\Site\Settings;
+use Symfony\Component\HttpFoundation\Request;
 
-drupal_bootstrap(DRUPAL_BOOTSTRAP_CONFIGURATION);
-
-if (!drupal_is_cli()) {
-  exit;
+if (PHP_SAPI !== 'cli') {
+  return;
 }
+
+require __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../includes/bootstrap.inc';
+
+$request = Request::createFromGlobals();
+Settings::initialize(DrupalKernel::findSitePath($request));
 
 $timestamp = time();
 $token = Crypt::hmacBase64($timestamp, Settings::get('hash_salt'));

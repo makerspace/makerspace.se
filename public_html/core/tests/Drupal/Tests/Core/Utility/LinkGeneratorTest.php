@@ -13,11 +13,8 @@ use Drupal\Core\Utility\LinkGenerator;
 use Drupal\Tests\UnitTestCase;
 
 /**
- * Tests the link generator.
- *
- * @see \Drupal\Core\Utility\LinkGenerator
- *
  * @coversDefaultClass \Drupal\Core\Utility\LinkGenerator
+ * @group Utility
  */
 class LinkGeneratorTest extends UnitTestCase {
 
@@ -52,18 +49,6 @@ class LinkGeneratorTest extends UnitTestCase {
     'set_active_class' => FALSE,
     'absolute' => FALSE,
   );
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function getInfo() {
-    return array(
-      'name' => 'Link generator',
-      'description' => 'Tests the link generator.',
-      'group' => 'Common',
-    );
-  }
-
 
   /**
    * {@inheritdoc}
@@ -121,7 +106,7 @@ class LinkGeneratorTest extends UnitTestCase {
   }
 
   /**
-   * Tests the generateFromUrl() method.
+   * Tests the generateFromUrl() method with a route.
    *
    * @covers ::generateFromUrl()
    */
@@ -145,6 +130,38 @@ class LinkGeneratorTest extends UnitTestCase {
         'href' => '/test-route-1#the-fragment',
       ),
       'content' => 'Test',
+    ), $result);
+  }
+
+  /**
+   * Tests the generateFromUrl() method with an external URL.
+   *
+   * The set_active_class option is set to TRUE to ensure this does not cause
+   * an error together with an external URL.
+   *
+   * @covers ::generateFromUrl()
+   */
+  public function testGenerateFromUrlExternal() {
+    $this->urlGenerator->expects($this->once())
+      ->method('generateFromPath')
+      ->with('http://drupal.org', array('set_active_class' => TRUE, 'external' => TRUE) + $this->defaultOptions)
+      ->will($this->returnArgument(0));
+
+    $this->moduleHandler->expects($this->once())
+      ->method('alter')
+      ->with('link', $this->isType('array'));
+
+    $url = Url::createFromPath('http://drupal.org');
+    $url->setUrlGenerator($this->urlGenerator);
+    $url->setOption('set_active_class', TRUE);
+
+    $result = $this->linkGenerator->generateFromUrl('Drupal', $url);
+    $this->assertTag(array(
+      'tag' => 'a',
+      'attributes' => array(
+        'href' => 'http://drupal.org',
+      ),
+      'content' => 'Drupal',
     ), $result);
   }
 

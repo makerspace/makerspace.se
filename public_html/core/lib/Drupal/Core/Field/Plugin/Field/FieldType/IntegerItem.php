@@ -8,6 +8,7 @@
 namespace Drupal\Core\Field\Plugin\Field\FieldType;
 
 use Drupal\Core\Field\FieldDefinitionInterface;
+use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\TypedData\DataDefinition;
 
 /**
@@ -41,13 +42,16 @@ class IntegerItem extends NumericItemBase {
       'max' => '',
       'prefix' => '',
       'suffix' => '',
+      // Valid size property values include: 'tiny', 'small', 'medium', 'normal'
+      // and 'big'.
+      'size' => 'normal',
     ) + parent::defaultInstanceSettings();
   }
 
   /**
    * {@inheritdoc}
    */
-  public static function propertyDefinitions(FieldDefinitionInterface $field_definition) {
+  public static function propertyDefinitions(FieldStorageDefinitionInterface $field_definition) {
     $properties['value'] = DataDefinition::create('integer')
       ->setLabel(t('Integer value'));
 
@@ -83,7 +87,7 @@ class IntegerItem extends NumericItemBase {
   /**
    * {@inheritdoc}
    */
-  public static function schema(FieldDefinitionInterface $field_definition) {
+  public static function schema(FieldStorageDefinitionInterface $field_definition) {
     return array(
       'columns' => array(
         'value' => array(
@@ -91,9 +95,22 @@ class IntegerItem extends NumericItemBase {
           'not null' => FALSE,
           // Expose the 'unsigned' setting in the field item schema.
           'unsigned' => $field_definition->getSetting('unsigned'),
+          // Expose the 'size' setting in the field item schema. For instance,
+          // supply 'big' as a value to produce a 'bigint' type.
+          'size' => $field_definition->getSetting('size'),
         ),
       ),
     );
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function generateSampleValue(FieldDefinitionInterface $field_definition) {
+    $min = $field_definition->getSetting('min') ?: 0;
+    $max = $field_definition->getSetting('max') ?: 999;
+    $values['value'] = mt_rand($min, $max);
+    return $values;
   }
 
 }

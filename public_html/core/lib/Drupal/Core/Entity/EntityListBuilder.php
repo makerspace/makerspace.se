@@ -8,14 +8,15 @@
 namespace Drupal\Core\Entity;
 
 use Drupal\Core\Extension\ModuleHandlerInterface;
-use Drupal\Core\StringTranslation\TranslationInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Component\Utility\String;
 
 /**
  * Defines a generic implementation to build a listing of entities.
+ *
+ * @ingroup entity_api
  */
-class EntityListBuilder extends EntityControllerBase implements EntityListBuilderInterface, EntityControllerInterface {
+class EntityListBuilder extends EntityHandlerBase implements EntityListBuilderInterface, EntityHandlerInterface {
 
   /**
    * The entity storage class.
@@ -93,6 +94,25 @@ class EntityListBuilder extends EntityControllerBase implements EntityListBuilde
    * {@inheritdoc}
    */
   public function getOperations(EntityInterface $entity) {
+    $operations = $this->getDefaultOperations($entity);
+    $operations += $this->moduleHandler()->invokeAll('entity_operation', array($entity));
+    $this->moduleHandler->alter('entity_operation', $operations, $entity);
+    uasort($operations, '\Drupal\Component\Utility\SortArray::sortByWeightElement');
+
+    return $operations;
+  }
+
+  /**
+   * Gets this list's default operations.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *   The entity the operations are for.
+   *
+   * @return array
+   *   The array structure is identical to the return value of
+   *   self::getOperations().
+   */
+  protected function getDefaultOperations(EntityInterface $entity) {
     $operations = array();
     if ($entity->access('update') && $entity->hasLinkTemplate('edit-form')) {
       $operations['edit'] = array(
@@ -151,14 +171,11 @@ class EntityListBuilder extends EntityControllerBase implements EntityListBuilde
    * @see \Drupal\Core\Entity\EntityListBuilder::buildRow()
    */
   public function buildOperations(EntityInterface $entity) {
-    // Retrieve and sort operations.
-    $operations = $this->getOperations($entity);
-    $this->moduleHandler()->alter('entity_operation', $operations, $entity);
-    uasort($operations, array('Drupal\Component\Utility\SortArray', 'sortByWeightElement'));
     $build = array(
       '#type' => 'operations',
-      '#links' => $operations,
+      '#links' => $this->getOperations($entity),
     );
+
     return $build;
   }
 
@@ -183,15 +200,6 @@ class EntityListBuilder extends EntityControllerBase implements EntityListBuilde
       }
     }
     return $build;
-  }
-
-  /**
-   * Translates a string to the current language or to a given language.
-   *
-   * See the t() documentation for details.
-   */
-  protected function t($string, array $args = array(), array $options = array()) {
-    return $this->translationManager()->translate($string, $args, $options);
   }
 
   /**

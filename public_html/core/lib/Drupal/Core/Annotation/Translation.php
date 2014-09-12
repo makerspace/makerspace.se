@@ -8,11 +8,13 @@
 namespace Drupal\Core\Annotation;
 
 use Drupal\Component\Annotation\AnnotationBase;
+use Drupal\Core\StringTranslation\TranslationWrapper;
 
 /**
- * @defgroup plugin_translatable Translatable plugin metadata
- *
+ * @defgroup plugin_translatable Annotation for translatable text
  * @{
+ * Describes how to put translatable UI text into annotations.
+ *
  * When providing plugin annotation, properties whose values are displayed in
  * the user interface should be made translatable. Much the same as how user
  * interface text elsewhere is wrapped in t() to make it translatable, in plugin
@@ -35,6 +37,9 @@ use Drupal\Component\Annotation\AnnotationBase;
  * @endcode
  * Other t() arguments like language code are not valid to pass in. Only
  * context is supported.
+ *
+ * @see i18n
+ * @see annotation
  * @}
  */
 
@@ -46,25 +51,18 @@ use Drupal\Component\Annotation\AnnotationBase;
  * specified, a context for that string. The string (with optional context)
  * is passed into t().
  *
- * @Annotation
- *
  * @ingroup plugin_translatable
+ *
+ * @Annotation
  */
 class Translation extends AnnotationBase {
 
   /**
-   * The translation of the value passed to the constructor of the class.
+   * The string translation object.
    *
-   * @var string
+   * @var \Drupal\Core\StringTranslation\TranslationWrapper
    */
   protected $translation;
-
-  /**
-   * The translation manager.
-   *
-   * @var \Drupal\Core\StringTranslation\TranslationInterface
-   */
-  protected $translationManager;
 
   /**
    * Constructs a new class instance.
@@ -88,28 +86,14 @@ class Translation extends AnnotationBase {
         'context' => $values['context'],
       );
     }
-    $this->translation = $this->getTranslationManager()->translate($string, $arguments, $options);
+    $this->translation = new TranslationWrapper($string, $arguments, $options);
   }
 
   /**
-   * Implements Drupal\Core\Annotation\AnnotationInterface::get().
+   * {@inheritdoc}
    */
   public function get() {
     return $this->translation;
-  }
-
-  /**
-   * Returns the translation manager.
-   *
-   * @return \Drupal\Core\StringTranslation\TranslationInterface
-   *   The translation manager.
-   */
-  protected function getTranslationManager() {
-    if (!$this->translationManager) {
-      $this->translationManager = \Drupal::translation();
-    }
-
-    return $this->translationManager;
   }
 
 }

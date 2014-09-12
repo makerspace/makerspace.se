@@ -50,13 +50,13 @@
  *   comment/reply/12345).
  *
  * Regions:
- * - page.header: Items for the header region.
+ * - page.page_top: Items for the header region.
  * - page.highlighted: Items for the highlighted content region.
  * - page.help: Dynamic help text, mostly for admin pages.
  * - page.content: The main content of the current page.
  * - page.sidebar_first: Items for the first sidebar.
  * - page.sidebar_second: Items for the second sidebar.
- * - page.footer: Items for the footer region.
+ * - page.page_bottom: Items for the footer region.
  *
  * @see template_preprocess_page()
  * @see seven_preprocess_page()
@@ -64,7 +64,7 @@
  */
 #}
   <header id="branding" class="clearfix">
-    <div class="branding__inner">
+    <div class="layout-container">
       {{ title_prefix }}
       {% if title %}
         <h1 class="page-title">{{ title }}</h1>
@@ -76,7 +76,7 @@
     </div>
   </header>
 
-  <div id="page">
+  <div class="layout-container">
     {% if secondary_local_tasks %}
       <div class="tabs-secondary clearfix" role="navigation">{{ secondary_local_tasks }}</div>
     {% endif %}
@@ -84,7 +84,7 @@
     {{ breadcrumb }}
 
     <main id="content" class="clearfix" role="main">
-      <div class="visually-hidden"><a id="main-content"></a></div>
+      <div class="visually-hidden"><a id="main-content" tabindex="-1"></a></div>
       {% if messages %}
         <div id="console" class="clearfix">{{ messages }}</div>
       {% endif %}
@@ -100,9 +100,10 @@
       {% endif %}
       {{ page.content }}
     </main>
-
-    <footer id="footer" role="contentinfo">
-      {{ feed_icons }}
-    </footer>
+    {% if feed_icons %}
+      <footer id="footer" role="contentinfo" class="layout-column">
+          {{ feed_icons }}
+      </footer>
+    {% endif %}
 
   </div>

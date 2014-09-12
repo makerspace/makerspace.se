@@ -7,6 +7,8 @@
 
 namespace Drupal\Core\Field;
 
+use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Access\AccessibleInterface;
 use Drupal\Core\TypedData\ListInterface;
@@ -82,7 +84,7 @@ interface FieldItemListInterface extends ListInterface, AccessibleInterface {
   /**
    * Contains the default access logic of this field.
    *
-   * See \Drupal\Core\Entity\EntityAccessControllerInterface::fieldAccess() for
+   * See \Drupal\Core\Entity\EntityAccessControlHandlerInterface::fieldAccess() for
    * the parameter documentation.
    *
    * @return bool
@@ -179,6 +181,14 @@ interface FieldItemListInterface extends ListInterface, AccessibleInterface {
    */
   public function view($display_options = array());
 
+  /*
+   * Populates a specified number of field items with valid sample data.
+   *
+   * @param int $count
+   *   The number of items to create.
+   */
+  public function generateSampleItems($count = 1);
+
   /**
    * Returns a form for the default value input.
    *
@@ -187,13 +197,13 @@ interface FieldItemListInterface extends ListInterface, AccessibleInterface {
    *
    * @param array $form
    *   The form where the settings form is being included in.
-   * @param array $form_state
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state of the (entire) configuration form.
    *
    * @return array
    *   The form definition for the field instance default value.
    */
-  public function defaultValuesForm(array &$form, array &$form_state);
+  public function defaultValuesForm(array &$form, FormStateInterface $form_state);
 
   /**
    * Validates the submitted default value.
@@ -205,10 +215,10 @@ interface FieldItemListInterface extends ListInterface, AccessibleInterface {
    *   The default value form element.
    * @param array $form
    *   The form where the settings form is being included in.
-   * @param array $form_state
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state of the (entire) configuration form.
    */
-  public function defaultValuesFormValidate(array $element, array &$form, array &$form_state);
+  public function defaultValuesFormValidate(array $element, array &$form, FormStateInterface $form_state);
 
   /**
    * Processes the submitted default value.
@@ -220,12 +230,38 @@ interface FieldItemListInterface extends ListInterface, AccessibleInterface {
    *   The default value form element.
    * @param array $form
    *   The form where the settings form is being included in.
-   * @param array $form_state
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state of the (entire) configuration form.
    *
    * @return array
    *   The field instance default value.
    */
-  public function defaultValuesFormSubmit(array $element, array &$form, array &$form_state);
+  public function defaultValuesFormSubmit(array $element, array &$form, FormStateInterface $form_state);
+
+  /**
+   * Processes the default value before being applied.
+   *
+   * Defined or configured default values of a field might need some processing
+   * in order to be a valid value for the field type; e.g., a date field could
+   * process the defined value of 'NOW' to a valid date.
+   *
+   * @param mixed
+   *   The default value as defined for the field.
+   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   *   The entity for which the default value is generated.
+   * @param \Drupal\Core\Field\FieldDefinitionInterface $definition
+   *   The definition of the field.
+   *
+   * @return mixed
+   *   The default value for the field, as accepted by
+   *   \Drupal\field\Plugin\Core\Entity\FieldItemListInterface::setValue(). This
+   *   can be either:
+   *   - a literal, in which case it will be assigned to the first property of
+   *     the first item.
+   *   - a numerically indexed array of items, each item being a property/value
+   *     array.
+   *   - NULL or array() for no default value.
+   */
+  public static function processDefaultValue($default_value, ContentEntityInterface $entity, FieldDefinitionInterface $definition);
 
 }

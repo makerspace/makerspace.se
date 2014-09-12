@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Contains \Drupal\Core\Language\LanguageDefault.
+ */
+
 namespace Drupal\Core\Language;
 
 /**
@@ -17,23 +22,24 @@ class LanguageDefault {
   /**
    * The default language.
    *
-   * @var \Drupal\Core\Language\Language
+   * @var \Drupal\Core\Language\LanguageInterface
    */
   protected $language;
 
   /**
    * Constructs the default language object.
    *
-   * @param array $default_values
+   * @param array $values
+   *   The properties used to construct the default language.
    */
-  public function __construct(array $default_values) {
-    $this->set(new Language($default_values));
+  public function __construct(array $values) {
+    $this->set(new Language($values));
   }
 
   /**
    * Gets the default language.
    *
-   * @return \Drupal\Core\Language\Language
+   * @return \Drupal\Core\Language\LanguageInterface
    *   The default language.
    */
   public function get() {
@@ -43,10 +49,10 @@ class LanguageDefault {
   /**
    * Sets the default language.
    *
-   * @param \Drupal\Core\Language\Language $language
+   * @param \Drupal\Core\Language\LanguageInterface $language
    *   The default language.
    */
-  public function set(Language $language) {
+  public function set(LanguageInterface $language) {
     $language->default = TRUE;
     $this->language = $language;
   }

@@ -10,11 +10,10 @@
  * your modifications. Failure to remove write permissions to this file is a
  * security risk.
  *
- * The configuration file to be loaded is based upon the rules below. However
- * if the multisite aliasing file named sites/sites.php is present, it will be
- * loaded, and the aliases in the array $sites will override the default
- * directory rules below. See sites/example.sites.php for more information about
- * aliases.
+ * In order to use the selection rules below the multisite aliasing file named
+ * sites/sites.php must be present. Its optional settings will be loaded, and
+ * the aliases in the array $sites will override the default directory rules
+ * below. See sites/example.sites.php for more information about aliases.
  *
  * The configuration directory will be discovered by stripping the website's
  * hostname from left to right and pathname from right to left. The first
@@ -50,6 +49,11 @@
  *
  * @see example.sites.php
  * @see conf_path()
+ *
+ * In addition to customizing application settings through variables in
+ * settings.php, you can create a services.yml file in the same directory to
+ * register custom, site-specific service definitions and/or swap out default
+ * implementations with custom ones.
  */
 
 /**
@@ -94,22 +98,23 @@
  * For each database, you may optionally specify multiple "target" databases.
  * A target database allows Drupal to try to send certain queries to a
  * different database if it can but fall back to the default connection if not.
- * That is useful for master/slave replication, as Drupal may try to connect
- * to a slave server when appropriate and if one is not available will simply
- * fall back to the single master server.
+ * That is useful for primary/replica replication, as Drupal may try to connect
+ * to a replica server when appropriate and if one is not available will simply
+ * fall back to the single primary server (The terms primary/replica are
+ * traditionally referred to as master/slave in database server documentation).
  *
  * The general format for the $databases array is as follows:
  * @code
  * $databases['default']['default'] = $info_array;
- * $databases['default']['slave'][] = $info_array;
- * $databases['default']['slave'][] = $info_array;
+ * $databases['default']['replica'][] = $info_array;
+ * $databases['default']['replica'][] = $info_array;
  * $databases['extra']['default'] = $info_array;
  * @endcode
  *
  * In the above example, $info_array is an array of settings described above.
- * The first line sets a "default" database that has one master database
+ * The first line sets a "default" database that has one primary database
  * (the second level default).  The second and third lines create an array
- * of potential slave databases.  Drupal will select one at random for a given
+ * of potential replica databases.  Drupal will select one at random for a given
  * request as needed.  The fourth line creates a new database with a name of
  * "extra".
  *
@@ -215,45 +220,26 @@
 $databases = array();
 
 /**
- * Salt for one-time login links and cancel links, form tokens, etc.
- *
- * This variable will be set to a random value by the installer. All one-time
- * login links will be invalidated if the value is changed. Note that if your
- * site is deployed on a cluster of web servers, you must ensure that this
- * variable has the same value on each server. If this variable is empty, a hash
- * of the serialized database credentials will be used as a fallback salt.
- *
- * For enhanced security, you may set this variable to a value using the
- * contents of a file outside your docroot that is never saved together
- * with any backups of your Drupal files and database.
- *
- * Example:
- *   $drupal_hash_salt = file_get_contents('/home/example/salt.txt');
- *
- */
-$drupal_hash_salt = '';
-
-/**
  * Location of the site configuration files.
  *
- * By default, Drupal configuration files are stored in a randomly named
- * directory under the default public files path. On install the
- * named directory is created in the default files directory. For enhanced
- * security, you may set this variable to a location outside your docroot.
+ * The $config_directories array specifies the location of file system
+ * directories used for configuration data. On install, "active" and "staging"
+ * directories are created for configuration. The staging directory is used for
+ * configuration imports; the active directory is not used by default, since the
+ * default storage for active configuration is the database rather than the file
+ * system (this can be changed; see "Active configuration settings" below).
  *
- * @todo Flesh this out, provide more details, etc.
+ * The default location for the active and staging directories is inside a
+ * randomly-named directory in the public files path; this setting allows you to
+ * override these locations. If you use files for the active configuration, you
+ * can enhance security by putting the active configuration outside your
+ * document root.
  *
  * Example:
  * @code
  *   $config_directories = array(
- *     CONFIG_ACTIVE_DIRECTORY => array(
- *       'path' => '/some/directory/outside/webroot',
- *       'absolute' => TRUE,
- *     ),
- *     CONFIG_STAGING_DIRECTORY => array(
- *       'path' => '/another/directory/outside/webroot',
- *       'absolute' => TRUE,
- *     ),
+ *     CONFIG_ACTIVE_DIRECTORY => '/some/directory/outside/webroot',
+ *     CONFIG_STAGING_DIRECTORY => '/another/directory/outside/webroot',
  *   );
  * @endcode
  */
@@ -262,13 +248,31 @@ $config_directories = array();
 /**
  * Settings:
  *
- * $settings contains configuration that can not be saved in the configuration
- * system because it is required too early during bootstrap like the database
- * information. It is also used for configuration that is specific for a given
- * environment like reverse proxy settings
+ * $settings contains environment-specific configuration, such as the files
+ * directory and reverse proxy address, and temporary configuration, such as
+ * turning on Twig debugging and security overrides.
  *
- * @see settings_get()
+ * @see \Drupal\Core\Site\Settings::get()
  */
+
+/**
+ * Salt for one-time login links, cancel links, form tokens, etc.
+ *
+ * This variable will be set to a random value by the installer. All one-time
+ * login links will be invalidated if the value is changed. Note that if your
+ * site is deployed on a cluster of web servers, you must ensure that this
+ * variable has the same value on each server.
+ *
+ * For enhanced security, you may set this variable to the contents of a file
+ * outside your document root; you should also ensure that this file is not
+ * stored with backups of your database.
+ *
+ * Example:
+ * @code
+ *   $settings['hash_salt'] = file_get_contents('/home/example/salt.txt');
+ * @endcode
+ */
+$settings['hash_salt'] = '';
 
 /**
  * Access control for update.php script.
@@ -282,50 +286,6 @@ $config_directories = array();
  * TRUE back to a FALSE!
  */
 $settings['update_free_access'] = FALSE;
-
-/**
- * Twig debugging:
- *
- * When debugging is enabled:
- * - The markup of each Twig template is surrounded by HTML comments that
- *   contain theming information, such as template file name suggestions.
- * - Note that this debugging markup will cause automated tests that directly
- *   check rendered HTML to fail. When running automated tests, 'twig_debug'
- *   should be set to FALSE.
- * - The dump() function can be used in Twig templates to output information
- *   about template variables.
- * - Twig templates are automatically recompiled whenever the source code
- *   changes (see twig_auto_reload below).
- *
- * For more information about debugging Twig templates, see
- * http://drupal.org/node/1906392.
- *
- * Not recommended in production environments (Default: FALSE).
- */
-# $settings['twig_debug'] = TRUE;
-
-/**
- * Twig auto-reload:
- *
- * Automatically recompile Twig templates whenever the source code changes. If
- * you don't provide a value for twig_auto_reload, it will be determined based
- * on the value of twig_debug.
- *
- * Not recommended in production environments (Default: NULL).
- */
-# $settings['twig_auto_reload'] = TRUE;
-
-/**
- * Twig cache:
- *
- * By default, Twig templates will be compiled and stored in the filesystem to
- * increase performance. Disabling the Twig cache will recompile the templates
- * from source each time they are used. In most cases the twig_auto_reload
- * setting above should be enabled rather than disabling the Twig cache.
- *
- * Not recommended in production environments (Default: TRUE).
- */
-# $settings['twig_cache'] = FALSE;
 
 /**
  * External access proxy settings:
@@ -411,17 +371,23 @@ $settings['update_free_access'] = FALSE;
 /**
  * Class Loader.
  *
- * By default, Drupal uses Composer's ClassLoader, which is best for
- * development, as it does not break when code is moved on the file
- * system. It is possible, however, to wrap the class loader with a
- * cached class loader solution for better performance, which is
+ * By default, Composer's ClassLoader is used, which is best for development, as
+ * it does not break when code is moved in the file system. You can decorate the
+ * class loader with a cached solution for better performance, which is
  * recommended for production sites.
  *
- * Examples:
- *   $settings['class_loader'] = 'apc';
- *   $settings['class_loader'] = 'default';
+ * To do so, you may decorate and replace the local $class_loader variable.
+ *
+ * For example, to use Symfony's APC class loader, uncomment the code below.
  */
-# $settings['class_loader'] = 'apc';
+/*
+if ($settings['hash_salt']) {
+  $apc_loader = new \Symfony\Component\ClassLoader\ApcClassLoader('drupal.' . $settings['hash_salt'], $class_loader);
+  $class_loader->unregister();
+  $apc_loader->register();
+  $class_loader = $apc_loader;
+}
+*/
 
 /**
  * Authorized file system operations:
@@ -456,6 +422,14 @@ $settings['update_free_access'] = FALSE;
 # $settings['mixed_mode_sessions'] = TRUE;
 
 /**
+ * Default mode for for directories and files written by Drupal.
+ *
+ * Value should be in PHP Octal Notation, with leading zero.
+ */
+# $settings['file_chmod_directory'] = 0775;
+# $settings['file_chmod_file'] = 0664;
+
+/**
  * Public file path:
  *
  * A local file system path where public files will be stored. This directory
@@ -482,7 +456,7 @@ $settings['update_free_access'] = FALSE;
  * Remove the leading hash signs to enable.
  *
  * The "en" part of the variable name, is dynamic and can be any langcode of
- * any enabled language. (eg locale_custom_strings_de for german).
+ * any added language. (eg locale_custom_strings_de for german).
  */
 # $settings['locale_custom_strings_en'][''] = array(
 #   'forum'      => 'Discussion board',
@@ -529,8 +503,8 @@ $settings['update_free_access'] = FALSE;
  * To see what PHP settings are possible, including whether they can be set at
  * runtime (by using ini_set()), read the PHP documentation:
  * http://php.net/manual/ini.list.php
- * See drupal_environment_initialize() in core/includes/bootstrap.inc for
- * required runtime settings and the .htaccess file for non-runtime settings.
+ * See \Drupal\Core\DrupalKernel::bootEnvironment() for required runtime
+ * settings and the .htaccess file for non-runtime settings.
  * Settings defined there should not be duplicated here so as to avoid conflict
  * issues.
  */
@@ -582,25 +556,34 @@ ini_set('session.cookie_lifetime', 2000000);
 # $cookie_domain = '.example.com';
 
 /**
- * Variable overrides:
+ * Active configuration settings.
  *
- * To override specific entries in the 'variable' table for this site,
+ * By default, the active configuration is stored in the database in the
+ * {config} table. To use a different storage mechanism for the active
+ * configuration, do the following prior to installing:
+ * - Override the 'bootstrap_config_storage' setting here. It must be set to a
+ *   callable that returns an object that implements
+ *   \Drupal\Core\Config\StorageInterface.
+ * - Override the service definition 'config.storage.active'. Put this
+ *   override in a services.yml file in the same directory as settings.php
+ *   (definitions in this file will override service definition defaults).
+ */
+# $settings['bootstrap_config_storage'] = array('Drupal\Core\Config\BootstrapConfigStorageFactory', 'getFileStorage');
+
+/**
+ * Configuration overrides.
+ *
+ * To globally override specific configuration values for this site,
  * set them here. You usually don't need to use this feature. This is
  * useful in a configuration file for a vhost or directory, rather than
- * the default settings.php. Any configuration setting from the 'variable'
- * table can be given a new value. Note that any values you provide in
- * these variable overrides will not be modifiable from the Drupal
- * administration interface.
+ * the default settings.php.
  *
- * The following overrides are examples:
- * - site_name: Defines the site's name.
- * - $conf['system.theme']['default']: Defines the default theme for this site.
- * - anonymous: Defines the human-readable name of anonymous users.
- * Remove the leading hash signs to enable.
+ * Note that any values you provide in these variable overrides will not be
+ * modifiable from the Drupal administration interface.
  */
-# $conf['system.site']['name'] = 'My Drupal site';
-# $conf['system.theme']['default'] = 'stark';
-# $conf['anonymous'] = 'Visitor';
+# $config['system.site']['name'] = 'My Drupal site';
+# $config['system.theme']['default'] = 'stark';
+# $config['user.settings']['anonymous'] = 'Visitor';
 
 /**
  * CSS/JS aggregated file gzip compression:
@@ -614,8 +597,8 @@ ini_set('session.cookie_lifetime', 2000000);
  * configured to cache and compress these files itself you may want to uncomment
  * one or both of the below lines, which will prevent gzip files being stored.
  */
-# $conf['system.performance']['css']['gzip'] = FALSE;
-# $conf['system.performance']['js']['gzip'] = FALSE;
+# $config['system.performance']['css']['gzip'] = FALSE;
+# $config['system.performance']['js']['gzip'] = FALSE;
 
 /**
  * Fast 404 pages:
@@ -639,20 +622,20 @@ ini_set('session.cookie_lifetime', 2000000);
  *
  * Remove the leading hash signs if you would like to alter this functionality.
  */
-#$conf['system.performance']['fast_404']['exclude_paths'] = '/\/(?:styles)\//';
-#$conf['system.performance']['fast_404']['paths'] = '/\.(?:txt|png|gif|jpe?g|css|js|ico|swf|flv|cgi|bat|pl|dll|exe|asp)$/i';
-#$conf['system.performance']['fast_404']['html'] = '<!DOCTYPE html><html><head><title>404 Not Found</title></head><body><h1>Not Found</h1><p>The requested URL "@path" was not found on this server.</p></body></html>';
+# $config['system.performance']['fast_404']['exclude_paths'] = '/\/(?:styles)\//';
+# $config['system.performance']['fast_404']['paths'] = '/\.(?:txt|png|gif|jpe?g|css|js|ico|swf|flv|cgi|bat|pl|dll|exe|asp)$/i';
+# $config['system.performance']['fast_404']['html'] = '<!DOCTYPE html><html><head><title>404 Not Found</title></head><body><h1>Not Found</h1><p>The requested URL "@path" was not found on this server.</p></body></html>';
 
 /**
  * Load local development override configuration, if available.
  *
  * Use settings.local.php to override variables on secondary (staging,
  * development, etc) installations of this site. Typically used to disable
- * caching, JavaScript/CSS compression, re-routing of outgoing e-mails, and
+ * caching, JavaScript/CSS compression, re-routing of outgoing emails, and
  * other things that should not happen on development and testing sites.
  *
  * Keep this code block at the end of this file to take full effect.
  */
-# if (file_exists(DRUPAL_ROOT . '/' . $conf_path . '/settings.local.php')) {
-#   include DRUPAL_ROOT . '/' . $conf_path . '/settings.local.php';
+# if (file_exists(__DIR__ . '/settings.local.php')) {
+#   include __DIR__ . '/settings.local.php';
 # }

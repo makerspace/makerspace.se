@@ -5,6 +5,7 @@
  * Hooks provided by Drupal core and the System module.
  */
 
+use Drupal\Component\Utility\String;
 use Drupal\Core\Utility\UpdateException;
 
 /**
@@ -168,6 +169,13 @@ function hook_queue_info_alter(&$queues) {
  *   The worker callback may throw an exception to indicate there was a problem.
  *   The cron process will log the exception, and leave the item in the queue to
  *   be processed again later.
+ * @throws \Drupal\Core\Queue\SuspendQueueException
+ *   More specifically, a SuspendQueueException should be thrown when the
+ *   callback is aware that the problem will affect all subsequent workers of
+ *   its queue. For example, a callback that makes HTTP requests may find that
+ *   the remote server is not responding. The cron process will behave as with a
+ *   normal Exception, and in addition will not attempt to process further items
+ *   from the current item's queue during the current cron run.
  *
  * @see \Drupal\Core\Cron::run()
  */
@@ -185,35 +193,16 @@ function callback_queue_worker($queue_item_data) {
  * specify their default values. The values returned by this hook will be
  * merged with the elements returned by form constructor implementations and so
  * can return defaults for any Form APIs keys in addition to those explicitly
- * mentioned below.
+ * documented by \Drupal\Core\Render\ElementInfoManagerInterface::getInfo().
  *
- * Each of the form element types defined by this hook is assumed to have
- * a matching theme function, e.g. theme_elementtype(), which should be
- * registered with hook_theme() as normal.
+ * @return array
+ *   An associative array with structure identical to that of the return value
+ *   of \Drupal\Core\Render\ElementInfoManagerInterface::getInfo().
  *
- * For more information about custom element types see the explanation at
- * http://drupal.org/node/169815.
- *
- * @return
- *  An associative array describing the element types being defined. The array
- *  contains a sub-array for each element type, with the machine-readable type
- *  name as the key. Each sub-array has a number of possible attributes:
- *  - "#input": boolean indicating whether or not this element carries a value
- *    (even if it's hidden).
- *  - "#process": array of callback functions taking $element, $form_state,
- *    and $complete_form.
- *  - "#after_build": array of callables taking $element and $form_state.
- *  - "#validate": array of callback functions taking $form and $form_state.
- *  - "#element_validate": array of callback functions taking $element and
- *    $form_state.
- *  - "#pre_render": array of callables taking $element.
- *  - "#post_render": array of callables taking $children and $element.
- *  - "#submit": array of callback functions taking $form and $form_state.
- *  - "#title_display": optional string indicating if and how #title should be
- *    displayed, see the form-element template and theme_form_element_label().
+ * @deprecated Use an annotated class instead, see
+ *   \Drupal\Core\Render\Element\ElementInterface.
  *
  * @see hook_element_info_alter()
- * @see system_element_info()
  */
 function hook_element_info() {
   $types['filter_format'] = array(
@@ -228,15 +217,16 @@ function hook_element_info() {
  * A module may implement this hook in order to alter the element type defaults
  * defined by a module.
  *
- * @param $type
- *   All element type defaults as collected by hook_element_info().
+ * @param array $types
+ *   An associative array with structure identical to that of the return value
+ *   of \Drupal\Core\Render\ElementInfoManagerInterface::getInfo().
  *
  * @see hook_element_info()
  */
-function hook_element_info_alter(&$type) {
+function hook_element_info_alter(array &$types) {
   // Decrease the default size of textfields.
-  if (isset($type['textfield']['#size'])) {
-    $type['textfield']['#size'] = 40;
+  if (isset($types['textfield']['#size'])) {
+    $types['textfield']['#size'] = 40;
   }
 }
 
@@ -311,8 +301,6 @@ function hook_library_info_alter(&$libraries, $module) {
  *
  * @param array $library
  *   The JavaScript/CSS library that is being added.
- * @param string $extension
- *   The name of the extension that registered the library.
  * @param string $name
  *   The name of the library.
  *
@@ -327,7 +315,7 @@ function hook_library_alter(array &$library, $name) {
 
     $language_interface = \Drupal::languageManager()->getCurrentLanguage();
     $settings['jquery']['ui']['datepicker'] = array(
-      'isRTL' => $language_interface->direction == Language::DIRECTION_RTL,
+      'isRTL' => $language_interface->direction == LanguageInterface::DIRECTION_RTL,
       'firstDay' => \Drupal::config('system.date')->get('first_day'),
     );
     $library['js'][] = array(
@@ -411,13 +399,13 @@ function hook_page_build(&$page) {
 }
 
 /**
- * Alter links for menus.
+ * Alters all the menu links discovered by the menu link plugin manager.
  *
  * @param array $links
  *   The link definitions to be altered.
  *
  * @return array
- *   An array of default menu links. Each link has a key that is the machine
+ *   An array of discovered menu links. Each link has a key that is the machine
  *   name, which must be unique. By default, use the route name as the
  *   machine name. In cases where multiple links use the same route name, such
  *   as two links to the same page in different menus, or two links using the
@@ -425,9 +413,10 @@ function hook_page_build(&$page) {
  *   patten is the route name followed by a dot and a unique suffix. For
  *   example, an additional logout link might have a machine name of
  *   user.logout.navigation, and default links provided to edit the article and
- *   page content types could use machine names node.type_edit.article and
- *   node.type_edit.page. Since the machine name may be arbitrary, you should
- *   never write code that assumes it is identical to the route name.
+ *   page content types could use machine names
+ *   entity.node_type.edit_form.article and entity.node_type.edit_form.page.
+ *   Since the machine name may be arbitrary, you should never write code that
+ *   assumes it is identical to the route name.
  *
  *   The value corresponding to each machine name key is an associative array
  *   that may contain the following key-value pairs:
@@ -451,8 +440,10 @@ function hook_page_build(&$page) {
  *     in the UI.
  *   - options: (optional) An array of options to be passed to l() when
  *     generating a link from this menu item.
+ *
+ * @ingroup menu
  */
-function hook_menu_link_defaults_alter(&$links) {
+function hook_menu_links_discovered_alter(&$links) {
   // Change the weight and title of the user.logout link.
   $links['user.logout']['weight'] = -10;
   $links['user.logout']['title'] = 'Logout';
@@ -525,6 +516,8 @@ function hook_menu_local_tasks(&$data, $route_name) {
  *   The route name of the page.
  *
  * @see hook_menu_local_tasks()
+ *
+ * @ingroup menu
  */
 function hook_menu_local_tasks_alter(&$data, $route_name) {
 }
@@ -537,6 +530,8 @@ function hook_menu_local_tasks_alter(&$data, $route_name) {
  *
  * @see \Drupal\Core\Menu\LocalActionInterface
  * @see \Drupal\Core\Menu\LocalActionManager
+ *
+ * @ingroup menu
  */
 function hook_menu_local_actions_alter(&$local_actions) {
 }
@@ -586,6 +581,8 @@ function hook_local_tasks_alter(&$local_tasks) {
  *   @endcode
  *
  * @see \Drupal\Core\Menu\ContextualLinkManager
+ *
+ * @ingroup menu
  */
 function hook_contextual_links_alter(array &$links, $group, array $route_parameters) {
   if ($group == 'menu') {
@@ -677,7 +674,7 @@ function hook_page_alter(&$page) {
  *
  * One popular use of this hook is to add form elements to the node form. When
  * altering a node form, the node entity can be retrieved by invoking
- * $form_state['controller']->getEntity().
+ * $form_state->getFormObject()->getEntity().
  *
  * In addition to hook_form_alter(), which is called for all forms, there are
  * two more specific form hooks available. The first,
@@ -698,9 +695,9 @@ function hook_page_alter(&$page) {
  * @param $form
  *   Nested array of form elements that comprise the form.
  * @param $form_state
- *   A keyed array containing the current state of the form. The arguments
- *   that \Drupal::formBuilder()->getForm() was originally called with are
- *   available in the array $form_state['build_info']['args'].
+ *   The current state of the form. The arguments that
+ *   \Drupal::formBuilder()->getForm() was originally called with are available
+ *   in the array $form_state['build_info']['args'].
  * @param $form_id
  *   String representing the name of the form itself. Typically this is the
  *   name of the function that generated the form.
@@ -709,7 +706,7 @@ function hook_page_alter(&$page) {
  * @see hook_form_FORM_ID_alter()
  * @see forms_api_reference.html
  */
-function hook_form_alter(&$form, &$form_state, $form_id) {
+function hook_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
   if (isset($form['type']) && $form['type']['#value'] . '_node_settings' == $form_id) {
     $upload_enabled_types = \Drupal::config('mymodule.settings')->get('upload_enabled_types');
     $form['workflow']['upload_' . $form['type']['#value']] = array(
@@ -737,19 +734,19 @@ function hook_form_alter(&$form, &$form_state, $form_id) {
  * @param $form
  *   Nested array of form elements that comprise the form.
  * @param $form_state
- *   A keyed array containing the current state of the form. The arguments
- *   that \Drupal::formBuilder()->getForm() was originally called with are
- *   available in the array $form_state['build_info']['args'].
+ *   The current state of the form. The arguments that
+ *   \Drupal::formBuilder()->getForm() was originally called with are available
+ *   in the array $form_state['build_info']['args'].
  * @param $form_id
  *   String representing the name of the form itself. Typically this is the
  *   name of the function that generated the form.
  *
  * @see hook_form_alter()
  * @see hook_form_BASE_FORM_ID_alter()
- * @see drupal_prepare_form()
+ * @see \Drupal\Core\Form\FormBuilderInterface::prepareForm()
  * @see forms_api_reference.html
  */
-function hook_form_FORM_ID_alter(&$form, &$form_state, $form_id) {
+function hook_form_FORM_ID_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
   // Modification for the form with the given form ID goes here. For example, if
   // FORM_ID is "user_register_form" this code would run only on the user
   // registration form.
@@ -785,16 +782,16 @@ function hook_form_FORM_ID_alter(&$form, &$form_state, $form_id) {
  * @param $form
  *   Nested array of form elements that comprise the form.
  * @param $form_state
- *   A keyed array containing the current state of the form.
+ *   The current state of the form.
  * @param $form_id
  *   String representing the name of the form itself. Typically this is the
  *   name of the function that generated the form.
  *
  * @see hook_form_alter()
  * @see hook_form_FORM_ID_alter()
- * @see drupal_prepare_form()
+ * @see \Drupal\Core\Form\FormBuilderInterface::prepareForm()
  */
-function hook_form_BASE_FORM_ID_alter(&$form, &$form_state, $form_id) {
+function hook_form_BASE_FORM_ID_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
   // Modification for the form with the given BASE_FORM_ID goes here. For
   // example, if BASE_FORM_ID is "node_form", this code would run on every
   // node form, regardless of node type.
@@ -909,16 +906,15 @@ function hook_module_implements_alter(&$implementations, $hook) {
  *   @code
  *     array('<a href="/">Home</a>');
  *   @endcode
- * @param array $attributes
- *   Attributes representing the current page, coming from
- *   \Drupal::request()->attributes.
+ * @param \Drupal\Core\Routing\RouteMatchInterface $route_match
+ *   The current route match.
  * @param array $context
  *   May include the following key:
  *   - builder: the instance of
  *     \Drupal\Core\Breadcrumb\BreadcrumbBuilderInterface that constructed this
  *     breadcrumb, or NULL if no builder acted based on the current attributes.
  */
-function hook_system_breadcrumb_alter(array &$breadcrumb, array $attributes, array $context) {
+function hook_system_breadcrumb_alter(array &$breadcrumb, \Drupal\Core\Routing\RouteMatchInterface $route_match, array $context) {
   // Add an item to the end of the breadcrumb.
   $breadcrumb[] = Drupal::l(t('Text'), 'example_route_name');
 }
@@ -953,7 +949,7 @@ function hook_system_info_alter(array &$info, \Drupal\Core\Extension\Extension $
  * can be selected on the user permissions page and used to grant or restrict
  * access to actions the module performs.
  *
- * Permissions are checked using user_access().
+ * Permissions are checked using \Drupal::currentUser()->hasPermission().
  *
  * For a detailed usage example, see page_example.module.
  *
@@ -971,10 +967,9 @@ function hook_system_info_alter(array &$info, \Drupal\Core\Extension\Extension $
  *     have inherent security risks across a variety of potential use cases
  *     (for example, the "administer filters" and "bypass node access"
  *     permissions provided by Drupal core). When set to TRUE, a standard
- *     warning message defined in user_admin_permissions() and output via
- *     theme_user_permission_description() will be associated with the
- *     permission and displayed with it on the permission administration page.
- *     Defaults to FALSE.
+ *     warning message defined in user_admin_permissions() will be displayed
+ *     with the permission on the permission administration page. Defaults
+ *     to FALSE.
  *   - warning: (optional) A translated warning message to display for this
  *     permission on the permission administration page. This warning overrides
  *     the automatic warning generated by 'restrict access' being set to TRUE.
@@ -983,7 +978,7 @@ function hook_system_info_alter(array &$info, \Drupal\Core\Extension\Extension $
  *     site. Use the 'description' key instead to provide any information that
  *     is specific to the permission you are defining.
  *
- * @see theme_user_permission_description()
+ * @ingroup user_api
  */
 function hook_permission() {
   return array(
@@ -992,6 +987,49 @@ function hook_permission() {
       'description' => t('Perform administration tasks for my module.'),
     ),
   );
+}
+
+/**
+ * Provide online user help.
+ *
+ * By implementing hook_help(), a module can make documentation available to
+ * the user for the module as a whole, or for specific pages. Help for
+ * developers should usually be provided via function header comments in the
+ * code, or in special API example files.
+ *
+ * The page-specific help information provided by this hook appears as a system
+ * help block on that page. The module overview help information is displayed
+ * by the Help module. It can be accessed from the page at admin/help or from
+ * the Extend page.
+ *
+ * For detailed usage examples of:
+ * - Module overview help, see content_translation_help(). Module overview
+ *   help should follow
+ *   @link https://drupal.org/node/632280 the standard help template. @endlink
+ * - Page-specific help using only routes, see book_help().
+ * - Page-specific help using routes and $request, see block_help().
+ *
+ * @param string $route_name
+ *   For page-specific help, use the route name as identified in the
+ *   module's routing.yml file. For module overview help, the route name
+ *   will be in the form of "help.page.$modulename".
+ * @param Drupal\Core\Routing\RouteMatchInterface $route_match
+ *   The current route match. This can be used to generate different help
+ *   output for different pages that share the same route.
+ *
+ * @return string
+ *   A localized string containing the help text.
+ */
+function hook_help($route_name, \Drupal\Core\Routing\RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    // Main module help for the block module.
+    case 'help.page.block':
+      return '<p>' . t('Blocks are boxes of content rendered into an area, or region, of a web page. The default theme Bartik, for example, implements the regions "Sidebar first", "Sidebar second", "Featured", "Content", "Header", "Footer", etc., and a block may appear in any one of these areas. The <a href="!blocks">blocks administration page</a> provides a drag-and-drop interface for assigning a block to a region, and for controlling the order of blocks within regions.', array('!blocks' => \Drupal::url('block.admin_display'))) . '</p>';
+
+    // Help for another path in the block module.
+    case 'block.admin_display':
+      return '<p>' . t('This page provides a drag-and-drop interface for assigning a block to a region, and for controlling the order of blocks within regions. Since not all themes implement the same regions, or display regions in the same way, blocks are positioned on a per-theme basis. Remember that your changes will not be saved until you click the <em>Save blocks</em> button at the bottom of the page.') . '</p>';
+  }
 }
 
 /**
@@ -1197,95 +1235,7 @@ function hook_theme_registry_alter(&$theme_registry) {
  * @see _template_preprocess_default_variables()
  */
 function hook_template_preprocess_default_variables_alter(&$variables) {
-  $variables['is_admin'] = user_access('access administration pages');
-}
-
-/**
- * Log an event message.
- *
- * This hook allows modules to route log events to custom destinations, such as
- * SMS, Email, pager, syslog, ...etc.
- *
- * @param array $log_entry
- *   An associative array containing the following keys:
- *   - type: The type of message for this entry.
- *   - user: The user object for the user who was logged in when the event
- *     happened.
- *   - uid: The user ID for the user who was logged in when the event happened.
- *   - request_uri: The request URI for the page the event happened in.
- *   - referer: The page that referred the user to the page where the event
- *     occurred.
- *   - ip: The IP address where the request for the page came from.
- *   - timestamp: The UNIX timestamp of the date/time the event occurred.
- *   - severity: The severity of the message; one of the following values as
- *     defined in @link http://www.faqs.org/rfcs/rfc3164.html RFC 3164: @endlink
- *     - WATCHDOG_EMERGENCY: Emergency, system is unusable.
- *     - WATCHDOG_ALERT: Alert, action must be taken immediately.
- *     - WATCHDOG_CRITICAL: Critical conditions.
- *     - WATCHDOG_ERROR: Error conditions.
- *     - WATCHDOG_WARNING: Warning conditions.
- *     - WATCHDOG_NOTICE: Normal but significant conditions.
- *     - WATCHDOG_INFO: Informational messages.
- *     - WATCHDOG_DEBUG: Debug-level messages.
- *   - link: An optional link provided by the module that called the watchdog()
- *     function.
- *   - message: The text of the message to be logged. Variables in the message
- *     are indicated by using placeholder strings alongside the variables
- *     argument to declare the value of the placeholders. See t() for
- *     documentation on how the message and variable parameters interact.
- *   - variables: An array of variables to be inserted into the message on
- *     display. Will be NULL or missing if a message is already translated or if
- *     the message is not possible to translate.
- */
-function hook_watchdog(array $log_entry) {
-  global $base_url;
-  $language_interface = \Drupal::languageManager()->getCurrentLanguage();
-
-  $severity_list = array(
-    WATCHDOG_EMERGENCY     => t('Emergency'),
-    WATCHDOG_ALERT     => t('Alert'),
-    WATCHDOG_CRITICAL     => t('Critical'),
-    WATCHDOG_ERROR       => t('Error'),
-    WATCHDOG_WARNING   => t('Warning'),
-    WATCHDOG_NOTICE    => t('Notice'),
-    WATCHDOG_INFO      => t('Info'),
-    WATCHDOG_DEBUG     => t('Debug'),
-  );
-
-  $to = 'someone@example.com';
-  $params = array();
-  $params['subject'] = t('[@site_name] @severity_desc: Alert from your web site', array(
-    '@site_name' => \Drupal::config('system.site')->get('name'),
-    '@severity_desc' => $severity_list[$log_entry['severity']],
-  ));
-
-  $params['message']  = "\nSite:         @base_url";
-  $params['message'] .= "\nSeverity:     (@severity) @severity_desc";
-  $params['message'] .= "\nTimestamp:    @timestamp";
-  $params['message'] .= "\nType:         @type";
-  $params['message'] .= "\nIP Address:   @ip";
-  $params['message'] .= "\nRequest URI:  @request_uri";
-  $params['message'] .= "\nReferrer URI: @referer_uri";
-  $params['message'] .= "\nUser:         (@uid) @name";
-  $params['message'] .= "\nLink:         @link";
-  $params['message'] .= "\nMessage:      \n\n@message";
-
-  $params['message'] = t($params['message'], array(
-    '@base_url'      => $base_url,
-    '@severity'      => $log_entry['severity'],
-    '@severity_desc' => $severity_list[$log_entry['severity']],
-    '@timestamp'     => format_date($log_entry['timestamp']),
-    '@type'          => $log_entry['type'],
-    '@ip'            => $log_entry['ip'],
-    '@request_uri'   => $log_entry['request_uri'],
-    '@referer_uri'   => $log_entry['referer'],
-    '@uid'           => $log_entry['uid'],
-    '@name'          => $log_entry['user']->name,
-    '@link'          => strip_tags($log_entry['link']),
-    '@message'       => strip_tags($log_entry['message']),
-  ));
-
-  drupal_mail('emaillog', 'entry', $to, $language_interface->id, $params);
+  $variables['is_admin'] = \Drupal::currentUser()->hasPermission('access administration pages');
 }
 
 /**
@@ -1302,7 +1252,7 @@ function hook_watchdog(array $log_entry) {
  *     or drupal_mail() for possible id values.
  *   - to: The address or addresses the message will be sent to. The
  *     formatting of this string must comply with RFC 2822.
- *   - subject: Subject of the e-mail to be sent. This must not contain any
+ *   - subject: Subject of the email to be sent. This must not contain any
  *     newline characters, or the mail may not be sent properly. drupal_mail()
  *     sets this to an empty string when the hook is invoked.
  *   - body: An array of lines containing the message to be sent. Drupal will
@@ -1343,7 +1293,7 @@ function hook_mail($key, &$message, $params) {
     $node = $params['node'];
     $variables += array(
       '%uid' => $node->getOwnerId(),
-      '%node_url' => url('node/' . $node->id(), array('absolute' => TRUE)),
+      '%url' => url('node/' . $node->id(), array('absolute' => TRUE)),
       '%node_type' => node_get_type_label($node),
       '%title' => $node->getTitle(),
       '%teaser' => $node->teaser,
@@ -1552,9 +1502,10 @@ function hook_stream_wrappers_alter(&$wrappers) {
 /**
  * Control access to private file downloads and specify HTTP headers.
  *
- * This hook allows modules enforce permissions on file downloads when the
- * private file download method is selected. Modules can also provide headers
- * to specify information like the file's name or MIME type.
+ * This hook allows modules to enforce permissions on file downloads whenever
+ * Drupal is handling file download, as opposed to the web server bypassing
+ * Drupal and returning the file from a public directory. Modules can also
+ * provide headers to specify information like the file's name or MIME type.
  *
  * @param $uri
  *   The URI of the file.
@@ -1718,7 +1669,7 @@ function hook_requirements($phase) {
     $cron_last = \Drupal::state()->get('system.cron_last');
 
     if (is_numeric($cron_last)) {
-      $requirements['cron']['value'] = t('Last run !time ago', array('!time' => format_interval(REQUEST_TIME - $cron_last)));
+      $requirements['cron']['value'] = t('Last run !time ago', array('!time' => \Drupal::service('date.formatter')->formatInterval(REQUEST_TIME - $cron_last)));
     }
     else {
       $requirements['cron'] = array(
@@ -1887,7 +1838,7 @@ function hook_query_TAG_alter(Drupal\Core\Database\Query\AlterableInterface $que
       $op = 'view';
     }
     // Skip the extra joins and conditions for node admins.
-    if (!user_access('bypass node access')) {
+    if (!\Drupal::currentUser()->hasPermission('bypass node access')) {
       // The node_access table has the access grants for any given node.
       $access_alias = $query->join('node_access', 'na', '%alias.nid = n.nid');
       $or = db_or();
@@ -1995,35 +1946,40 @@ function hook_install() {
  * this reason, caution is needed when using any API function within an update
  * function - particularly CRUD functions, functions that depend on the schema
  * (for example by using drupal_write_record()), and any functions that invoke
- * hooks. See @link update_api Update versions of API functions @endlink for
- * details.
+ * hooks.
  *
- * If your update task is potentially time-consuming, you'll need to implement a
- * multipass update to avoid PHP timeouts. Multipass updates use the $sandbox
- * parameter provided by the batch API (normally, $context['sandbox']) to store
- * information between successive calls, and the $sandbox['#finished'] value
- * to provide feedback regarding completion level.
+ * The $sandbox parameter should be used when a multipass update is needed, in
+ * circumstances where running the whole update at once could cause PHP to
+ * timeout. Each pass is run in a way that avoids PHP timeouts, provided each
+ * pass remains under the timeout limit. To signify that an update requires
+ * at least one more pass, set $sandbox['#finished'] to a number less than 1
+ * (you need to do this each pass). The value of $sandbox['#finished'] will be
+ * unset between passes but all other data in $sandbox will be preserved. The
+ * system will stop iterating this update when $sandbox['#finished'] is left
+ * unset or set to a number higher than 1. It is recommended that
+ * $sandbox['#finished'] is initially set to 0, and then updated each pass to a
+ * number between 0 and 1 that represents the overall % completed for this
+ * update, finishing with 1.
  *
- * See the batch operations page for more information on how to use the
- * @link http://drupal.org/node/180528 Batch API. @endlink
+ * See the @link batch Batch operations topic @endlink for more information on
+ * how to use the Batch API.
  *
- * @param $sandbox
+ * @param array $sandbox
  *   Stores information for multipass updates. See above for more information.
  *
- * @throws \Drupal\Core\Utility\UpdateException, PDOException
+ * @throws \Drupal\Core\Utility\UpdateException|PDOException
  *   In case of error, update hooks should throw an instance of
  *   Drupal\Core\Utility\UpdateException with a meaningful message for the user.
  *   If a database query fails for whatever reason, it will throw a
  *   PDOException.
  *
- * @return
+ * @return string|null
  *   Optionally, update hooks may return a translated string that will be
  *   displayed to the user after the update has completed. If no message is
  *   returned, no message will be presented to the user.
  *
  * @see batch
  * @see schemaapi
- * @see update_api
  * @see hook_update_last_removed()
  * @see update_get_update_list()
  */
@@ -2330,27 +2286,6 @@ function hook_install_tasks(&$install_state) {
 }
 
 /**
- * Alter XHTML HEAD tags before they are rendered by drupal_get_html_head().
- *
- * Elements available to be altered are only those added using
- * drupal_add_html_head_link() or drupal_add_html_head(). CSS and JS files
- * are handled using _drupal_add_css() and _drupal_add_js(), so the head links
- * for those files will not appear in the $head_elements array.
- *
- * @param $head_elements
- *   An array of renderable elements. Generally the values of the #attributes
- *   array will be the most likely target for changes.
- */
-function hook_html_head_alter(&$head_elements) {
-  foreach ($head_elements as $key => $element) {
-    if (isset($element['#attributes']['rel']) && $element['#attributes']['rel'] == 'canonical') {
-      // I want a custom canonical URL.
-      $head_elements[$key]['#attributes']['href'] = mymodule_canonical_url();
-    }
-  }
-}
-
-/**
  * Alter the full list of installation tasks.
  *
  * You can use this hook to change or replace any part of the Drupal
@@ -2372,16 +2307,17 @@ function hook_install_tasks_alter(&$tasks, $install_state) {
 /**
  * Alter MIME type mappings used to determine MIME type from a file extension.
  *
- * This hook is run when file_mimetype_mapping() is called. It is used to
- * allow modules to add to or modify the default mapping from
- * file_default_mimetype_mapping().
+ * Invoked by \Drupal\Core\File\MimeType\ExtensionMimeTypeGuesser::guess(). It
+ * is used to allow modules to add to or modify the default mapping from
+ * \Drupal\Core\File\MimeType\ExtensionMimeTypeGuesser::$defaultMapping.
  *
  * @param $mapping
  *   An array of mimetypes correlated to the extensions that relate to them.
  *   The array has 'mimetypes' and 'extensions' elements, each of which is an
  *   array.
  *
- * @see file_default_mimetype_mapping()
+ * @see \Drupal\Core\File\MimeType\ExtensionMimeTypeGuesser::guess()
+ * @see \Drupal\Core\File\MimeType\ExtensionMimeTypeGuesser::$defaultMapping
  */
 function hook_file_mimetype_mapping_alter(&$mapping) {
   // Add new MIME type 'drupal/info'.
@@ -2435,36 +2371,6 @@ function hook_system_themes_page_alter(&$theme_groups) {
         'href' => 'admin/appearance/foo',
         'query' => array('theme' => $theme->getName())
       );
-    }
-  }
-}
-
-/**
- * Alters outbound URLs.
- *
- * @param $path
- *   The outbound path to alter, not adjusted for path aliases yet. It won't be
- *   adjusted for path aliases until all modules are finished altering it. This
- *   may have been altered by other modules before this one.
- * @param $options
- *   A set of URL options for the URL so elements such as a fragment or a query
- *   string can be added to the URL.
- * @param $original_path
- *   The original path, before being altered by any modules.
- *
- * @see url()
- */
-function hook_url_outbound_alter(&$path, &$options, $original_path) {
-  // Use an external RSS feed rather than the Drupal one.
-  if ($path == 'rss.xml') {
-    $path = 'http://example.com/rss.xml';
-    $options['external'] = TRUE;
-  }
-
-  // Instead of pointing to user/[uid]/edit, point to user/me/edit.
-  if (preg_match('|^user/([0-9]*)/edit(/.*)?|', $path, $matches)) {
-    if (\Drupal::currentUser()->id() == $matches[1]) {
-      $path = 'user/me/edit' . $matches[2];
     }
   }
 }
@@ -2532,7 +2438,7 @@ function hook_tokens($type, $tokens, array $data = array(), array $options = arr
           break;
 
         case 'title':
-          $replacements[$original] = $sanitize ? check_plain($node->getTitle()) : $node->getTitle();
+          $replacements[$original] = $sanitize ? String::checkPlain($node->getTitle()) : $node->getTitle();
           break;
 
         case 'edit-url':
@@ -2542,7 +2448,7 @@ function hook_tokens($type, $tokens, array $data = array(), array $options = arr
         // Default values for the chained tokens handled below.
         case 'author':
           $account = $node->getOwner() ? $node->getOwner() : user_load(0);
-          $replacements[$original] = $sanitize ? check_plain($account->label()) : $account->label();
+          $replacements[$original] = $sanitize ? String::checkPlain($account->label()) : $account->label();
           break;
 
         case 'created':
@@ -2622,7 +2528,8 @@ function hook_tokens_alter(array &$replacements, array $context) {
  *   - types: An associative array of token types (groups). Each token type is
  *     an associative array with the following components:
  *     - name: The translated human-readable short name of the token type.
- *     - description: A translated longer description of the token type.
+ *     - description (optional): A translated longer description of the token
+ *       type.
  *     - needs-data: The type of data that must be provided to
  *       \Drupal\Core\Utility\Token::replace() in the $data argument (i.e., the
  *       key name in $data) in order for tokens of this type to be used in the
@@ -2638,7 +2545,7 @@ function hook_tokens_alter(array &$replacements, array $context) {
  *     tokens, each token item is keyed by the machine name of the token, and
  *     each token item has the following components:
  *     - name: The translated human-readable short name of the token.
- *     - description: A translated longer description of the token.
+ *     - description (optional): A translated longer description of the token.
  *     - type (optional): A 'needs-data' data type supplied by this token, which
  *       should match a 'needs-data' value from another token type. For example,
  *       the node author token provides a user object, which can then be used
@@ -2662,7 +2569,6 @@ function hook_token_info() {
   );
   $node['title'] = array(
     'name' => t("Title"),
-    'description' => t("The title of the node."),
   );
   $node['edit-url'] = array(
     'name' => t("Edit URL"),
@@ -2672,12 +2578,10 @@ function hook_token_info() {
   // Chained tokens for nodes.
   $node['created'] = array(
     'name' => t("Date created"),
-    'description' => t("The date the node was posted."),
     'type' => 'date',
   );
   $node['author'] = array(
     'name' => t("Author"),
-    'description' => t("The author of the node."),
     'type' => 'user',
   );
 
@@ -2909,150 +2813,60 @@ function hook_link_alter(&$variables) {
 }
 
 /**
+ * Alter the configuration synchronization steps.
+ *
+ * @param array $sync_steps
+ *   A one-dimensional array of \Drupal\Core\Config\ConfigImporter method names
+ *   or callables that are invoked to complete the import, in the order that
+ *   they will be processed. Each callable item defined in $sync_steps should
+ *   either be a global function or a public static method. The callable should
+ *   accept a $context array by reference. For example:
+ *   <code>
+ *     function _additional_configuration_step(&$context) {
+ *       // Do stuff.
+ *       // If finished set $context['finished'] = 1.
+ *     }
+ *   </code>
+ *   For more information on creating batches, see the
+ *   @link batch Batch operations @endlink documentation.
+ *
+ * @see callback_batch_operation()
+ * @see \Drupal\Core\Config\ConfigImporter::initialize()
+ */
+function hook_config_import_steps_alter(&$sync_steps, \Drupal\Core\Config\ConfigImporter $config_importer) {
+  $deletes = $config_importer->getUnprocessedConfiguration('delete');
+  if (isset($deletes['field.storage.node.body'])) {
+    $sync_steps[] = '_additional_configuration_step';
+  }
+}
+
+/**
+ * Alter config typed data definitions.
+ *
+ * For example you can alter the typed data types representing each
+ * configuration schema type to change default labels or form element renderers
+ * used for configuration translation.
+ *
+ * It is strongly advised not to use this hook to add new data types or to
+ * change the structure of existing ones. Keep in mind that there are tools
+ * that may use the configuration schema for static analysis of configuration
+ * files, like the string extractor for the localization system. Such systems
+ * won't work with dynamically defined configuration schemas.
+ *
+ * For adding new data types use configuration schema YAML files instead.
+ *
+ * @param $definitions
+ *   Associative array of configuration type definitions keyed by schema type
+ *   names. The elements are themselves array with information about the type.
+ */
+function hook_config_schema_info_alter(&$definitions) {
+  // Enhance the text and date type definitions with classes to generate proper
+  // form elements in ConfigTranslationFormBase. Other translatable types will
+  // appear as a one line textfield.
+  $definitions['text']['form_element_class'] = '\Drupal\config_translation\FormElement\Textarea';
+  $definitions['date_format']['form_element_class'] = '\Drupal\config_translation\FormElement\DateFormat';
+}
+
+/**
  * @} End of "addtogroup hooks".
- */
-
-/**
- * @defgroup update_api Update versions of API functions
- * @{
- * Functions that are similar to normal API functions, but do not invoke hooks.
- *
- * These simplified versions of core API functions are provided for use by
- * update functions (hook_update_N() implementations).
- *
- * During database updates the schema of any module could be out of date. For
- * this reason, caution is needed when using any API function within an update
- * function - particularly CRUD functions, functions that depend on the schema
- * (for example by using drupal_write_record()), and any functions that invoke
- * hooks.
- *
- * Instead, a simplified utility function should be used. If a utility version
- * of the API function you require does not already exist, then you should
- * create a new function. The new utility function should be named
- * _update_N_mymodule_my_function(). N is the schema version the function acts
- * on (the schema version is the number N from the hook_update_N()
- * implementation where this schema was introduced, or a number following the
- * same numbering scheme), and mymodule_my_function is the name of the original
- * API function including the module's name.
- *
- * Examples:
- * - _update_8001_mymodule_save(): This function performs a save operation
- *   without invoking any hooks using the original 8.x schema.
- * - _update_8002_mymodule_save(): This function performs the same save
- *   operation using an updated 8.x schema.
- *
- * The utility function should not invoke any hooks, and should perform database
- * operations using functions from the
- * @link database Database abstraction layer, @endlink
- * like db_insert(), db_update(), db_delete(), db_query(), and so on.
- *
- * If a change to the schema necessitates a change to the utility function, a
- * new function should be created with a name based on the version of the schema
- * it acts on. See _update_8002_bar_get_types() and _update_8003_bar_get_types()
- * in the code examples that follow.
- *
- * For example, foo.install could contain:
- * @code
- * function foo_update_dependencies() {
- *   // foo_update_8010() needs to run after bar_update_8002().
- *   $dependencies['foo'][8010] = array(
- *     'bar' => 8002,
- *   );
- *
- *   // foo_update_8036() needs to run after bar_update_8003().
- *   $dependencies['foo'][8036] = array(
- *     'bar' => 8003,
- *   );
- *
- *   return $dependencies;
- * }
- *
- * function foo_update_8002() {
- *   // No updates have been run on the {bar_types} table yet, so this needs
- *   // to work with the original 8.x schema.
- *   foreach (_update_8001_bar_get_types() as $type) {
- *     // Rename a variable.
- *   }
- * }
- *
- * function foo_update_8010() {
- *    // Since foo_update_8010() is going to run after bar_update_8002(), it
- *    // needs to operate on the new schema, not the old one.
- *    foreach (_update_8002_bar_get_types() as $type) {
- *      // Rename a different variable.
- *    }
- * }
- *
- * function foo_update_8036() {
- *   // This update will run after bar_update_8003().
- *   foreach (_update_8003_bar_get_types() as $type) {
- *   }
- * }
- * @endcode
- *
- * And bar.install could contain:
- * @code
- * function bar_update_8002() {
- *   // Type and bundle are confusing, so we renamed the table.
- *   db_rename_table('bar_types', 'bar_bundles');
- * }
- *
- * function bar_update_8003() {
- *   // Database table names should be singular when possible.
- *   db_rename_table('bar_bundles', 'bar_bundle');
- * }
- *
- * function _update_8001_bar_get_types() {
- *   db_query('SELECT * FROM {bar_types}')->fetchAll();
- * }
- *
- * function _update_8002_bar_get_types() {
- *   db_query('SELECT * FROM {bar_bundles'})->fetchAll();
- * }
- *
- * function _update_8003_bar_get_types() {
- *   db_query('SELECT * FROM {bar_bundle}')->fetchAll();
- * }
- * @endcode
- *
- * @see hook_update_N()
- * @see hook_update_dependencies()
- */
-
-/**
- * @} End of "defgroup update_api".
- */
-
-/**
- * @defgroup annotation Annotations
- * @{
- * Annotations for class discovery and metadata description.
- *
- * The Drupal plugin system has a set of reusable components that developers
- * can use, override, and extend in their modules. Most of the plugins use
- * annotations, which let classes register themselves as plugins and describe
- * their metadata. (Annotations can also be used for other purposes, though
- * at the moment, Drupal only uses them for the plugin system.)
- *
- * To annotate a class as a plugin, add code similar to the following to the
- * end of the documentation block immediately preceding the class declaration:
- * @code
- * * @ContentEntityType(
- * *   id = "comment",
- * *   label = @Translation("Comment"),
- * *   ...
- * *   base_table = "comment"
- * * )
- * @endcode
- *
- * Note that you must use double quotes; single quotes will not work in
- * annotations.
- *
- * The available annotation classes are listed in this topic, and can be
- * identified when you are looking at the Drupal source code by having
- * "@ Annotation" in their documentation blocks (without the space after @). To
- * find examples of annotation for a particular annotation class, such as
- * EntityType, look for class files that have an @ annotation section using the
- * annotation class.
- * @}
  */

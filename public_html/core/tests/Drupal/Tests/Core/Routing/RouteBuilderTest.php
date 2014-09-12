@@ -17,12 +17,8 @@ use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 
 /**
- * Tests the route builder.
- *
- * @group Drupal
+ * @coversDefaultClass \Drupal\Core\Routing\RouteBuilder
  * @group Routing
- *
- * @see \Drupal\Core\Routing\RouteBuilder
  */
 class RouteBuilderTest extends UnitTestCase {
 
@@ -78,17 +74,9 @@ class RouteBuilderTest extends UnitTestCase {
   /**
    * The key value store.
    *
-   * @var \Drupal\Core\KeyValueStore\StateInterface|\PHPUnit_Framework_MockObject_MockObject
+   * @var \Drupal\Core\State\StateInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $state;
-
-  public static function getInfo() {
-    return array(
-      'name' => 'Route Builder',
-      'description' => 'Tests the route builder.',
-      'group' => 'Routing',
-    );
-  }
 
   protected function setUp() {
     $this->dumper = $this->getMock('Drupal\Core\Routing\MatcherDumperInterface');
@@ -99,7 +87,7 @@ class RouteBuilderTest extends UnitTestCase {
     $this->yamlDiscovery = $this->getMockBuilder('\Drupal\Component\Discovery\YamlDiscovery')
       ->disableOriginalConstructor()
       ->getMock();
-    $this->state = $this->getMock('\Drupal\Core\KeyValueStore\StateInterface');
+    $this->state = $this->getMock('\Drupal\Core\State\StateInterface');
 
     $this->routeBuilder = new TestRouteBuilder($this->dumper, $this->lock, $this->dispatcher, $this->moduleHandler, $this->controllerResolver, $this->state);
     $this->routeBuilder->setYamlDiscovery($this->yamlDiscovery);
@@ -169,15 +157,14 @@ class RouteBuilderTest extends UnitTestCase {
       ->method('findAll')
       ->will($this->returnValue(array('test_module' => $routes)));
 
-    // Ensure that the dispatch events for altering are fired.
-    $this->dispatcher->expects($this->at(0))
-      ->method('dispatch')
-      ->with($this->equalTo(RoutingEvents::ALTER), $this->isInstanceOf('Drupal\Core\Routing\RouteBuildEvent'));
-
-    $empty_collection = new RouteCollection();
-    $route_build_event = new RouteBuildEvent($empty_collection, 'dynamic_routes');
+    $route_collection = $routing_fixtures->sampleRouteCollection();
+    $route_build_event = new RouteBuildEvent($route_collection);
 
     // Ensure that the alter routes events are fired.
+    $this->dispatcher->expects($this->at(0))
+      ->method('dispatch')
+      ->with(RoutingEvents::DYNAMIC, $route_build_event);
+
     $this->dispatcher->expects($this->at(1))
       ->method('dispatch')
       ->with(RoutingEvents::ALTER, $route_build_event);
@@ -185,16 +172,10 @@ class RouteBuilderTest extends UnitTestCase {
     // Ensure that the routes are set to the dumper and dumped.
     $this->dumper->expects($this->at(0))
       ->method('addRoutes')
-      ->with($routing_fixtures->sampleRouteCollection());
+      ->with($route_collection);
     $this->dumper->expects($this->at(1))
       ->method('dump')
-      ->with(array('provider' => 'test_module'));
-    $this->dumper->expects($this->at(2))
-      ->method('addRoutes')
-      ->with($empty_collection);
-    $this->dumper->expects($this->at(3))
-      ->method('dump')
-      ->with(array('provider' => 'dynamic_routes'));
+      ->with();
 
     $this->assertTrue($this->routeBuilder->rebuild());
   }
@@ -242,15 +223,13 @@ class RouteBuilderTest extends UnitTestCase {
     $route_collection_filled->add('test_route.1', new Route('/test-route/1'));
     $route_collection_filled->add('test_route.2', new Route('/test-route/2'));
 
-    // Ensure that the dispatch events for altering are fired.
-    $this->dispatcher->expects($this->at(0))
-      ->method('dispatch')
-      ->with($this->equalTo(RoutingEvents::ALTER), $this->isInstanceOf('Drupal\Core\Routing\RouteBuildEvent'));
-
-    $empty_collection = new RouteCollection();
-    $route_build_event = new RouteBuildEvent($empty_collection, 'dynamic_routes');
+    $route_build_event = new RouteBuildEvent($route_collection_filled);
 
     // Ensure that the alter routes events are fired.
+    $this->dispatcher->expects($this->at(0))
+      ->method('dispatch')
+      ->with(RoutingEvents::DYNAMIC, $route_build_event);
+
     $this->dispatcher->expects($this->at(1))
       ->method('dispatch')
       ->with(RoutingEvents::ALTER, $route_build_event);
@@ -260,8 +239,7 @@ class RouteBuilderTest extends UnitTestCase {
       ->method('addRoutes')
       ->with($route_collection_filled);
     $this->dumper->expects($this->at(1))
-      ->method('dump')
-      ->with(array('provider' => 'test_module'));
+      ->method('dump');
 
     $this->assertTrue($this->routeBuilder->rebuild());
   }

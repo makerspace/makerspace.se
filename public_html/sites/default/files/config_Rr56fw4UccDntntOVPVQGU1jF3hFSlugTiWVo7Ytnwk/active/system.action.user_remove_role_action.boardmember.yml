@@ -1,9 +1,0 @@
-id: user_remove_role_action.boardmember
-label: 'Remove the Board member role from the selected users'
-uuid: 632e660b-d8f5-4602-8500-aec10aab7b73
-status: true
-langcode: sv
-type: user
-plugin: user_remove_role_action
-configuration:
-  rid: boardmember

@@ -7,9 +7,9 @@
 
 namespace Drupal\Core\Field\Plugin\Field\FieldType;
 
-use Drupal\Core\Field\FieldDefinitionInterface;
+use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\Field\FieldItemBase;
-use Drupal\Core\Language\Language;
+use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\TypedData\DataDefinition;
 use Drupal\Core\TypedData\DataReferenceDefinition;
 
@@ -33,7 +33,7 @@ class LanguageItem extends FieldItemBase {
   /**
    * {@inheritdoc}
    */
-  public static function propertyDefinitions(FieldDefinitionInterface $field_definition) {
+  public static function propertyDefinitions(FieldStorageDefinitionInterface $field_definition) {
     $properties['value'] = DataDefinition::create('string')
       ->setLabel(t('Language code'));
 
@@ -50,7 +50,7 @@ class LanguageItem extends FieldItemBase {
   /**
    * {@inheritdoc}
    */
-  public static function schema(FieldDefinitionInterface $field_definition) {
+  public static function schema(FieldStorageDefinitionInterface $field_definition) {
     return array(
       'columns' => array(
         'value' => array(
@@ -91,8 +91,9 @@ class LanguageItem extends FieldItemBase {
    * {@inheritdoc}
    */
   public function applyDefaultValue($notify = TRUE) {
-    // Default to LANGCODE_NOT_SPECIFIED.
-    $this->setValue(array('value' => Language::LANGCODE_NOT_SPECIFIED), $notify);
+    // Default to the site's default language. When language module is enabled,
+    // this behavior is configurable, see language_field_info_alter().
+    $this->setValue(array('value' => \Drupal::languageManager()->getDefaultLanguage()->getId()), $notify);
     return $this;
   }
 

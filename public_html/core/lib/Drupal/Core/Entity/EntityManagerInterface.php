@@ -12,15 +12,19 @@ use Drupal\Component\Plugin\PluginManagerInterface;
 /**
  * Provides an interface for entity type managers.
  */
-interface EntityManagerInterface extends PluginManagerInterface {
+interface EntityManagerInterface extends PluginManagerInterface, EntityTypeListenerInterface {
 
   /**
    * Builds a list of entity type labels suitable for a Form API options list.
    *
+   * @param bool $group
+   *   (optional) Whether to group entity types by plugin group (e.g. 'content',
+   *   'config'). Defaults to FALSE.
+   *
    * @return array
    *   An array of entity type labels, keyed by entity type name.
    */
-  public function getEntityTypeLabels();
+  public function getEntityTypeLabels($group = FALSE);
 
   /**
    * Gets the base field definitions for a content entity type.
@@ -57,31 +61,60 @@ interface EntityManagerInterface extends PluginManagerInterface {
   public function getFieldDefinitions($entity_type_id, $bundle);
 
   /**
-   * Creates a new access controller instance.
+   * Gets the field storage definitions for a content entity type.
    *
-   * @param string $entity_type
-   *   The entity type for this access controller.
-   *
-   * @return \Drupal\Core\Entity\EntityAccessControllerInterface.
-   *   A access controller instance.
-   */
-  public function getAccessController($entity_type);
-
-  /**
-   * Returns the route information for an entity type's bundle.
+   * This returns all field storage definitions for base fields and bundle
+   * fields of an entity type. Note that field storage definitions of a base
+   * field equal the full base field definition (i.e. they implement
+   * FieldDefinitionInterface), while the storage definitions for bundle fields
+   * may implement FieldStorageDefinitionInterface only.
    *
    * @param string $entity_type_id
-   *   The entity type.
-   * @param string $bundle
-   *   The name of the bundle.
+   *   The entity type ID. Only content entities are supported.
+   *
+   * @return \Drupal\Core\Field\FieldStorageDefinitionInterface[]
+   *   The array of field storage definitions for the entity type, keyed by
+   *   field name.
+   *
+   * @see \Drupal\Core\Field\FieldStorageDefinitionInterface
+   */
+  public function getFieldStorageDefinitions($entity_type_id);
+
+  /**
+   * Returns a lightweight map of fields across bundles.
    *
    * @return array
-   *   An associative array with the following keys:
-   *   - route_name: The name of the route.
-   *   - route_parameters: (optional) An associative array of parameter names
-   *     and values.
+   *   An array keyed by entity type. Each value is an array which keys are
+   *   field names and value is an array with two entries:
+   *   - type: The field type.
+   *   - bundles: The bundles in which the field appears.
    */
-  public function getAdminRouteInfo($entity_type_id, $bundle);
+  public function getFieldMap();
+
+  /**
+   * Returns a lightweight map of fields across bundles filtered by field type.
+   *
+   * @param string $field_type
+   *   The field type to filter by.
+   *
+   * @return array
+   *   An array keyed by entity type. Each value is an array which keys are
+   *   field names and value is an array with two entries:
+   *   - type: The field type.
+   *   - bundles: The bundles in which the field appears.
+   */
+  public function getFieldMapByFieldType($field_type);
+
+  /**
+   * Creates a new access control handler instance.
+   *
+   * @param string $entity_type
+   *   The entity type for this access control handler.
+   *
+   * @return \Drupal\Core\Entity\EntityAccessControlHandlerInterface.
+   *   A access control handler instance.
+   */
+  public function getAccessControlHandler($entity_type);
 
   /**
    * Creates a new storage instance.
@@ -91,6 +124,8 @@ interface EntityManagerInterface extends PluginManagerInterface {
    *
    * @return \Drupal\Core\Entity\EntityStorageInterface
    *   A storage instance.
+   *
+   * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
    */
   public function getStorage($entity_type);
 
@@ -108,13 +143,23 @@ interface EntityManagerInterface extends PluginManagerInterface {
   public function clearCachedDefinitions();
 
   /**
+   * Clears static and persistent field definition caches.
+   */
+  public function clearCachedFieldDefinitions();
+
+  /**
+   * Clears static and persistent bundles.
+   */
+  public function clearCachedBundles();
+
+  /**
    * Creates a new view builder instance.
    *
    * @param string $entity_type
    *   The entity type for this view builder.
    *
    * @return \Drupal\Core\Entity\EntityViewBuilderInterface.
-   *   A render controller instance.
+   *   A view builder instance.
    */
   public function getViewBuilder($entity_type);
 
@@ -130,50 +175,45 @@ interface EntityManagerInterface extends PluginManagerInterface {
   public function getListBuilder($entity_type);
 
   /**
-   * Creates a new form controller instance.
+   * Creates a new form instance.
    *
    * @param string $entity_type
-   *   The entity type for this form controller.
+   *   The entity type for this form.
    * @param string $operation
    *   The name of the operation to use, e.g., 'default'.
    *
-   * @return \Drupal\Core\Entity\EntityFormControllerInterface
-   *   A form controller instance.
+   * @return \Drupal\Core\Entity\EntityFormInterface
+   *   A form instance.
    */
-  public function getFormController($entity_type, $operation);
+  public function getFormObject($entity_type, $operation);
 
   /**
-   * Clears static and persistent field definition caches.
-   */
-  public function clearCachedFieldDefinitions();
-
-  /**
-   * Checks whether a certain entity type has a certain controller.
+   * Checks whether a certain entity type has a certain handler.
    *
    * @param string $entity_type
    *   The name of the entity type.
-   * @param string $controller_type
-   *   The name of the controller.
+   * @param string $handler_type
+   *   The name of the handler.
    *
    * @return bool
-   *   Returns TRUE if the entity type has the controller, else FALSE.
+   *   Returns TRUE if the entity type has the handler, else FALSE.
    */
-  public function hasController($entity_type, $controller_type);
+  public function hasHandler($entity_type, $handler_type);
 
   /**
-   * Creates a new controller instance.
+   * Creates a new handler instance.
    *
    * @param string $entity_type
    *   The entity type for this controller.
-   * @param string $controller_type
+   * @param string $handler_type
    *   The controller type to create an instance for.
    *
    * @return mixed
-   *   A controller instance.
+   *   A handler instance.
    *
    * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
    */
-  public function getController($entity_type, $controller_type);
+  public function getHandler($entity_type, $handler_type);
 
   /**
    * Get the bundle info of an entity type.
@@ -234,33 +274,21 @@ interface EntityManagerInterface extends PluginManagerInterface {
    * @return \Drupal\Core\Entity\EntityInterface
    *   An entity object for the translated data.
    *
-   * @see \Drupal\Core\Language\LanguageManager::getFallbackCandidates()
+   * @see \Drupal\Core\Language\LanguageManagerInterface::getFallbackCandidates()
    */
   public function getTranslationFromContext(EntityInterface $entity, $langcode = NULL, $context = array());
 
   /**
-   * Returns the entity type info for a specific entity type.
-   *
-   * @param string $entity_type_id
-   *   The ID of the entity type.
-   * @param bool $exception_on_invalid
-   *   (optional) If TRUE, an invalid entity type ID will throw an exception.
-   *   Defaults to FALSE.
+   * {@inheritdoc}
    *
    * @return \Drupal\Core\Entity\EntityTypeInterface|null
-   *   Returns the entity type object, or NULL if the entity type ID is invalid
-   *   and $exception_on_invalid is TRUE.
-   *
-   * @throws \InvalidArgumentException
-   *   Thrown if $entity_type_id is invalid and $exception_on_invalid is TRUE.
    */
-  public function getDefinition($entity_type_id, $exception_on_invalid = FALSE);
+  public function getDefinition($entity_type_id, $exception_on_invalid = TRUE);
 
   /**
-   * Returns an array of entity type info, keyed by entity type name.
+   * {@inheritdoc}
    *
    * @return \Drupal\Core\Entity\EntityTypeInterface[]
-   *   An array of entity type objects.
    */
   public function getDefinitions();
 
@@ -327,5 +355,84 @@ interface EntityManagerInterface extends PluginManagerInterface {
    *   An array of form mode labels, keyed by the display mode ID.
    */
   public function getFormModeOptions($entity_type_id, $include_disabled = FALSE);
+
+  /**
+   * Loads an entity by UUID.
+   *
+   * Note that some entity types may not support UUIDs.
+   *
+   * @param string $entity_type_id
+   *   The entity type ID to load from.
+   * @param string $uuid
+   *   The UUID of the entity to load.
+   *
+   * @return \Drupal\Core\Entity\EntityInterface|FALSE
+   *   The entity object, or FALSE if there is no entity with the given UUID.
+   *
+   * @throws \Drupal\Core\Entity\EntityStorageException
+   *   Thrown in case the requested entity type does not support UUIDs.
+   */
+  public function loadEntityByUuid($entity_type_id, $uuid);
+
+  /**
+   * Returns the entity type ID based on the class that is called on.
+   *
+   * Compares the class this is called on against the known entity classes
+   * and returns the entity type ID of a direct match or a subclass as fallback,
+   * to support entity type definitions that were altered.
+   *
+   * @param string $class_name
+   *   Class name to use for searching the entity type ID.
+   *
+   * @return string
+   *   The entity type ID.
+   *
+   * @throws \Drupal\Core\Entity\Exception\AmbiguousEntityClassException
+   *   Thrown when multiple subclasses correspond to the called class.
+   * @throws \Drupal\Core\Entity\Exception\NoCorrespondingEntityClassException
+   *   Thrown when no entity class corresponds to the called class.
+   *
+   * @see \Drupal\Core\Entity\Entity::load()
+   * @see \Drupal\Core\Entity\Entity::loadMultiple()
+   */
+  public function getEntityTypeFromClass($class_name);
+
+  /**
+   * Reacts to the creation of a entity bundle.
+   *
+   * @param string $entity_type_id
+   *   The entity type to which the bundle is bound; e.g. 'node' or 'user'.
+   * @param string $bundle
+   *   The name of the bundle.
+   *
+   * @see entity_crud
+   */
+  public function onBundleCreate($entity_type_id, $bundle);
+
+  /**
+   * Reacts to the rename of a entity bundle.
+   *
+   * @param string $entity_type_id
+   *   The entity type to which the bundle is bound; e.g. 'node' or 'user'.
+   * @param string $bundle_old
+   *   The previous name of the bundle.
+   * @param string $bundle_new
+   *   The new name of the bundle.
+   *
+   * @see entity_crud
+   */
+  public function onBundleRename($entity_type_id, $bundle_old, $bundle_new);
+
+  /**
+   * Reacts to the deletion of a entity bundle.
+   *
+   * @param string $entity_type_id
+   *   The entity type to which the bundle is bound; e.g. 'node' or 'user'.
+   * @param string $bundle
+   *   The bundle that was just deleted.
+   *
+   * @see entity_crud
+   */
+  public function onBundleDelete($entity_type_id, $bundle);
 
 }

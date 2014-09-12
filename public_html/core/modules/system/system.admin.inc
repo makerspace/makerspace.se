@@ -5,56 +5,12 @@
  * Admin page callbacks for the system module.
  */
 
+use Drupal\Component\Utility\SafeMarkup;
+use Drupal\Component\Utility\Xss;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Extension\Extension;
 use Drupal\Core\Render\Element;
 use Drupal\Core\Template\Attribute;
-use Symfony\Component\HttpFoundation\RedirectResponse;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-
-/**
- * Menu callback; Set the default theme.
- */
-function system_theme_default() {
-  $request = \Drupal::request();
-  $theme = $request->get('theme');
-  if (!empty($theme)) {
-    // Get current list of themes.
-    $themes = list_themes();
-
-    // Check if the specified theme is one recognized by the system.
-    if (!empty($themes[$theme])) {
-      // Enable the theme if it is currently disabled.
-      if (empty($themes[$theme]->status)) {
-       theme_enable(array($theme));
-      }
-      // Set the default theme.
-      \Drupal::config('system.theme')
-        ->set('default', $theme)
-        ->save();
-
-      \Drupal::service('router.builder')->setRebuildNeeded();
-
-      // The status message depends on whether an admin theme is currently in use:
-      // a value of 0 means the admin theme is set to be the default theme.
-      $admin_theme = \Drupal::config('system.theme')->get('admin');
-      if ($admin_theme != 0 && $admin_theme != $theme) {
-        drupal_set_message(t('Please note that the administration theme is still set to the %admin_theme theme; consequently, the theme on this page remains unchanged. All non-administrative sections of the site, however, will show the selected %selected_theme theme by default.', array(
-          '%admin_theme' => $themes[$admin_theme]->info['name'],
-          '%selected_theme' => $themes[$theme]->info['name'],
-        )));
-      }
-      else {
-        drupal_set_message(t('%theme is now the default theme.', array('%theme' => $themes[$theme]->info['name'])));
-      }
-    }
-    else {
-      drupal_set_message(t('The %theme theme was not found.', array('%theme' => $theme)), 'error');
-    }
-    return new RedirectResponse(url('admin/appearance', array('absolute' => TRUE)));
-  }
-  throw new AccessDeniedHttpException();
-}
 
 /**
  * Recursively check compatibility.
@@ -103,9 +59,9 @@ function template_preprocess_admin_block_content(&$variables) {
       $variables['attributes']['class'][] = 'compact';
     }
     foreach ($variables['content'] as $key => $item) {
-      $variables['content'][$key]['link'] = l($item['title'], $item['link_path'], $item['localized_options']);
+      $variables['content'][$key]['link'] = \Drupal::linkGenerator()->generateFromUrl($item['title'], $item['url']);
       if (!$compact && isset($item['description'])) {
-        $variables['content'][$key]['description'] = filter_xss_admin($item['description']);
+        $variables['content'][$key]['description'] = Xss::filterAdmin($item['description']);
       }
       else {
         $variables['content'][$key]['description'] = FALSE;
@@ -147,62 +103,40 @@ function template_preprocess_admin_page(&$variables) {
 }
 
 /**
- * Returns HTML for the output of the admin index page.
+ * Prepares variables for admin index templates.
+ *
+ * Default template: system-admin-index.html.twig.
  *
  * @param $variables
  *   An associative array containing:
  *   - menu_items: An array of modules to be displayed.
- *
- * @ingroup themeable
  */
-function theme_system_admin_index($variables) {
-  $menu_items = $variables['menu_items'];
-
-  $container = array('left' => '', 'right' => '');
-  $flip = array('left' => 'right', 'right' => 'left');
-  $position = 'left';
-
+function template_preprocess_system_admin_index(&$variables) {
+  $variables['system_compact_link'] = array(
+    '#theme' => 'system_compact_link',
+  );
+  $variables['containers'] = array();
+  $stripe = 0;
   // Iterate over all modules.
-  foreach ($menu_items as $module => $block) {
+  foreach ($variables['menu_items'] as $module => $block) {
     list($description, $items) = $block;
-
+    $position = ++$stripe % 2 ? 'left' : 'right';
     // Output links.
     if (count($items)) {
-      $admin_block_content = array(
-        '#theme' => 'admin_block_content',
-        '#content' => $items,
-      );
-      $block = array();
-      $block['title'] = $module;
-      $block['content'] = drupal_render($admin_block_content);
-      $block['description'] = t($description);
-
-      $admin_block = array(
+      $variables['containers'][$position][] = array(
         '#theme' => 'admin_block',
-        '#block' => $block,
+        '#block' => array(
+          'position' => $position,
+          'title' => $module,
+          'content' => array(
+            '#theme' => 'admin_block_content',
+            '#content' => $items,
+          ),
+          'description' => t($description),
+        ),
       );
-      if ($block_output = drupal_render($admin_block)) {
-        if (!isset($block['position'])) {
-          // Perform automatic striping.
-          $block['position'] = $position;
-          $position = $flip[$position];
-        }
-        $container[$block['position']] .= $block_output;
-      }
     }
   }
-
-  $system_compact_link = array('#theme' => 'system_compact_link');
-  $output = '<div class="admin clearfix">';
-  $output .= drupal_render($system_compact_link);
-  foreach ($container as $id => $data) {
-    $output .= '<div class="' . $id . ' clearfix">';
-    $output .= $data;
-    $output .= '</div>';
-  }
-  $output .= '</div>';
-
-  return $output;
 }
 
 /**
@@ -298,7 +232,7 @@ function theme_system_modules_details($variables) {
 
     // Add the module label and expand/collapse functionalty.
     $col2 = '<label id="module-' . $key . '" for="' . $module['enable']['#id'] . '" class="module-name table-filter-text-source">' . drupal_render($module['name']) . '</label>';
-    $row[] = array('class' => array('module'), 'data' => $col2);
+    $row[] = array('class' => array('module'), 'data' => SafeMarkup::set($col2));
 
     // Add the description, along with any modules it requires.
     $description = '';
@@ -326,14 +260,14 @@ function theme_system_modules_details($variables) {
     }
     $details = array(
       '#type' => 'details',
-      '#title' => '<span class="text"> ' . drupal_render($module['description']) . '</span>',
+      '#title' => SafeMarkup::set('<span class="text"> ' . drupal_render($module['description']) . '</span>'),
       '#attributes' => array('id' => $module['enable']['#id'] . '-description'),
-      '#description' => $description,
+      '#description' => SafeMarkup::set($description),
     );
     $col4 = drupal_render($details);
     $row[] = array('class' => array('description', 'expand'), 'data' => $col4);
 
-    $rows[] = $row;
+    $rows[] = $module['#attributes'] + array('data' => $row);
   }
 
   $table = array(
@@ -342,19 +276,6 @@ function theme_system_modules_details($variables) {
     '#rows' => $rows,
   );
   return drupal_render($table);
-}
-
-/**
- * Returns HTML for a message about incompatible modules.
- *
- * @param $variables
- *   An associative array containing:
- *   - message: The form array representing the currently disabled modules.
- *
- * @ingroup themeable
- */
-function theme_system_modules_incompatible($variables) {
-  return '<div class="incompatible">' . $variables['message'] . '</div>';
 }
 
 /**
@@ -388,15 +309,30 @@ function theme_system_modules_uninstall($variables) {
         'To uninstall @module, the following module must be uninstalled first: @required_modules',
         'To uninstall @module, the following modules must be uninstalled first: @required_modules',
         array('@module' => $form['modules'][$module]['#module_name'], '@required_modules' => implode(', ', $form['modules'][$module]['#required_by'])));
-      $disabled_message = '<div class="admin-requirements">' . $disabled_message . '</div>';
     }
     else {
       $disabled_message = '';
     }
     $rows[] = array(
       array('data' => drupal_render($form['uninstall'][$module]), 'align' => 'center'),
-      '<strong><label for="' . $form['uninstall'][$module]['#id'] . '">' . drupal_render($form['modules'][$module]['name']) . '</label></strong>',
-      array('data' => drupal_render($form['modules'][$module]['description']) . $disabled_message, 'class' => array('description')),
+      array(
+        'data' => array(
+          '#type' => 'inline_template',
+          '#template' => '<label for="{{ module_id }}" class="module-name table-filter-text-source">{{ module_name }}</label>',
+          '#context' => array('module_id' => $form['uninstall'][$module]['#id'], 'module_name' => drupal_render($form['modules'][$module]['name'])),
+        )
+      ),
+      array(
+        'data' => array(
+          '#type' => 'inline_template',
+          '#template' => '{{ module_description }} {% if disabled_message is not empty %} <div class="admin-requirements">{{ disabled_message }}</div> {% endif %}',
+          '#context' => array(
+            'module_description' => drupal_render($form['modules'][$module]['description']),
+            'disabled_message' => $disabled_message,
+          ),
+        ),
+        'class' => array('description'),
+      ),
     );
   }
 
@@ -406,7 +342,8 @@ function theme_system_modules_uninstall($variables) {
     '#rows' => $rows,
     '#empty' => t('No modules are available to uninstall.'),
   );
-  $output  = drupal_render($table);
+  $output = drupal_render($form['filters']);
+  $output .= drupal_render($table);
   $output .= drupal_render_children($form);
 
   return $output;

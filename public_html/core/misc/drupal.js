@@ -37,6 +37,7 @@ if (window.jQuery) {
     }
     this.message = messageList.join(' ; ');
   }
+
   DrupalBehaviorError.prototype = new Error();
 
   /**
@@ -325,7 +326,7 @@ if (window.jQuery) {
    * Returns the URL to a Drupal page.
    */
   Drupal.url = function (path) {
-    return drupalSettings.path.basePath + drupalSettings.path.scriptPath + path;
+    return drupalSettings.path.basePath + drupalSettings.path.scriptPath + drupalSettings.path.pathPrefix + path;
   };
 
   /**
@@ -364,13 +365,17 @@ if (window.jQuery) {
     args = args || {};
     args['@count'] = count;
 
-    var pluralDelimiter = drupalSettings.locale.pluralDelimiter;
+    var pluralDelimiter = drupalSettings.locale.pluralDelimiter,
+      translations = Drupal.t(singular + pluralDelimiter + plural, args, options).split(pluralDelimiter),
+      index = 0;
 
     // Determine the index of the plural form.
-    var index = Drupal.locale.pluralFormula ? Drupal.locale.pluralFormula(args['@count']) : ((args['@count'] === 1) ? 0 : 1);
-    var translations = Drupal
-      .t(singular + pluralDelimiter + plural, args, options)
-      .split(pluralDelimiter);
+    if (Drupal.locale.pluralFormula) {
+      index = count in Drupal.locale.pluralFormula ? Drupal.locale.pluralFormula[count] : Drupal.locale.pluralFormula['default'];
+    }
+    else if (args['@count'] !== 1) {
+      index = 1;
+    }
 
     return translations[index];
   };

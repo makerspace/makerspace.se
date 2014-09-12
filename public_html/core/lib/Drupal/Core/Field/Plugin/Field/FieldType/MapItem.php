@@ -7,7 +7,7 @@
 
 namespace Drupal\Core\Field\Plugin\Field\FieldType;
 
-use Drupal\Core\Field\FieldDefinitionInterface;
+use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\Field\FieldItemBase;
 use Drupal\Core\TypedData\DataDefinition;
 
@@ -26,17 +26,15 @@ class MapItem extends FieldItemBase {
   /**
    * {@inheritdoc}
    */
-  public static function propertyDefinitions(FieldDefinitionInterface $field_definition) {
-    $properties['value'] = DataDefinition::create('string')
-      ->setLabel(t('Serialized values'));
-
-    return $properties;
+  public static function propertyDefinitions(FieldStorageDefinitionInterface $field_definition) {
+    // The properties are dynamic and can not be defined statically.
+    return array();
   }
 
   /**
    * {@inheritdoc}
    */
-  public static function schema(FieldDefinitionInterface $field_definition) {
+  public static function schema(FieldStorageDefinitionInterface $field_definition) {
     return array(
       'columns' => array(
         'value' => array(
@@ -46,6 +44,15 @@ class MapItem extends FieldItemBase {
         ),
       ),
     );
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function toArray() {
+    // The default implementation of toArray() only returns known properties.
+    // For a map, return everything as the properties are not pre-defined.
+    return $this->getValue();
   }
 
   /**
@@ -95,6 +102,21 @@ class MapItem extends FieldItemBase {
     else {
       unset($this->values[$name]);
     }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function mainPropertyName() {
+    // A map item has no main property.
+    return NULL;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function isEmpty() {
+    return empty($this->values);
   }
 
 }

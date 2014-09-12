@@ -9,11 +9,11 @@
  */
 
 use Drupal\Component\Graph\Graph;
-use Drupal\Component\Utility\Settings;
 use Drupal\Component\Utility\String;
 use Drupal\Core\Config\FileStorage;
 use Drupal\Core\Config\ConfigException;
 use Drupal\Core\DrupalKernel;
+use Drupal\Core\Page\DefaultHtmlPageRenderer;
 use Drupal\Core\Utility\Error;
 use Drupal\Component\Uuid\Uuid;
 use Drupal\Component\Utility\NestedArray;
@@ -23,21 +23,22 @@ use Symfony\Component\HttpFoundation\Request;
  * Disables any extensions that are incompatible with the current core version.
  */
 function update_fix_compatibility() {
+  $extension_config = \Drupal::config('core.extension');
+  $save = FALSE;
   foreach (array('module', 'theme') as $type) {
-    $config = \Drupal::config("system.$type");
-    $save = FALSE;
-    foreach ($config->get('enabled') as $name => $weight) {
+    foreach ($extension_config->get($type) as $name => $weight) {
       if (update_check_incompatibility($name, $type)) {
-        $config->clear("enabled.$name");
+        $extension_config->clear("$type.$name");
+        if ($type === 'theme') {
+          $extension_config->set("disabled.theme.$name", 0);
+        }
         $save = TRUE;
       }
     }
-    if ($save) {
-      if ($type == 'module') {
-        $config->set('enabled', module_config_sort($config->get('enabled')));
-      }
-      $config->save();
-    }
+  }
+  if ($save) {
+    $extension_config->set('module', module_config_sort($extension_config->get('module')));
+    $extension_config->save();
   }
 }
 
@@ -130,38 +131,13 @@ function update_system_schema_requirements() {
 
 /**
  * Checks update requirements and reports errors and (optionally) warnings.
- *
- * @param $skip_warnings
- *   (optional) If set to TRUE, requirement warnings will be ignored, and a
- *   report will only be issued if there are requirement errors. Defaults to
- *   FALSE.
  */
-function update_check_requirements($skip_warnings = FALSE) {
+function update_check_requirements() {
   // Check requirements of all loaded modules.
   $requirements = \Drupal::moduleHandler()->invokeAll('requirements', array('update'));
   $requirements += update_system_schema_requirements();
   $requirements += update_settings_file_requirements();
-  $severity = drupal_requirements_severity($requirements);
-
-  // If there are errors, always display them. If there are only warnings, skip
-  // them if the caller has indicated they should be skipped.
-  if ($severity == REQUIREMENT_ERROR || ($severity == REQUIREMENT_WARNING && !$skip_warnings)) {
-    update_task_list('requirements');
-    $status = array(
-      '#theme' => 'status_report',
-      '#requirements' => $requirements,
-    );
-    $status_report = drupal_render($status);
-    $status_report .= 'Check the messages and <a href="' . check_url(drupal_requirements_url($severity)) . '">try again</a>.';
-    drupal_add_http_header('Content-Type', 'text/html; charset=utf-8');
-    $maintenance_page = array(
-      '#theme' => 'maintenance_page',
-      '#title' => 'Requirements problem',
-      '#content' => $status_report,
-    );
-    print drupal_render($maintenance_page);
-    exit();
-  }
+  return $requirements;
 }
 
 /**
@@ -279,114 +255,6 @@ function update_do_one($module, $number, $dependency_map, &$context) {
   }
 
   $context['message'] = 'Updating ' . String::checkPlain($module) . ' module';
-}
-
-/**
- * Starts the database update batch process.
- *
- * @param $start
- *   An array whose keys contain the names of modules to be updated during the
- *   current batch process, and whose values contain the number of the first
- *   requested update for that module. The actual updates that are run (and the
- *   order they are run in) will depend on the results of passing this data
- *   through the update dependency system.
- * @param $redirect
- *   Path to redirect to when the batch has finished processing.
- * @param $url
- *   URL of the batch processing page (should only be used for separate
- *   scripts like update.php).
- * @param $batch
- *   Optional parameters to pass into the batch API.
- * @param $redirect_callback
- *   (optional) Specify a function to be called to redirect to the progressive
- *   processing page.
- *
- * @see update_resolve_dependencies()
- */
-function update_batch($start, $redirect = NULL, $url = NULL, $batch = array(), $redirect_callback = NULL) {
-  // During the update, bring the site offline so that schema changes do not
-  // affect visiting users.
-  $maintenance_mode = \Drupal::config('system.maintenance')->get('enabled');
-  if (isset($maintenance_mode)) {
-    $_SESSION['maintenance_mode'] = $maintenance_mode;
-  }
-  if (empty($_SESSION['maintenance_mode'])) {
-    if (db_table_exists('state')) {
-      \Drupal::state()->set('system.maintenance_mode', TRUE);
-    }
-  }
-
-  // Resolve any update dependencies to determine the actual updates that will
-  // be run and the order they will be run in.
-  $updates = update_resolve_dependencies($start);
-
-  // Store the dependencies for each update function in an array which the
-  // batch API can pass in to the batch operation each time it is called. (We
-  // do not store the entire update dependency array here because it is
-  // potentially very large.)
-  $dependency_map = array();
-  foreach ($updates as $function => $update) {
-    $dependency_map[$function] = !empty($update['reverse_paths']) ? array_keys($update['reverse_paths']) : array();
-  }
-
-  $operations = array();
-  foreach ($updates as $update) {
-    if ($update['allowed']) {
-      // Set the installed version of each module so updates will start at the
-      // correct place. (The updates are already sorted, so we can simply base
-      // this on the first one we come across in the above foreach loop.)
-      if (isset($start[$update['module']])) {
-        drupal_set_installed_schema_version($update['module'], $update['number'] - 1);
-        unset($start[$update['module']]);
-      }
-      // Add this update function to the batch.
-      $function = $update['module'] . '_update_' . $update['number'];
-      $operations[] = array('update_do_one', array($update['module'], $update['number'], $dependency_map[$function]));
-    }
-  }
-  $batch['operations'] = $operations;
-  $batch += array(
-    'title' => 'Updating',
-    'init_message' => 'Starting updates',
-    'error_message' => 'An unrecoverable error has occurred. You can find the error message below. It is advised to copy it to the clipboard for reference.',
-    'finished' => 'update_finished',
-    'file' => 'core/includes/update.inc',
-  );
-  batch_set($batch);
-  return batch_process($redirect, $url, $redirect_callback);
-}
-
-/**
- * Finishes the update process and stores the results for eventual display.
- *
- * After the updates run, all caches are flushed. The update results are
- * stored into the session (for example, to be displayed on the update results
- * page in update.php). Additionally, if the site was off-line, now that the
- * update process is completed, the site is set back online.
- *
- * @param $success
- *   Indicate that the batch API tasks were all completed successfully.
- * @param $results
- *   An array of all the results that were updated in update_do_one().
- * @param $operations
- *   A list of all the operations that had not been completed by the batch API.
- *
- * @see update_batch()
- */
-function update_finished($success, $results, $operations) {
-  // Clear the caches in case the data has been updated.
-  update_flush_all_caches();
-
-  $_SESSION['update_results'] = $results;
-  $_SESSION['update_success'] = $success;
-  $_SESSION['updates_remaining'] = $operations;
-
-  // Now that the update is done, we can put the site back online if it was
-  // previously in maintenance mode.
-  if (isset($_SESSION['maintenance_mode'])) {
-    \Drupal::state()->set('system.maintenance_mode', FALSE);
-    unset($_SESSION['maintenance_mode']);
-  }
 }
 
 /**
@@ -804,14 +672,14 @@ function update_replace_permissions($replace) {
  *
  * @param $flags
  *   (optional) Specifies the state of the languages that have to be returned.
- *   It can be: Language::STATE_CONFIGURABLE, Language::STATE_LOCKED,
- *   Language::STATE_ALL.
+ *   It can be: LanguageInterface::STATE_CONFIGURABLE,
+ *   LanguageInterface::STATE_LOCKED, LanguageInterface::STATE_ALL.
  *
  * @return array
  *   An associative array of languages, keyed by the language code, ordered by
  *   weight ascending and name ascending.
  */
-function update_language_list($flags = Language::STATE_CONFIGURABLE) {
+function update_language_list($flags = LanguageInterface::STATE_CONFIGURABLE) {
 
   $languages = &drupal_static(__FUNCTION__);
 
@@ -857,7 +725,7 @@ function update_language_list($flags = Language::STATE_CONFIGURABLE) {
   $filtered_languages = array();
 
   // Add the site's default language if flagged as allowed value.
-  if ($flags & Language::STATE_SITE_DEFAULT) {
+  if ($flags & LanguageInterface::STATE_SITE_DEFAULT) {
     $default = isset($default) ? $default : \Drupal::languageManager()->getDefaultLanguage();
     // Rename the default language.
     $default->name = t("Site's default language (@lang_name)", array('@lang_name' => $default->name));
@@ -865,7 +733,7 @@ function update_language_list($flags = Language::STATE_CONFIGURABLE) {
   }
 
   foreach ($languages as $langcode => $language) {
-    if (($language->locked && !($flags & Language::STATE_LOCKED)) || (!$language->locked && !($flags & Language::STATE_CONFIGURABLE))) {
+    if (($language->locked && !($flags & LanguageInterface::STATE_LOCKED)) || (!$language->locked && !($flags & LanguageInterface::STATE_CONFIGURABLE))) {
       continue;
      }
     $filtered_languages[$langcode] = $language;

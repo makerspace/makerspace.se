@@ -7,28 +7,76 @@
 
 namespace Drupal\Core\EventSubscriber;
 
-use Symfony\Component\HttpFoundation\RedirectResponse;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\KernelEvents;
-use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+use Drupal\Component\Utility\String;
+use Drupal\Component\Utility\Xss;
+use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Page\DefaultHtmlPageRenderer;
+use Drupal\Core\Routing\RouteMatch;
+use Drupal\Core\Routing\UrlGeneratorInterface;
+use Drupal\Core\Session\AccountInterface;
+use Drupal\Core\Site\MaintenanceModeInterface;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\Core\StringTranslation\TranslationInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
  * Maintenance mode subscriber for controller requests.
  */
 class MaintenanceModeSubscriber implements EventSubscriberInterface {
 
+  use StringTranslationTrait;
+
   /**
-   * Determine whether the page is configured to be offline.
+   * The maintenance mode.
    *
-   * @param \Symfony\Component\HttpKernel\Event\GetResponseEvent $event
-   *   The Event to process.
+   * @var \Drupal\Core\Site\MaintenanceModeInterface
    */
-  public function onKernelRequestDetermineSiteStatus(GetResponseEvent $event) {
-    // Check if the site is offline.
-    $request = $event->getRequest();
-    $is_offline = _menu_site_is_offline() ? MENU_SITE_OFFLINE : MENU_SITE_ONLINE;
-    $request->attributes->set('_maintenance', $is_offline);
+  protected $maintenanceMode;
+
+  /**
+   * The current account.
+   *
+   * @var \Drupal\Core\Session\AccountInterface
+   */
+  protected $account;
+
+  /**
+   * The config factory.
+   *
+   * @var \Drupal\Core\Config\ConfigFactoryInterface
+   */
+  protected $config;
+
+  /**
+   * The url generator.
+   *
+   * @var \Drupal\Core\Routing\UrlGeneratorInterface
+   */
+  protected $urlGenerator;
+
+  /**
+   * Constructs a new MaintenanceModeSubscriber.
+   *
+   * @param \Drupal\Core\Site\MaintenanceModeInterface $maintenance_mode
+   *   The maintenance mode.
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
+   *   The config factory.
+   * @param \Drupal\Core\StringTranslation\TranslationInterface $translation
+   *   The string translation.
+   * @param \Drupal\Core\Routing\UrlGeneratorInterface $url_generator
+   *   The url generator.
+   * @param \Drupal\Core\Session\AccountInterface $account
+   *   The current user.
+   */
+  public function __construct(MaintenanceModeInterface $maintenance_mode, ConfigFactoryInterface $config_factory, TranslationInterface $translation, UrlGeneratorInterface $url_generator, AccountInterface $account) {
+    $this->maintenanceMode = $maintenance_mode;
+    $this->config = $config_factory;
+    $this->stringTranslation = $translation;
+    $this->urlGenerator = $url_generator;
+    $this->account = $account;
   }
 
   /**
@@ -38,34 +86,51 @@ class MaintenanceModeSubscriber implements EventSubscriberInterface {
    *   The event to process.
    */
   public function onKernelRequestMaintenance(GetResponseEvent $event) {
-    $request = $event->getRequest();
-    $response = $event->getResponse();
-    // Continue if the site is online and the response is not a redirection.
-    if ($request->attributes->get('_maintenance') != MENU_SITE_ONLINE && !($response instanceof RedirectResponse)) {
-      // Deliver the 503 page.
-      drupal_maintenance_theme();
-      $maintenance_page = array(
-        '#theme' => 'maintenance_page',
-        '#title' => t('Site under maintenance'),
-        '#content' => filter_xss_admin(
-          t(\Drupal::config('system.maintenance')->get('message'), array('@site' => \Drupal::config('system.site')->get('name')))
-        ),
-      );
-      $content = drupal_render($maintenance_page);
-      $response = new Response('Service unavailable', 503);
-      $response->setContent($content);
-      $event->setResponse($response);
+    $route_match = RouteMatch::createFromRequest($event->getRequest());
+    if ($this->maintenanceMode->applies($route_match)) {
+      if (!$this->maintenanceMode->exempt($this->account)) {
+        // Deliver the 503 page if the site is in maintenance mode and the
+        // logged in user is not allowed to bypass it.
+        drupal_maintenance_theme();
+        $content = Xss::filterAdmin(String::format($this->config->get('system.maintenance')->get('message'), array(
+          '@site' => $this->config->get('system.site')->get('name'),
+        )));
+        // @todo Break the dependency on DefaultHtmlPageRenderer, see:
+        //   https://www.drupal.org/node/2295609
+        $content = DefaultHtmlPageRenderer::renderPage($content, $this->t('Site under maintenance'));
+        $response = new Response('Service unavailable', 503);
+        $response->setContent($content);
+        $event->setResponse($response);
+      }
+      else {
+        // Display a message if the logged in user has access to the site in
+        // maintenance mode. However, suppress it on the maintenance mode
+        // settings page.
+        if ($route_match->getRouteName() != 'system.site_maintenance_mode') {
+          if ($this->account->hasPermission('administer site configuration')) {
+            $this->drupalSetMessage($this->t('Operating in maintenance mode. <a href="@url">Go online.</a>', array('@url' => $this->urlGenerator->generate('system.site_maintenance_mode'))), 'status', FALSE);
+          }
+          else {
+            $this->drupalSetMessage($this->t('Operating in maintenance mode.'), 'status', FALSE);
+          }
+        }
+      }
     }
+  }
+
+  /**
+   * Wraps the drupal_set_message function.
+   */
+  protected function drupalSetMessage($message = NULL, $type = 'status', $repeat = FALSE) {
+    return drupal_set_message($message, $type, $repeat);
   }
 
   /**
    * {@inheritdoc}
    */
-  static function getSubscribedEvents() {
-    // In order to change the maintenance status an event subscriber with a
-    // priority between 30 and 40 should be added.
-    $events[KernelEvents::REQUEST][] = array('onKernelRequestDetermineSiteStatus', 40);
+  public static function getSubscribedEvents() {
     $events[KernelEvents::REQUEST][] = array('onKernelRequestMaintenance', 30);
     return $events;
   }
+
 }

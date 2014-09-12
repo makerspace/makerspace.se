@@ -8,6 +8,7 @@
 namespace Drupal\Core\Field;
 
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\TypedData\DataDefinitionInterface;
 use Drupal\Core\TypedData\Plugin\DataType\Map;
 use Drupal\Core\TypedData\TypedDataInterface;
@@ -20,6 +21,7 @@ use Drupal\user;
  * the static method propertyDefinitions().
  *
  * @see \Drupal\Core\Field\FieldItemInterface
+ * @ingroup field_types
  */
 abstract class FieldItemBase extends Map implements FieldItemInterface {
 
@@ -238,20 +240,53 @@ abstract class FieldItemBase extends Map implements FieldItemInterface {
   /**
    * {@inheritdoc}
    */
+  public static function generateSampleValue(FieldDefinitionInterface $field_definition) { }
+
+  /**
+   * {@inheritdoc}
+   */
   public function deleteRevision() { }
 
   /**
    * {@inheritdoc}
    */
-  public function settingsForm(array $form, array &$form_state, $has_data) {
+  public function settingsForm(array &$form, FormStateInterface $form_state, $has_data) {
     return array();
   }
 
   /**
    * {@inheritdoc}
    */
-  public function instanceSettingsForm(array $form, array &$form_state) {
+  public function instanceSettingsForm(array $form, FormStateInterface $form_state) {
     return array();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function settingsToConfigData(array $settings) {
+    return $settings;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function settingsFromConfigData(array $settings) {
+    return $settings;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function instanceSettingsToConfigData(array $settings) {
+    return $settings;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function instanceSettingsFromConfigData(array $settings) {
+    return $settings;
   }
 
 }

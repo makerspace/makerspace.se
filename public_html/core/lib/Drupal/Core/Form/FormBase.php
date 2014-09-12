@@ -9,51 +9,49 @@ namespace Drupal\Core\Form;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
-use Drupal\Core\DependencyInjection\DependencySerialization;
-use Drupal\Core\Routing\UrlGeneratorInterface;
-use Drupal\Core\StringTranslation\TranslationInterface;
+use Drupal\Core\DependencyInjection\DependencySerializationTrait;
+use Drupal\Core\Routing\LinkGeneratorTrait;
+use Drupal\Core\Routing\UrlGeneratorTrait;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Provides a base class for forms.
+ *
+ * @ingroup form_api
  */
-abstract class FormBase extends DependencySerialization implements FormInterface, ContainerInjectionInterface {
+abstract class FormBase implements FormInterface, ContainerInjectionInterface {
+  use StringTranslationTrait;
+  use DependencySerializationTrait;
+  use LinkGeneratorTrait;
+  use UrlGeneratorTrait;
 
   /**
-   * The translation manager service.
+   * The request stack.
    *
-   * @var \Drupal\Core\StringTranslation\TranslationInterface
+   * @var \Symfony\Component\HttpFoundation\RequestStack
    */
-  protected $translationManager;
-
-  /**
-   * The current request.
-   *
-   * @var \Symfony\Component\HttpFoundation\Request
-   */
-  protected $request;
-
-  /**
-   * The URL generator.
-   *
-   * @var \Drupal\Core\Routing\UrlGeneratorInterface
-   */
-  protected $urlGenerator;
+  protected $requestStack;
 
   /**
    * The config factory.
+   *
+   * Subclasses should use the self::config() method, which may be overridden to
+   * address specific needs when loading config, rather than this property
+   * directly. See \Drupal\Core\Form\ConfigFormBase::config() for an example of
+   * this.
    *
    * @var \Drupal\Core\Config\ConfigFactoryInterface
    */
   protected $configFactory;
 
   /**
-   * The form error handler.
+   * The logger factory.
    *
-   * @var \Drupal\Core\Form\FormErrorInterface
+   * @var \Drupal\Core\Logger\LoggerChannelFactoryInterface
    */
-  protected $errorHandler;
+  protected $loggerFactory;
 
   /**
    * {@inheritdoc}
@@ -65,43 +63,8 @@ abstract class FormBase extends DependencySerialization implements FormInterface
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, array &$form_state) {
+  public function validateForm(array &$form, FormStateInterface $form_state) {
     // Validation is optional.
-  }
-
-  /**
-   * Translates a string to the current language or to a given language.
-   *
-   * See the t() documentation for details.
-   */
-  protected function t($string, array $args = array(), array $options = array()) {
-    return $this->translationManager()->translate($string, $args, $options);
-  }
-
-  /**
-   * Generates a URL or path for a specific route based on the given parameters.
-   *
-   * @see \Drupal\Core\Routing\UrlGeneratorInterface::generateFromRoute() for
-   *   details on the arguments, usage, and possible exceptions.
-   *
-   * @return string
-   *   The generated URL for the given route.
-   */
-  public function url($route_name, $route_parameters = array(), $options = array()) {
-    return $this->urlGenerator()->generateFromRoute($route_name, $route_parameters, $options);
-  }
-
-  /**
-   * Gets the translation manager.
-   *
-   * @return \Drupal\Core\StringTranslation\TranslationInterface
-   *   The translation manager.
-   */
-  protected function translationManager() {
-    if (!$this->translationManager) {
-      $this->translationManager = $this->container()->get('string_translation');
-    }
-    return $this->translationManager;
   }
 
   /**
@@ -121,23 +84,22 @@ abstract class FormBase extends DependencySerialization implements FormInterface
    *   A configuration object.
    */
   protected function config($name) {
-    if (!$this->configFactory) {
-      $this->configFactory = $this->container()->get('config.factory');
-    }
-    return $this->configFactory->get($name);
+    return $this->configFactory()->get($name);
   }
 
   /**
-   * Sets the translation manager for this form.
+   * Gets the config factory for this form.
    *
-   * @param \Drupal\Core\StringTranslation\TranslationInterface $translation_manager
-   *   The translation manager.
+   * When accessing configuration values, use $this->config(). Only use this
+   * when the config factory needs to be manipulated directly.
    *
-   * @return $this
+   * @return \Drupal\Core\Config\ConfigFactoryInterface
    */
-  public function setTranslationManager(TranslationInterface $translation_manager) {
-    $this->translationManager = $translation_manager;
-    return $this;
+  protected function configFactory() {
+    if (!$this->configFactory) {
+      $this->configFactory = $this->container()->get('config.factory');
+    }
+    return $this->configFactory;
   }
 
   /**
@@ -154,28 +116,35 @@ abstract class FormBase extends DependencySerialization implements FormInterface
   }
 
   /**
+   * Resets the configuration factory.
+   */
+  public function resetConfigFactory() {
+    $this->configFactory = NULL;
+  }
+
+  /**
    * Gets the request object.
    *
    * @return \Symfony\Component\HttpFoundation\Request $request
    *   The request object.
    */
   protected function getRequest() {
-    if (!$this->request) {
-      $this->request = $this->container()->get('request');
+    if (!$this->requestStack) {
+      $this->requestStack = \Drupal::service('request_stack');
     }
-    return $this->request;
+    return $this->requestStack->getCurrentRequest();
   }
 
   /**
-   * Sets the request object to use.
+   * Sets the request stack object to use.
    *
-   * @param \Symfony\Component\HttpFoundation\Request $request
-   *   The request object.
+   * @param \Symfony\Component\HttpFoundation\RequestStack $request_stack
+   *   The request stack object.
    *
    * @return $this
    */
-  public function setRequest(Request $request) {
-    $this->request = $request;
+  public function setRequestStack(RequestStack $request_stack) {
+    $this->requestStack = $request_stack;
     return $this;
   }
 
@@ -187,32 +156,6 @@ abstract class FormBase extends DependencySerialization implements FormInterface
    */
   protected function currentUser() {
     return \Drupal::currentUser();
-  }
-
-  /**
-   * Gets the URL generator.
-   *
-   * @return \Drupal\Core\Routing\UrlGeneratorInterface
-   *   The URL generator.
-   */
-  protected function urlGenerator() {
-    if (!$this->urlGenerator) {
-      $this->urlGenerator = \Drupal::urlGenerator();
-    }
-    return $this->urlGenerator;
-  }
-
-  /**
-   * Sets the URL generator.
-   *
-   * @param \Drupal\Core\Routing\UrlGeneratorInterface
-   *   The URL generator.
-   *
-   * @return $this
-   */
-  public function setUrlGenerator(UrlGeneratorInterface $url_generator) {
-    $this->urlGenerator = $url_generator;
-    return $this;
   }
 
   /**
@@ -231,35 +174,19 @@ abstract class FormBase extends DependencySerialization implements FormInterface
   }
 
   /**
-   * Returns the form error handler.
+   * Gets the logger for a specific channel.
    *
-   * @return \Drupal\Core\Form\FormErrorInterface
-   *   The form error handler.
+   * @param string $channel
+   *   The name of the channel.
+   *
+   * @return \Psr\Log\LoggerInterface
+   *   The logger for this channel.
    */
-  protected function errorHandler() {
-    if (!$this->errorHandler) {
-      $this->errorHandler = \Drupal::service('form_builder');
+  protected function logger($channel) {
+    if (!$this->loggerFactory) {
+      $this->loggerFactory = $this->container()->get('logger.factory');
     }
-    return $this->errorHandler;
-  }
-
-  /**
-   * Files an error against a form element.
-   *
-   * @param string $name
-   *   The name of the form element.
-   * @param array $form_state
-   *   An associative array containing the current state of the form.
-   * @param string $message
-   *   (optional) The error message to present to the user.
-   *
-   * @see \Drupal\Core\Form\FormErrorInterface::setErrorByName()
-   *
-   * @return $this
-   */
-  protected function setFormError($name, array &$form_state, $message = '') {
-    $this->errorHandler()->setErrorByName($name, $form_state, $message);
-    return $this;
+    return $this->loggerFactory->get($channel);
   }
 
 }

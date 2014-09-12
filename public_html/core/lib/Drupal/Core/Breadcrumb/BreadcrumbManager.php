@@ -9,15 +9,19 @@ namespace Drupal\Core\Breadcrumb;
 
 use Drupal\Component\Utility\String;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Core\Routing\RouteMatchInterface;
 
 /**
  * Provides a breadcrumb manager.
  *
- * Can be assigned any number of other BreadcrumbBuilderInterface objects
- * by calling the addBuilder() method, then uses the highest priority one
- * to build breadcrumbs when build() is called.
+ * Can be assigned any number of BreadcrumbBuilderInterface objects by calling
+ * the addBuilder() method. When build() is called it iterates over the objects
+ * in priority order and uses the first one that returns TRUE from
+ * BreadcrumbBuilderInterface::applies() to build the breadcrumbs.
+ *
+ * @see \Drupal\Core\DependencyInjection\Compiler\RegisterBreadcrumbBuilderPass
  */
-class BreadcrumbManager implements BreadcrumbBuilderInterface {
+class BreadcrumbManager implements ChainBreadcrumbBuilderInterface {
 
   /**
    * The module handler to invoke the alter hook.
@@ -38,7 +42,7 @@ class BreadcrumbManager implements BreadcrumbBuilderInterface {
    *
    * Set to NULL if the array needs to be re-calculated.
    *
-   * @var array|null
+   * @var \Drupal\Core\Breadcrumb\BreadcrumbBuilderInterface[]|null
    */
   protected $sortedBuilders;
 
@@ -53,12 +57,7 @@ class BreadcrumbManager implements BreadcrumbBuilderInterface {
   }
 
   /**
-   * Adds another breadcrumb builder.
-   *
-   * @param \Drupal\Core\Breadcrumb\BreadcrumbBuilderInterface $builder
-   *   The breadcrumb builder to add.
-   * @param int $priority
-   *   Priority of the breadcrumb builder.
+   * {@inheritdoc}
    */
   public function addBuilder(BreadcrumbBuilderInterface $builder, $priority) {
     $this->builders[$priority][] = $builder;
@@ -69,25 +68,25 @@ class BreadcrumbManager implements BreadcrumbBuilderInterface {
   /**
    * {@inheritdoc}
    */
-  public function applies(array $attributes) {
+  public function applies(RouteMatchInterface $route_match) {
     return TRUE;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function build(array $attributes) {
+  public function build(RouteMatchInterface $route_match) {
     $breadcrumb = array();
     $context = array('builder' => NULL);
     // Call the build method of registered breadcrumb builders,
     // until one of them returns an array.
     foreach ($this->getSortedBuilders() as $builder) {
-      if (!$builder->applies($attributes)) {
+      if (!$builder->applies($route_match)) {
         // The builder does not apply, so we continue with the other builders.
         continue;
       }
 
-      $build = $builder->build($attributes);
+      $build = $builder->build($route_match);
 
       if (is_array($build)) {
         // The builder returned an array of breadcrumb links.
@@ -100,7 +99,7 @@ class BreadcrumbManager implements BreadcrumbBuilderInterface {
       }
     }
     // Allow modules to alter the breadcrumb.
-    $this->moduleHandler->alter('system_breadcrumb', $breadcrumb, $attributes, $context);
+    $this->moduleHandler->alter('system_breadcrumb', $breadcrumb, $route_match, $context);
     // Fall back to an empty breadcrumb.
     return $breadcrumb;
   }
@@ -108,7 +107,7 @@ class BreadcrumbManager implements BreadcrumbBuilderInterface {
   /**
    * Returns the sorted array of breadcrumb builders.
    *
-   * @return array
+   * @return \Drupal\Core\Breadcrumb\BreadcrumbBuilderInterface[]
    *   An array of breadcrumb builder objects.
    */
   protected function getSortedBuilders() {

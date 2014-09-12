@@ -19,9 +19,10 @@ use Drupal\Core\Field\FieldItemListInterface;
  *   label = @Translation("Plain text"),
  *   field_types = {
  *     "string",
+ *     "string_long",
  *     "email"
  *   },
- *   edit = {
+ *   quickedit = {
  *     "editor" = "plain_text"
  *   }
  * )

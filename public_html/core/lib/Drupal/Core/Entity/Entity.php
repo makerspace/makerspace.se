@@ -7,17 +7,25 @@
 
 namespace Drupal\Core\Entity;
 
-use Drupal\Core\DependencyInjection\DependencySerialization;
+use Drupal\Core\Cache\Cache;
+use Drupal\Core\DependencyInjection\DependencySerializationTrait;
+use Drupal\Component\Utility\NestedArray;
 use Drupal\Component\Utility\String;
+use Drupal\Component\Utility\Unicode;
+use Drupal\Core\Config\Entity\Exception\ConfigEntityIdLengthException;
+use Drupal\Core\Entity\Exception\AmbiguousEntityClassException;
+use Drupal\Core\Entity\Exception\NoCorrespondingEntityClassException;
 use Drupal\Core\Entity\Exception\UndefinedLinkTemplateException;
 use Drupal\Core\Language\Language;
+use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
 
 /**
  * Defines a base entity class.
  */
-abstract class Entity extends DependencySerialization implements EntityInterface {
+abstract class Entity implements EntityInterface {
+  use DependencySerializationTrait;
 
   /**
    * The entity type.
@@ -246,11 +254,6 @@ abstract class Entity extends DependencySerialization implements EntityInterface
     // The entity ID is needed as a route parameter.
     $uri_route_parameters[$this->getEntityTypeId()] = $this->id();
 
-    // The 'admin-form' link requires the bundle as a route parameter if the
-    // entity type uses bundles.
-    if ($rel == 'admin-form' && $this->getEntityType()->getBundleEntityType() != 'bundle') {
-      $uri_route_parameters[$this->getEntityType()->getBundleEntityType()] = $this->bundle();
-    }
     return $uri_route_parameters;
   }
 
@@ -272,12 +275,12 @@ abstract class Entity extends DependencySerialization implements EntityInterface
   public function access($operation, AccountInterface $account = NULL) {
     if ($operation == 'create') {
       return $this->entityManager()
-        ->getAccessController($this->entityTypeId)
+        ->getAccessControlHandler($this->entityTypeId)
         ->createAccess($this->bundle(), $account);
     }
     return $this->entityManager()
-      ->getAccessController($this->entityTypeId)
-      ->access($this, $operation, Language::LANGCODE_DEFAULT, $account);
+      ->getAccessControlHandler($this->entityTypeId)
+      ->access($this, $operation, LanguageInterface::LANGCODE_DEFAULT, $account);
   }
 
   /**
@@ -287,7 +290,8 @@ abstract class Entity extends DependencySerialization implements EntityInterface
     $language = $this->languageManager()->getLanguage($this->langcode);
     if (!$language) {
       // Make sure we return a proper language object.
-      $language = new Language(array('id' => Language::LANGCODE_NOT_SPECIFIED));
+      $langcode = $this->langcode ?: LanguageInterface::LANGCODE_NOT_SPECIFIED;
+      $language = new Language(array('id' => $langcode));
     }
     return $language;
   }
@@ -336,6 +340,18 @@ abstract class Entity extends DependencySerialization implements EntityInterface
    * {@inheritdoc}
    */
   public function preSave(EntityStorageInterface $storage) {
+    // Check if this is an entity bundle.
+    if ($this->getEntityType()->getBundleOf()) {
+      // Throw an exception if the bundle ID is longer than 32 characters.
+      if (Unicode::strlen($this->id()) > EntityTypeInterface::BUNDLE_MAX_LENGTH) {
+        throw new ConfigEntityIdLengthException(String::format(
+          'Attempt to create a bundle with an ID longer than @max characters: @id.', array(
+            '@max' => EntityTypeInterface::BUNDLE_MAX_LENGTH,
+            '@id' => $this->id(),
+          )
+        ));
+      }
+    }
   }
 
   /**
@@ -343,9 +359,7 @@ abstract class Entity extends DependencySerialization implements EntityInterface
    */
   public function postSave(EntityStorageInterface $storage, $update = TRUE) {
     $this->onSaveOrDelete();
-    if ($update) {
-      $this->onUpdateBundleEntity();
-    }
+    $this->invalidateTagsOnSave($update);
   }
 
   /**
@@ -370,9 +384,7 @@ abstract class Entity extends DependencySerialization implements EntityInterface
    * {@inheritdoc}
    */
   public static function postDelete(EntityStorageInterface $storage, array $entities) {
-    foreach ($entities as $entity) {
-      $entity->onSaveOrDelete();
-    }
+    self::invalidateTagsOnDelete($entities);
   }
 
   /**
@@ -389,6 +401,46 @@ abstract class Entity extends DependencySerialization implements EntityInterface
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function getCacheTag() {
+    return array($this->entityTypeId => array($this->id()));
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getListCacheTags() {
+    // @todo Add bundle-specific listing cache tag? https://drupal.org/node/2145751
+    return array($this->entityTypeId . 's' => TRUE);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function load($id) {
+    $entity_manager = \Drupal::entityManager();
+    return $entity_manager->getStorage($entity_manager->getEntityTypeFromClass(get_called_class()))->load($id);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function loadMultiple(array $ids = NULL) {
+    $entity_manager = \Drupal::entityManager();
+    return $entity_manager->getStorage($entity_manager->getEntityTypeFromClass(get_called_class()))->loadMultiple($ids);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(array $values = array()) {
+    $entity_manager = \Drupal::entityManager();
+    return $entity_manager->getStorage($entity_manager->getEntityTypeFromClass(get_called_class()))->create($values);
+  }
+
+
+  /**
    * Acts on an entity after it was saved or deleted.
    */
   protected function onSaveOrDelete() {
@@ -401,24 +453,68 @@ abstract class Entity extends DependencySerialization implements EntityInterface
     }
 
     foreach ($referenced_entities as $entity_type => $entities) {
-      if ($this->entityManager()->hasController($entity_type, 'view_builder')) {
+      if ($this->entityManager()->hasHandler($entity_type, 'view_builder')) {
         $this->entityManager()->getViewBuilder($entity_type)->resetCache($entities);
       }
     }
   }
 
   /**
+   * Invalidates an entity's cache tags upon save.
+   *
+   * @param bool $update
+   *   TRUE if the entity has been updated, or FALSE if it has been inserted.
+   */
+  protected function invalidateTagsOnSave($update) {
+    // An entity was created or updated: invalidate its list cache tags. (An
+    // updated entity may start to appear in a listing because it now meets that
+    // listing's filtering requirements. A newly created entity may start to
+    // appear in listings because it did not exist before.)
+    $tags = $this->getListCacheTags();
+    if ($update) {
+      // An existing entity was updated, also invalidate its unique cache tag.
+      $tags = NestedArray::mergeDeep($tags, $this->getCacheTag());
+      $this->onUpdateBundleEntity();
+    }
+    Cache::invalidateTags($tags);
+  }
+
+  /**
+   * Invalidates an entity's cache tags upon delete.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface[] $entities
+   *   An array of entities.
+   */
+  protected static function invalidateTagsOnDelete(array $entities) {
+    $tags = array();
+    foreach ($entities as $entity) {
+      // An entity was deleted: invalidate its own cache tag, but also its list
+      // cache tags. (A deleted entity may cause changes in a paged list on
+      // other pages than the one it's on. The one it's on is handled by its own
+      // cache tag, but subsequent list pages would not be invalidated, hence we
+      // must invalidate its list cache tags as well.)
+      $tags = NestedArray::mergeDeepArray(array($tags, $entity->getCacheTag(), $entity->getListCacheTags()));
+      $entity->onSaveOrDelete();
+    }
+    Cache::invalidateTags($tags);
+  }
+
+  /**
    * Acts on entities of which this entity is a bundle entity type.
    */
   protected function onUpdateBundleEntity() {
-    // If this entity is a bundle entity type of another entity type, and we're
-    // updating an existing entity, and that other entity type has a view
-    // builder class, then invalidate the render cache of entities for which
-    // this entity is a bundle.
     $bundle_of = $this->getEntityType()->getBundleOf();
-    $entity_manager = \Drupal::entityManager();
-    if ($bundle_of !== FALSE && $entity_manager->hasController($bundle_of, 'view_builder')) {
-      $entity_manager->getViewBuilder($bundle_of)->resetCache();
+    if ($bundle_of !== FALSE) {
+      // If this entity is a bundle entity type of another entity type, and we're
+      // updating an existing entity, and that other entity type has a view
+      // builder class, then invalidate the render cache of entities for which
+      // this entity is a bundle.
+      $entity_manager = $this->entityManager();
+      if ($entity_manager->hasHandler($bundle_of, 'view_builder')) {
+        $entity_manager->getViewBuilder($bundle_of)->resetCache();
+      }
+      // Entity bundle field definitions may depend on bundle settings.
+      $entity_manager->clearCachedFieldDefinitions();
     }
   }
 
@@ -435,6 +531,12 @@ abstract class Entity extends DependencySerialization implements EntityInterface
    */
   public function setOriginalId($id) {
     // By default, entities do not support renames and do not have original IDs.
+    // If the specified ID is anything except NULL, this should mark this entity
+    // as no longer new.
+    if ($id !== NULL) {
+      $this->enforceIsNew(FALSE);
+    }
+
     return $this;
   }
 

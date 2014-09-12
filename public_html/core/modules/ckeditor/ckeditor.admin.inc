@@ -5,8 +5,8 @@
  * Callbacks and theming for the CKEditor toolbar configuration UI.
  */
 
-use Drupal\Core\Language\Language;
 use Drupal\Core\Template\Attribute;
+use Drupal\Component\Utility\SafeMarkup;
 
 /**
  * Prepares variables for CKEditor settings toolbar templates.
@@ -39,7 +39,8 @@ function template_preprocess_ckeditor_settings_toolbar(&$variables) {
   }
   $button_groups = array();
   $active_buttons = array();
-  foreach ($editor->settings['toolbar']['rows'] as $row_number => $row) {
+  $settings = $editor->getSettings();
+  foreach ($settings['toolbar']['rows'] as $row_number => $row) {
     $button_groups[$row_number] = array();
     foreach ($row as $group) {
       foreach ($group['items'] as $button_name) {
@@ -65,10 +66,10 @@ function template_preprocess_ckeditor_settings_toolbar(&$variables) {
   $build_button_item = function($button, $rtl) {
     // Value of the button item.
     if (isset($button['image_alternative' . $rtl])) {
-      $value = $button['image_alternative' . $rtl];
+      $value = SafeMarkup::set($button['image_alternative' . $rtl]);
     }
     elseif (isset($button['image_alternative'])) {
-      $value = $button['image_alternative'];
+      $value = SafeMarkup::set($button['image_alternative']);
     }
     elseif (isset($button['image'])) {
       $value = array(

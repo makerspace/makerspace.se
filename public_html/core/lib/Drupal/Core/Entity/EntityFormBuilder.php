@@ -8,6 +8,7 @@
 namespace Drupal\Core\Entity;
 
 use Drupal\Core\Form\FormBuilderInterface;
+use Drupal\Core\Form\FormState;
 
 /**
  * Builds entity forms.
@@ -44,15 +45,12 @@ class EntityFormBuilder implements EntityFormBuilderInterface {
   /**
    * {@inheritdoc}
    */
-  public function getForm(EntityInterface $entity, $operation = 'default', array $form_state = array()) {
-    $controller = $this->entityManager->getFormController($entity->getEntityTypeId(), $operation);
-    $controller->setEntity($entity);
+  public function getForm(EntityInterface $entity, $operation = 'default', array $form_state_additions = array()) {
+    $form_object = $this->entityManager->getFormObject($entity->getEntityTypeId(), $operation);
+    $form_object->setEntity($entity);
 
-    $form_state['build_info']['callback_object'] = $controller;
-    $form_state['build_info']['base_form_id'] = $controller->getBaseFormID();
-    $form_state['build_info'] += array('args' => array());
-
-    return $this->formBuilder->buildForm($controller->getFormId(), $form_state);
+    $form_state = (new FormState())->setFormState($form_state_additions);
+    return $this->formBuilder->buildForm($form_object, $form_state);
   }
 
 }

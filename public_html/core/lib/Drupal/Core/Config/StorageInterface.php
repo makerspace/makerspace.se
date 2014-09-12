@@ -8,12 +8,17 @@
 namespace Drupal\Core\Config;
 
 /**
- * Defines an interface for configuration storage controllers.
+ * Defines an interface for configuration storage.
  *
  * Classes implementing this interface allow reading and writing configuration
  * data from and to the storage.
  */
 interface StorageInterface {
+
+  /**
+   * The default collection name.
+   */
+  const DEFAULT_COLLECTION = '';
 
   /**
    * Returns whether a configuration object exists.
@@ -41,7 +46,7 @@ interface StorageInterface {
   /**
    * Reads configuration data from the storage.
    *
-   * @param array $name
+   * @param array $names
    *   List of names of the configuration objects to load.
    *
    * @return array
@@ -60,6 +65,9 @@ interface StorageInterface {
    *
    * @return bool
    *   TRUE on success, FALSE in case of an error.
+   *
+   * @throws \Drupal\Core\Config\StorageException
+   *   If the back-end storage does not exist and cannot be created.
    */
   public function write($name, array $data);
 
@@ -152,5 +160,47 @@ interface StorageInterface {
    *   TRUE on success, FALSE otherwise.
    */
   public function deleteAll($prefix = '');
+
+  /**
+   * Creates a collection on the storage.
+   *
+   * A configuration storage can contain multiple sets of configuration objects
+   * in partitioned collections. The collection name identifies the current
+   * collection used.
+   *
+   * Implementations of this method must provide a new instance to avoid side
+   * effects caused by the fact that Config objects have their storage injected.
+   *
+   * @param string $collection
+   *   The collection name. Valid collection names conform to the following
+   *   regex [a-zA-Z_.]. A storage does not need to have a collection set.
+   *   However, if a collection is set, then storage should use it to store
+   *   configuration in a way that allows retrieval of configuration for a
+   *   particular collection.
+   *
+   * @return \Drupal\Core\Config\StorageInterface
+   *   A new instance of the storage backend with the collection set.
+   */
+  public function createCollection($collection);
+
+  /**
+   * Gets the existing collections.
+   *
+   * A configuration storage can contain multiple sets of configuration objects
+   * in partitioned collections. The collection key name identifies the current
+   * collection used.
+   *
+   * @return array
+   *   An array of existing collection names.
+   */
+  public function getAllCollectionNames();
+
+  /**
+   * Gets the name of the current collection the storage is using.
+   *
+   * @return string
+   *   The current collection name.
+   */
+  public function getCollectionName();
 
 }

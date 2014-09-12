@@ -7,19 +7,20 @@
 
 namespace Drupal\Core\Routing;
 
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Log\LoggerInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 use Symfony\Component\Routing\Route as SymfonyRoute;
 use Symfony\Component\Routing\Exception\RouteNotFoundException;
 
 use Symfony\Cmf\Component\Routing\ProviderBasedGenerator;
 
-use Drupal\Component\Utility\Settings;
 use Drupal\Component\Utility\UrlHelper;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\PathProcessor\OutboundPathProcessorInterface;
 use Drupal\Core\RouteProcessor\OutboundRouteProcessorInterface;
+use Drupal\Core\Site\Settings;
 
 /**
  * Generates URLs from route names and parameters.
@@ -27,11 +28,11 @@ use Drupal\Core\RouteProcessor\OutboundRouteProcessorInterface;
 class UrlGenerator extends ProviderBasedGenerator implements UrlGeneratorInterface {
 
   /**
-   * A request object.
+   * A request stack object.
    *
-   * @var \Symfony\Component\HttpFoundation\Request
+   * @var \Symfony\Component\HttpFoundation\RequestStack
    */
-  protected $request;
+  protected $requestStack;
 
   /**
    * The path processor to convert the system path to one suitable for urls.
@@ -86,12 +87,14 @@ class UrlGenerator extends ProviderBasedGenerator implements UrlGeneratorInterfa
    *   The route processor.
    * @param \Drupal\Core\Config\ConfigFactoryInterface $config
    *    The config factory.
-   * @param \Drupal\Component\Utility\Settings $settings
+   * @param \Drupal\Core\Site\Settings $settings
    *    The read only settings.
-   * @param \Symfony\Component\HttpKernel\Log\LoggerInterface $logger
+   * @param \Psr\Log\LoggerInterface $logger
    *   An optional logger for recording errors.
+   * @param \Symfony\Component\HttpFoundation\RequestStack $request_stack
+   *   A request stack object.
    */
-  public function __construct(RouteProviderInterface $provider, OutboundPathProcessorInterface $path_processor, OutboundRouteProcessorInterface $route_processor, ConfigFactoryInterface $config, Settings $settings, LoggerInterface $logger = NULL) {
+  public function __construct(RouteProviderInterface $provider, OutboundPathProcessorInterface $path_processor, OutboundRouteProcessorInterface $route_processor, ConfigFactoryInterface $config, Settings $settings, LoggerInterface $logger = NULL, RequestStack $request_stack) {
     parent::__construct($provider, $logger);
 
     $this->pathProcessor = $path_processor;
@@ -99,13 +102,18 @@ class UrlGenerator extends ProviderBasedGenerator implements UrlGeneratorInterfa
     $this->mixedModeSessions = $settings->get('mixed_mode_sessions', FALSE);
     $allowed_protocols = $config->get('system.filter')->get('protocols') ?: array('http', 'https');
     UrlHelper::setAllowedProtocols($allowed_protocols);
+    $this->requestStack = $request_stack;
+    $this->updateFromRequest();
   }
 
   /**
-   * {@inheritdoc}
+   * Updates instance properties using the current request from the stack.
+   *
+   * @todo This should probably be inline in the constructor as this is only
+   *   useful to get some current tests pass.
    */
-  public function setRequest(Request $request) {
-    $this->request = $request;
+  public function updateFromRequest() {
+    $request = $this->requestStack->getCurrentRequest();
     // Set some properties, based on the request, that are used during path-based
     // url generation.
     $this->basePath = $request->getBasePath() . '/';
@@ -180,6 +188,7 @@ class UrlGenerator extends ProviderBasedGenerator implements UrlGeneratorInterfa
    * {@inheritdoc}
    */
   public function generateFromRoute($name, $parameters = array(), $options = array()) {
+    $options += array('prefix' => '');
     $absolute = !empty($options['absolute']);
     $route = $this->getRoute($name);
     $this->processRoute($route, $parameters);
@@ -191,6 +200,12 @@ class UrlGenerator extends ProviderBasedGenerator implements UrlGeneratorInterfa
 
     $path = $this->getInternalPathFromRoute($route, $parameters);
     $path = $this->processPath($path, $options);
+    if (!empty($options['prefix'])) {
+      $path = ltrim($path, '/');
+      $prefix = empty($path) ? rtrim($options['prefix'], '/') : $options['prefix'];
+      $path = '/' . str_replace('%2F', '/', rawurlencode($prefix)) . $path;
+    }
+
     $fragment = '';
     if (isset($options['fragment'])) {
       if (($fragment = trim($options['fragment'])) != '') {
@@ -246,8 +261,9 @@ class UrlGenerator extends ProviderBasedGenerator implements UrlGeneratorInterfa
       // call the slow
       // \Drupal\Component\Utility\UrlHelper::stripDangerousProtocols() if $path
       // contains a ':' before any / ? or #. Note: we could use
-      // url_is_external($path) here, but that would require another function
-      // call, and performance inside url() is critical.
+      // \Drupal\Component\Utility\UrlHelper::isExternal($path) here, but that
+      // would require another function call, and performance inside url() is
+      // critical.
       $colonpos = strpos($path, ':');
       $options['external'] = ($colonpos !== FALSE && !preg_match('![/?#]!', substr($path, 0, $colonpos)) && UrlHelper::stripDangerousProtocols($path) == $path);
     }
@@ -350,7 +366,7 @@ class UrlGenerator extends ProviderBasedGenerator implements UrlGeneratorInterfa
       $actual_path = $path;
       $query_string = '';
     }
-    $path = '/' . $this->pathProcessor->processOutbound(trim($actual_path, '/'), $options, $this->request);
+    $path = '/' . $this->pathProcessor->processOutbound(trim($actual_path, '/'), $options, $this->requestStack->getCurrentRequest());
     $path .= $query_string;
     return $path;
   }

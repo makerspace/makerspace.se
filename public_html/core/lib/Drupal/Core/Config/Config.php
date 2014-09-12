@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Definition of Drupal\Core\Config\Config.
+ * Contains \Drupal\Core\Config\Config.
  */
 
 namespace Drupal\Core\Config;
@@ -17,6 +17,8 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
  * specific configuration object, including support for runtime overrides. The
  * overrides are handled on top of the stored configuration so they are not
  * saved back to storage.
+ *
+ * @ingroup config_api
  */
 class Config extends StorableConfigBase {
 
@@ -57,14 +59,14 @@ class Config extends StorableConfigBase {
    * @param string $name
    *   The name of the configuration object being constructed.
    * @param \Drupal\Core\Config\StorageInterface $storage
-   *   A storage controller object to use for reading and writing the
+   *   A storage object to use for reading and writing the
    *   configuration data.
    * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $event_dispatcher
    *   An event dispatcher instance to use for configuration events.
-   * @param \Drupal\Core\Config\TypedConfigManager $typed_config
+   * @param \Drupal\Core\Config\TypedConfigManagerInterface $typed_config
    *   The typed configuration manager service.
    */
-  public function __construct($name, StorageInterface $storage, EventDispatcherInterface $event_dispatcher, TypedConfigManager $typed_config) {
+  public function __construct($name, StorageInterface $storage, EventDispatcherInterface $event_dispatcher, TypedConfigManagerInterface $typed_config) {
     $this->name = $name;
     $this->storage = $storage;
     $this->eventDispatcher = $event_dispatcher;
@@ -108,7 +110,7 @@ class Config extends StorableConfigBase {
    * {@inheritdoc}
    */
   public function setData(array $data) {
-    $this->data = $data;
+    parent::setData($data);
     $this->resetOverriddenData();
     return $this;
   }
@@ -215,6 +217,11 @@ class Config extends StorableConfigBase {
         $this->data[$key] = $this->castValue($key, $value);
       }
     }
+    else {
+      foreach ($this->data as $key => $value) {
+        $this->validateValue($key, $value);
+      }
+    }
 
     $this->storage->write($this->name, $this->data);
     $this->isNew = FALSE;
@@ -230,7 +237,6 @@ class Config extends StorableConfigBase {
    *   The configuration object.
    */
   public function delete() {
-    // @todo Consider to remove the pruning of data for Config::delete().
     $this->data = array();
     $this->storage->delete($this->name);
     $this->isNew = TRUE;

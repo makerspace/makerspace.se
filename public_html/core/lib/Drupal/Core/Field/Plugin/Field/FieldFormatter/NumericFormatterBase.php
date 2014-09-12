@@ -9,6 +9,7 @@ namespace Drupal\Core\Field\Plugin\Field\FieldFormatter;
 
 use Drupal\Core\Field\FormatterBase;
 use Drupal\Core\Field\FieldItemListInterface;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Parent plugin for decimal and integer formatters.
@@ -18,7 +19,7 @@ abstract class NumericFormatterBase extends FormatterBase {
   /**
    * {@inheritdoc}
    */
-  public function settingsForm(array $form, array &$form_state) {
+  public function settingsForm(array $form, FormStateInterface $form_state) {
     $options = array(
       ''  => t('- None -'),
       '.' => t('Decimal point'),
@@ -76,6 +77,11 @@ abstract class NumericFormatterBase extends FormatterBase {
         $prefix = (count($prefixes) > 1) ? format_plural($item->value, $prefixes[0], $prefixes[1]) : $prefixes[0];
         $suffix = (count($suffixes) > 1) ? format_plural($item->value, $suffixes[0], $suffixes[1]) : $suffixes[0];
         $output = $prefix . $output . $suffix;
+      }
+      // Output the raw value in a content attribute if the text of the HTML
+      // element differs from the raw value (for example when a prefix is used).
+      if (!empty($item->_attributes) && $item->value != $output) {
+        $item->_attributes += array('content' => $item->value);
       }
 
       $elements[$delta] = array('#markup' => $output);

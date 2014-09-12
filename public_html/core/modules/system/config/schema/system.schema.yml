@@ -12,7 +12,7 @@ system.site:
       label: 'Site name'
     mail:
       type: email
-      label: 'E-mail address'
+      label: 'Email address'
     slogan:
       type: label
       label: 'Slogan'
@@ -114,38 +114,20 @@ system.date:
               type: boolean
               label: 'Remind users at login if their time zone is not set'
 
-system.date_format.*:
+system.diff:
   type: mapping
-  label: 'Date format'
+  label: 'Diff settings'
   mapping:
-    id:
-      type: string
-      label: 'Date format identifier'
-    uuid:
-      type: string
-      label: 'UUID'
-    label:
-      type: label
-      label: 'Date format label'
-    status:
-      type: boolean
-      label: 'Enabled'
-    locked:
-      type: boolean
-      label: 'Locked'
-    pattern:
+    context:
       type: mapping
-      label: 'Format string'
+      label: 'Context'
       mapping:
-        php:
-          type: date_format
-          label: 'PHP date format'
-        intl:
-          type: string
-          label: 'Intl date format'
-    langcode:
-      type: string
-      label: 'Default language'
+        lines_leading:
+          type: integer
+          label: 'Number of leading lines in a diff'
+        lines_trailing:
+          type: integer
+          label: 'Number of trailing lines in a diff'
 
 system.filter:
   type: mapping
@@ -165,17 +147,6 @@ system.logging:
     error_level:
       type: string
       label: 'Error messages to display'
-
-system.menu:
-  type: mapping
-  label: 'Menu settings'
-  mapping:
-    active_menus_default:
-      type: sequence
-      label: 'Active menus'
-      sequence:
-        - type: string
-          label: 'Menu'
 
 system.performance:
   type: mapping
@@ -274,61 +245,37 @@ system.theme:
     admin:
       type: string
       label: 'Administration theme'
-    enabled:
-      type: sequence
-      label: 'Enabled themes'
-      sequence:
-        - type: integer
-          label: 'Weight'
     default:
       type: string
       label: 'Default theme'
 
 system.menu.*:
-  type: mapping
+  type: config_entity
   label: 'Menu'
   mapping:
     id:
       type: string
-      label: 'Menu identifier'
-    uuid:
-      type: string
-      label: 'UUID'
+      label: 'ID'
     label:
       type: label
-      label: 'Menu label'
+      label: 'Label'
     description:
       type: label
       label: 'Menu description'
-    langcode:
-      type: string
-      label: 'Default language'
     locked:
-      type: boolean
-      label: ''
-    status:
       type: boolean
       label: ''
 
 system.action.*:
-  type: mapping
+  type: config_entity
   label: 'System action'
   mapping:
     id:
       type: string
       label: 'ID'
-    uuid:
-      type: string
-      label: 'UUID'
     label:
       type: label
       label: 'Label'
-    status:
-      type: boolean
-      label: 'Status'
-    langcode:
-      type: string
-      label: 'Default language'
     type:
       type: string
       label: 'Type'
@@ -336,10 +283,7 @@ system.action.*:
       type: string
       label: 'Plugin'
     configuration:
-      type: action.configuration.[plugin]
-    dependencies:
-      type: config_dependencies
-      label: 'Dependencies'
+      type: action.configuration.[%parent.plugin]
 
 system.file:
   type: mapping
@@ -361,6 +305,9 @@ system.file:
         temporary:
           type: string
           label: 'Temporary directory'
+    temporary_maximum_age:
+      type: integer
+      label: 'Maximum age for temporary files'
 
 system.image:
   type: mapping
@@ -380,7 +327,7 @@ system.image.gd:
 
 system.mail:
   type: mapping
-  label: 'Image settings'
+  label: 'Mail system'
   mapping:
     interface:
       type: mapping
@@ -390,85 +337,37 @@ system.mail:
           type: string
           label: 'Default'
 
-system.module:
-  type: mapping
-  label: 'Module settings'
-  mapping:
-    enabled:
-      type: sequence
-      label: 'Enabled modules'
-      sequence:
-        - type: integer
-          label: 'Weight'
-
 system.theme.global:
-  type: mapping
+  type: theme_settings
   label: 'Theme global settings'
-  mapping:
-    favicon:
-      type: mapping
-      label: 'Shortcut icon settings'
-      mapping:
-        mimetype:
-          type: string
-          label: 'MIME type'
-        path:
-          type: string
-          label: 'Path'
-        url:
-          type: string
-          label: 'URL'
-        use_default:
-          type: boolean
-          label: 'Use the default shortcut icon supplied by the theme'
-    features:
-      type: mapping
-      label: 'Shortcut icon settings'
-      mapping:
-        comment_user_picture:
-          type: boolean
-          label: 'User pictures in comments'
-        comment_user_verification:
-          type: boolean
-          label: 'User verification status in comments'
-        favicon:
-          type: boolean
-          label: 'Shortcut icon'
-        logo:
-          type: boolean
-          label: 'Logo'
-        name:
-          type: boolean
-          label: 'Site name'
-        node_user_picture:
-          type: boolean
-          label: 'User pictures in posts'
-        main_menu:
-          type: boolean
-          label: 'Main menu'
-        secondary_menu:
-          type: boolean
-          label: 'Secondary menu'
-        slogan:
-          type: boolean
-          label: 'Site slogan'
-    logo:
-      type: mapping
-      label: 'Shortcut icon settings'
-      mapping:
-        path:
-          type: string
-          label: 'Logo path'
-        url:
-          type: uri
-          label: 'URL'
-        use_default:
-          type: boolean
-          label: 'Use default'
 
-system.theme.disabled:
-  type: sequence
-  label: 'Disabled themes'
-  sequence:
-    - type: integer
-      label: 'Weight'
+block.settings.system_branding_block:
+  type: block_settings
+  label: 'Branding block'
+  mapping:
+    use_site_logo:
+      type: boolean
+      label: 'Use site logo'
+    use_site_name:
+      type: boolean
+      label: 'Use site name'
+    use_site_slogan:
+      type: boolean
+      label: 'Use site slogan'
+
+block.settings.system_menu_block:*:
+  type: block_settings
+  label: 'Menu block'
+  mapping:
+    level:
+      type: integer
+      label: 'Starting level'
+    depth:
+      type: integer
+      label: 'Maximum number of levels'
+
+condition.plugin.request_path:
+  type: condition.plugin
+  mapping:
+    pages:
+      type: string

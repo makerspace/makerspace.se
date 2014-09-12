@@ -11,12 +11,12 @@ use Drupal\Core\Cache\Cache;
 use Drupal\Core\Language\Language;
 use Drupal\Tests\UnitTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Zend\Stdlib\ArrayObject;
 
 /**
- * Tests local tasks manager.
- *
- * @see \Drupal\Core\Menu\LocalTaskManager
+ * @coversDefaultClass \Drupal\Core\Menu\LocalTaskManager
+ * @group Menu
  */
 class LocalTaskManagerTest extends UnitTestCase {
 
@@ -79,17 +79,9 @@ class LocalTaskManagerTest extends UnitTestCase {
   /**
    * The mocked access manager.
    *
-   * @var \Drupal\Core\Access\AccessManager|\PHPUnit_Framework_MockObject_MockObject
+   * @var \Drupal\Core\Access\AccessManagerInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $accessManager;
-
-  public static function getInfo() {
-    return array(
-      'name' => 'Local tasks manager.',
-      'description' => 'Tests local tasks manager.',
-      'group' => 'Menu',
-    );
-  }
 
   /**
    * {@inheritdoc}
@@ -104,9 +96,7 @@ class LocalTaskManagerTest extends UnitTestCase {
     $this->pluginDiscovery = $this->getMock('Drupal\Component\Plugin\Discovery\DiscoveryInterface');
     $this->factory = $this->getMock('Drupal\Component\Plugin\Factory\FactoryInterface');
     $this->cacheBackend = $this->getMock('Drupal\Core\Cache\CacheBackendInterface');
-    $this->accessManager = $this->getMockBuilder('Drupal\Core\Access\AccessManager')
-      ->disableOriginalConstructor()
-      ->getMock();
+    $this->accessManager = $this->getMock('Drupal\Core\Access\AccessManagerInterface');
 
     $this->setupLocalTaskManager();
   }
@@ -256,16 +246,18 @@ class LocalTaskManagerTest extends UnitTestCase {
     $this->manager = $this
       ->getMockBuilder('Drupal\Core\Menu\LocalTaskManager')
       ->disableOriginalConstructor()
-      ->setMethods(NULL)
+      ->setMethods(array('enforcePluginInterface'))
       ->getMock();
 
     $property = new \ReflectionProperty('Drupal\Core\Menu\LocalTaskManager', 'controllerResolver');
     $property->setAccessible(TRUE);
     $property->setValue($this->manager, $this->controllerResolver);
 
-    $property = new \ReflectionProperty('Drupal\Core\Menu\LocalTaskManager', 'request');
+    $request_stack = new RequestStack();
+    $request_stack->push($this->request);
+    $property = new \ReflectionProperty('Drupal\Core\Menu\LocalTaskManager', 'requestStack');
     $property->setAccessible(TRUE);
-    $property->setValue($this->manager, $this->request);
+    $property->setValue($this->manager, $request_stack);
 
     $property = new \ReflectionProperty('Drupal\Core\Menu\LocalTaskManager', 'accessManager');
     $property->setAccessible(TRUE);
@@ -288,7 +280,7 @@ class LocalTaskManagerTest extends UnitTestCase {
       ->method('getCurrentLanguage')
       ->will($this->returnValue(new Language(array('id' => 'en'))));
 
-    $this->manager->setCacheBackend($this->cacheBackend, $language_manager, 'local_task', array('local_task' => 1));
+    $this->manager->setCacheBackend($this->cacheBackend, 'local_task:en', array('local_task' => 1));
   }
 
   /**
@@ -394,7 +386,7 @@ class LocalTaskManagerTest extends UnitTestCase {
    */
   protected function getLocalTasksCache() {
     $local_task_fixtures = $this->getLocalTaskFixtures();
-    return array(
+    $local_tasks = array(
       'base_routes' => array(
         'menu_local_task_test_tasks_view' => 'menu_local_task_test_tasks_view',
       ),
@@ -414,6 +406,12 @@ class LocalTaskManagerTest extends UnitTestCase {
         ),
       ),
     );
+    $local_tasks['children']['> menu_local_task_test_tasks_view']['menu_local_task_test_tasks_settings']['weight'] = 0;
+    $local_tasks['children']['> menu_local_task_test_tasks_view']['menu_local_task_test_tasks_edit']['weight'] = 20 + 1e-6;
+    $local_tasks['children']['> menu_local_task_test_tasks_view']['menu_local_task_test_tasks_view.tab']['weight'] = 2e-6;
+    $local_tasks['children']['menu_local_task_test_tasks_view.tab']['menu_local_task_test_tasks_view_child1']['weight'] = 3e-6;
+    $local_tasks['children']['menu_local_task_test_tasks_view.tab']['menu_local_task_test_tasks_view_child2']['weight'] = 4e-6;
+    return $local_tasks;
   }
 
 }

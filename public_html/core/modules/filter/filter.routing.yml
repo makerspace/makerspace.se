@@ -12,7 +12,7 @@ filter.tips:
     _content: '\Drupal\filter\Controller\FilterController::filterTips'
     _title: 'Compose tips'
   requirements:
-    _entity_access: 'filter_format.view'
+    _entity_access: 'filter_format.use'
 
 filter.admin_overview:
   path: '/admin/config/content/formats'
@@ -29,20 +29,20 @@ filter.format_add:
     _entity_form: filter_format.add
     _title: 'Add text format'
   requirements:
-    _permission: 'administer filters'
+    _entity_create_access: 'filter_format'
 
-filter.format_edit:
+entity.filter_format.edit_form:
   path: '/admin/config/content/formats/manage/{filter_format}'
   defaults:
     _entity_form: filter_format.edit
+    _title_callback: '\Drupal\filter\Controller\FilterController::getLabel'
   requirements:
-    _permission: 'administer filters'
+    _entity_access: 'filter_format.update'
 
-filter.admin_disable:
+entity.filter_format.disable:
   path: '/admin/config/content/formats/manage/{filter_format}/disable'
   defaults:
     _entity_form: 'filter_format.disable'
     _title: 'Disable text format'
   requirements:
-    _filter_disable_format_access: 'TRUE'
-    _permission: 'administer filters'
+    _entity_access: 'filter_format.disable'

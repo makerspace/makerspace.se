@@ -7,7 +7,6 @@
 
 namespace Drupal\Core\Access;
 
-use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Routing\Access\AccessInterface as RoutingAccessInterface;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\HttpFoundation\Request;
@@ -39,19 +38,29 @@ class CsrfAccessCheck implements RoutingAccessInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Checks access based on a CSRF token for the request.
+   *
+   * @param \Symfony\Component\Routing\Route $route
+   *   The route to check against.
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The request object.
+   *
+   * @return string
+   *   A \Drupal\Core\Access\AccessInterface constant value.
    */
-  public function access(Route $route, Request $request, AccountInterface $account) {
+  public function access(Route $route, Request $request) {
     // If this is the controller request, check CSRF access as normal.
     if ($request->attributes->get('_controller_request')) {
+      // @todo Remove dependency on the internal _system_path attribute:
+      //   https://www.drupal.org/node/2293501.
       return $this->csrfToken->validate($request->query->get('token'), $request->attributes->get('_system_path')) ? static::ALLOW : static::KILL;
     }
 
     // Otherwise, this could be another requested access check that we don't
     // want to check CSRF tokens on.
-    $conjunction = $route->getOption('_access_mode') ?: 'ANY';
+    $conjunction = $route->getOption('_access_mode') ?: AccessManagerInterface::ACCESS_MODE_ANY;
     // Return ALLOW if all access checks are needed.
-    if ($conjunction == 'ALL') {
+    if ($conjunction == AccessManagerInterface::ACCESS_MODE_ALL) {
       return static::ALLOW;
     }
     // Return DENY otherwise, as another access checker should grant access

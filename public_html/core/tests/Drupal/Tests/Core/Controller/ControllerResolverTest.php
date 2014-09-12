@@ -8,6 +8,7 @@
 namespace Drupal\Tests\Core\Controller;
 
 use Drupal\Core\Controller\ControllerResolver;
+use Drupal\Core\DependencyInjection\ClassResolver;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Tests\UnitTestCase;
@@ -18,12 +19,8 @@ use Symfony\Component\DependencyInjection\ParameterBag\ParameterBag;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Tests that the Drupal-extended ControllerResolver is functioning properly.
- *
- * @see \Drupal\Core\Controller\ControllerResolver
- *
- * @group Drupal
- * @group Routing
+ * @coversDefaultClass \Drupal\Core\Controller\ControllerResolver
+ * @group Controller
  */
 class ControllerResolverTest extends UnitTestCase {
 
@@ -44,22 +41,13 @@ class ControllerResolverTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  public static function getInfo() {
-    return array(
-      'name' => 'Controller Resolver tests',
-      'description' => 'Tests that the Drupal-extended ControllerResolver is functioning properly.',
-      'group' => 'Routing',
-    );
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   protected function setUp() {
     parent::setUp();
 
     $this->container = new ContainerBuilder();
-    $this->controllerResolver = new ControllerResolver($this->container);
+    $class_resolver = new ClassResolver();
+    $class_resolver->setContainer($this->container);
+    $this->controllerResolver = new ControllerResolver($class_resolver);
   }
 
   /**

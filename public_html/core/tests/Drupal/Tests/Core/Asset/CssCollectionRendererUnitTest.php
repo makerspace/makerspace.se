@@ -36,7 +36,7 @@ use Drupal\Core\Asset\CssCollectionRenderer;
 use Drupal\Tests\UnitTestCase;
 
 /**
- * Tests the CssCollectionRenderer class.
+ * Tests the CSS asset collection renderer.
  *
  * @group Asset
  */
@@ -66,22 +66,14 @@ class CssCollectionRendererUnitTest extends UnitTestCase {
   /**
    * The state mock class.
    *
-   * @var \Drupal\Core\KeyValueStore\StateInterface|\PHPUnit_Framework_MockObject_MockObject
+   * @var \Drupal\Core\State\StateInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $state;
 
-  public static function getInfo() {
-    return array(
-      'name' => 'CSS asset collection renderer functionality',
-      'description' => 'Tests the CSS asset collection renderer.',
-      'group' => 'Asset handling',
-    );
-  }
-
-  function setUp() {
+  protected function setUp() {
     parent::setUp();
 
-    $this->state = $this->getMock('Drupal\Core\KeyValueStore\StateInterface');
+    $this->state = $this->getMock('Drupal\Core\State\StateInterface');
 
     $this->renderer = new CssCollectionRenderer($this->state);
     $this->file_css_group = array(
@@ -154,18 +146,6 @@ class CssCollectionRendererUnitTest extends UnitTestCase {
    * @see testRender
    */
   function providerTestRender() {
-    // Default for 'browsers' key in CSS asset.
-    $browsers_default = array('IE' => TRUE, '!IE' => TRUE);
-
-    // Defaults for LINK and STYLE elements.
-    $link_element_defaults = array(
-
-    );
-    $style_element_defaults = array(
-      '#type' => 'html_tag',
-      '#tag' => 'style',
-    );
-
     $create_link_element = function($href, $media = 'all', $browsers = array()) {
       return array(
         '#type' => 'html_tag',

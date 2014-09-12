@@ -7,10 +7,10 @@
 
 namespace Drupal\Core\ParamConverter;
 
-use Symfony\Component\DependencyInjection\ContainerAware;
+use Symfony\Component\DependencyInjection\ContainerAwareInterface;
+use Symfony\Component\DependencyInjection\ContainerAwareTrait;
 use Symfony\Cmf\Component\Routing\RouteObjectInterface;
 use Symfony\Component\Routing\RouteCollection;
-use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Manages converter services for converting request parameters to full objects.
@@ -18,21 +18,7 @@ use Symfony\Component\HttpFoundation\Request;
  * A typical use case for this would be upcasting (converting) a node id to a
  * node entity.
  */
-class ParamConverterManager extends ContainerAware implements ParamConverterManagerInterface {
-
-  /**
-   * An array of registered converter service ids.
-   *
-   * @var array
-   */
-  protected $converterIds = array();
-
-  /**
-   * Array of registered converter service ids sorted by their priority.
-   *
-   * @var array
-   */
-  protected $sortedConverterIds;
+class ParamConverterManager implements ParamConverterManagerInterface {
 
   /**
    * Array of loaded converter services keyed by their ids.
@@ -44,27 +30,9 @@ class ParamConverterManager extends ContainerAware implements ParamConverterMana
   /**
    * {@inheritdoc}
    */
-  public function addConverter($converter, $priority = 0) {
-    if (empty($this->converterIds[$priority])) {
-      $this->converterIds[$priority] = array();
-    }
-    $this->converterIds[$priority][] = $converter;
-    unset($this->sortedConverterIds);
+  public function addConverter(ParamConverterInterface $param_converter, $id) {
+    $this->converters[$id] = $param_converter;
     return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getConverterIds() {
-    if (!isset($this->sortedConverterIds)) {
-      krsort($this->converterIds);
-      $this->sortedConverterIds = array();
-      foreach ($this->converterIds as $resolvers) {
-        $this->sortedConverterIds = array_merge($this->sortedConverterIds, $resolvers);
-      }
-    }
-    return $this->sortedConverterIds;
   }
 
   /**
@@ -74,10 +42,9 @@ class ParamConverterManager extends ContainerAware implements ParamConverterMana
     if (isset($this->converters[$converter])) {
       return $this->converters[$converter];
     }
-    if (!in_array($converter, $this->getConverterIds())) {
+    else {
       throw new \InvalidArgumentException(sprintf('No converter has been registered for %s', $converter));
     }
-    return $this->converters[$converter] = $this->container->get($converter);
   }
 
   /**
@@ -97,7 +64,7 @@ class ParamConverterManager extends ContainerAware implements ParamConverterMana
           continue;
         }
 
-        foreach ($this->getConverterIds() as $converter) {
+        foreach (array_keys($this->converters) as $converter) {
           if ($this->getConverter($converter)->applies($definition, $name, $route)) {
             $definition['converter'] = $converter;
             break;
@@ -113,7 +80,7 @@ class ParamConverterManager extends ContainerAware implements ParamConverterMana
   /**
    * {@inheritdoc}
    */
-  public function convert(array $defaults, Request $request) {
+  public function convert(array $defaults) {
     /** @var $route \Symfony\Component\Routing\Route */
     $route = $defaults[RouteObjectInterface::ROUTE_OBJECT];
 
@@ -136,7 +103,7 @@ class ParamConverterManager extends ContainerAware implements ParamConverterMana
 
       // If a converter returns NULL it means that the parameter could not be
       // converted.
-      $defaults[$name] = $this->getConverter($definition['converter'])->convert($defaults[$name], $definition, $name, $defaults, $request);
+      $defaults[$name] = $this->getConverter($definition['converter'])->convert($defaults[$name], $definition, $name, $defaults);
       if (!isset($defaults[$name])) {
         throw new ParamNotConvertedException(sprintf('The "%s" parameter was not converted for the path "%s" (route name: "%s")', $name, $route->getPath(), $defaults[RouteObjectInterface::ROUTE_NAME]));
       }
@@ -146,4 +113,3 @@ class ParamConverterManager extends ContainerAware implements ParamConverterMana
   }
 
 }
-

@@ -7,6 +7,7 @@
 
 namespace Drupal\Core\Page;
 
+use Drupal\Component\Utility\SafeMarkup;
 use Drupal\Core\Template\Attribute;
 
 /**
@@ -78,6 +79,47 @@ class HtmlPage extends HtmlFragment {
   }
 
   /**
+   * Implodes the meta and link elements for the template.
+   *
+   * @return string
+   *   A string of meta and link tags.
+   */
+  public function getHead() {
+    // Each MetaElement or LinkElement is a subclass of
+    // \Drupal\Core\Page\HeadElement and generates safe output when __toString()
+    // is called on it. Thus, the whole concatenation is also safe.
+    return SafeMarkup::set(implode("\n", $this->getMetaElements()) . implode("\n", $this->getLinkElements()));
+  }
+
+  /**
+   * Returns a themed presentation of all JavaScript code for the current page.
+   *
+   * @param string $scope
+   *   (optional) The scope for which the JavaScript rules should be returned.
+   *   Defaults to 'header'.
+   *
+   * @return string
+   *   All JavaScript code segments and includes for the scope as HTML tags.
+   *
+   * @see drupal_get_js()
+   */
+  public function getScripts($scope = 'header') {
+    return drupal_get_js($scope);
+  }
+
+  /**
+   * Returns a themed representation of all stylesheets to attach to the page.
+   *
+   * @return string
+   *   A string of XHTML CSS tags.
+   *
+   * @see drupal_get_css()
+   */
+  public function getStyles() {
+    return drupal_get_css();
+  }
+
+  /**
    * Returns the HTML attributes for the body element of this page.
    *
    * @return \Drupal\Core\Template\Attribute
@@ -92,7 +134,7 @@ class HtmlPage extends HtmlFragment {
    * @param string $content
    *   The top-content to set.
    *
-   * @return self
+   * @return $this
    *   The called object.
    */
   public function setBodyTop($content) {
@@ -116,7 +158,7 @@ class HtmlPage extends HtmlFragment {
    * @param string $content
    *   The bottom-content to set.
    *
-   * @return self
+   * @return $this
    *   The called object.
    */
   public function setBodyBottom($content) {
@@ -140,7 +182,7 @@ class HtmlPage extends HtmlFragment {
    * @param int $status
    *   The status code to set.
    *
-   * @return self
+   * @return $this
    *   The called object.
    */
   public function setStatusCode($status) {
@@ -163,9 +205,29 @@ class HtmlPage extends HtmlFragment {
    *
    * @param array $cache_tags
    *   The cache tags associated with this HTML page.
+   *
+   * @return $this
+   *   The called object.
    */
   public function setCacheTags(array $cache_tags) {
     $this->cache['tags'] = $cache_tags;
+    return $this;
+  }
+
+  /**
+   * Gets all feed links.
+   *
+   * @return \Drupal\Core\Page\FeedLinkElement[]
+   *   A list of feed links attached to the page.
+   */
+  public function getFeedLinkElements() {
+    $feed_links = array();
+    foreach ($this->getLinkElements() as $link) {
+      if ($link instanceof FeedLinkElement) {
+        $feed_links[] = $link;
+      }
+    }
+    return $feed_links;
   }
 
 }

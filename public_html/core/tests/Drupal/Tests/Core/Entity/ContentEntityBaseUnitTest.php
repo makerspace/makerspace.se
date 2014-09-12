@@ -8,13 +8,15 @@
 namespace Drupal\Tests\Core\Entity;
 
 use Drupal\Core\DependencyInjection\ContainerBuilder;
+use Drupal\Core\Field\BaseFieldDefinition;
+use Drupal\Core\Field\FieldItemBase;
+use Drupal\Core\Language\LanguageInterface;
 use Drupal\Tests\UnitTestCase;
 use Drupal\Core\Language\Language;
 
 /**
  * @coversDefaultClass \Drupal\Core\Entity\ContentEntityBase
- *
- * @group Drupal
+ * @group Entity
  */
 class ContentEntityBaseUnitTest extends UnitTestCase {
 
@@ -31,6 +33,13 @@ class ContentEntityBaseUnitTest extends UnitTestCase {
    * @var \Drupal\Core\Entity\ContentEntityBase|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $entity;
+
+  /**
+   * An entity with no defined language to test.
+   *
+   * @var \Drupal\Core\Entity\ContentEntityBase|\PHPUnit_Framework_MockObject_MockObject
+   */
+  protected $entityUnd;
 
   /**
    * The entity type used for testing.
@@ -61,6 +70,13 @@ class ContentEntityBaseUnitTest extends UnitTestCase {
   protected $typedDataManager;
 
   /**
+   * The field type manager used for testing.
+   *
+   * @var \Drupal\Core\Field\FieldTypePluginManager|\PHPUnit_Framework_MockObject_MockObject
+   */
+  protected $fieldTypePluginManager;
+
+  /**
    * The language manager.
    *
    * @var \Drupal\Core\Language\LanguageManagerInterface|\PHPUnit_Framework_MockObject_MockObject
@@ -82,44 +98,38 @@ class ContentEntityBaseUnitTest extends UnitTestCase {
   protected $id;
 
   /**
-   * {@inheritdoc}
+   * Field definitions.
+   *
+   * @var \Drupal\Core\Field\BaseFieldDefinition[]
    */
-  public static function getInfo() {
-    return array(
-      'description' => '',
-      'name' => '\Drupal\Core\Entity\ContentEntityBase unit test',
-      'group' => 'Entity',
-    );
-  }
+  protected $fieldDefinitions;
 
   /**
    * {@inheritdoc}
    */
-  public function setUp() {
+  protected function setUp() {
     $this->id = 1;
     $values = array(
       'id' => $this->id,
-      'langcode' => 'en',
       'uuid' => '3bb9ee60-bea5-4622-b89b-a63319d10b3a',
+      'defaultLangcode' => array(LanguageInterface::LANGCODE_DEFAULT => 'en'),
     );
-    $this->entityTypeId = $this->randomName();
-    $this->bundle = $this->randomName();
+    $this->entityTypeId = $this->randomMachineName();
+    $this->bundle = $this->randomMachineName();
 
     $this->entityType = $this->getMock('\Drupal\Core\Entity\EntityTypeInterface');
+    $this->entityType->expects($this->any())
+      ->method('getKeys')
+      ->will($this->returnValue(array(
+        'id' => 'id',
+        'uuid' => 'uuid',
+    )));
 
     $this->entityManager = $this->getMock('\Drupal\Core\Entity\EntityManagerInterface');
     $this->entityManager->expects($this->any())
       ->method('getDefinition')
       ->with($this->entityTypeId)
       ->will($this->returnValue($this->entityType));
-    $this->entityManager->expects($this->any())
-      ->method('getFieldDefinitions')
-      ->with($this->entityTypeId, $this->bundle)
-      ->will($this->returnValue(array(
-        'id' => array(
-          'type' => 'integer_field',
-        ),
-      )));
 
     $this->uuid = $this->getMock('\Drupal\Component\Uuid\UuidInterface');
 
@@ -127,24 +137,52 @@ class ContentEntityBaseUnitTest extends UnitTestCase {
       ->disableOriginalConstructor()
       ->getMock();
 
-    $language = new Language(array('id' => 'en'));
+    $english = new Language(array('id' => 'en'));
+    $not_specified = new Language(array('id' => LanguageInterface::LANGCODE_NOT_SPECIFIED, 'locked' => TRUE));
     $this->languageManager = $this->getMock('\Drupal\Core\Language\LanguageManagerInterface');
     $this->languageManager->expects($this->any())
       ->method('getLanguages')
-      ->will($this->returnValue(array('en' => $language)));
+      ->will($this->returnValue(array('en' => $english, LanguageInterface::LANGCODE_NOT_SPECIFIED => $not_specified)));
     $this->languageManager->expects($this->any())
       ->method('getLanguage')
       ->with('en')
-      ->will($this->returnValue($language));
+      ->will($this->returnValue($english));
+    $this->languageManager->expects($this->any())
+      ->method('getLanguage')
+      ->with(LanguageInterface::LANGCODE_NOT_SPECIFIED)
+      ->will($this->returnValue($not_specified));
+
+    $this->fieldTypePluginManager = $this->getMockBuilder('\Drupal\Core\Field\FieldTypePluginManager')
+      ->disableOriginalConstructor()
+      ->getMock();
+    $this->fieldTypePluginManager->expects($this->any())
+      ->method('getDefaultSettings')
+      ->will($this->returnValue(array()));
+    $this->fieldTypePluginManager->expects($this->any())
+      ->method('getDefaultInstanceSettings')
+      ->will($this->returnValue(array()));
 
     $container = new ContainerBuilder();
     $container->set('entity.manager', $this->entityManager);
     $container->set('uuid', $this->uuid);
     $container->set('typed_data_manager', $this->typedDataManager);
     $container->set('language_manager', $this->languageManager);
+    $container->set('plugin.manager.field.field_type', $this->fieldTypePluginManager);
     \Drupal::setContainer($container);
 
+    $this->fieldDefinitions = array(
+      'id' => BaseFieldDefinition::create('integer'),
+      'revision_id' => BaseFieldDefinition::create('integer'),
+    );
+
+    $this->entityManager->expects($this->any())
+      ->method('getFieldDefinitions')
+      ->with($this->entityTypeId, $this->bundle)
+      ->will($this->returnValue($this->fieldDefinitions));
     $this->entity = $this->getMockForAbstractClass('\Drupal\Core\Entity\ContentEntityBase', array($values, $this->entityTypeId, $this->bundle));
+
+    $values['defaultLangcode'] = array(LanguageInterface::LANGCODE_DEFAULT => LanguageInterface::LANGCODE_NOT_SPECIFIED);
+    $this->entityUnd = $this->getMockForAbstractClass('\Drupal\Core\Entity\ContentEntityBase', array($values, $this->entityTypeId, $this->bundle));
   }
 
   /**
@@ -162,6 +200,36 @@ class ContentEntityBaseUnitTest extends UnitTestCase {
       ->method('hasKey')
       ->with('revision')
       ->will($this->returnValue(TRUE));
+    $this->entityType->expects($this->at(2))
+      ->method('hasKey')
+      ->with('revision')
+      ->will($this->returnValue(TRUE));
+    $this->entityType->expects($this->at(3))
+      ->method('getKey')
+      ->with('revision')
+      ->will($this->returnValue('revision_id'));
+    $this->entityType->expects($this->at(4))
+      ->method('hasKey')
+      ->with('revision')
+      ->will($this->returnValue(TRUE));
+    $this->entityType->expects($this->at(5))
+      ->method('getKey')
+      ->with('revision')
+      ->will($this->returnValue('revision_id'));
+
+    $field_item_list = $this->getMockBuilder('\Drupal\Core\Field\FieldItemList')
+      ->disableOriginalConstructor()
+      ->getMock();
+    $field_item = $this->getMockBuilder('\Drupal\Core\Field\FieldItemBase')
+      ->disableOriginalConstructor()
+      ->getMockForAbstractClass();
+
+    $this->typedDataManager->expects($this->any())
+      ->method('getPropertyInstance')
+      ->with($this->entity, 'revision_id', NULL)
+      ->will($this->returnValue($field_item_list));
+
+    $this->fieldDefinitions['revision_id']->getItemDefinition()->setClass(get_class($field_item));
 
     $this->assertFalse($this->entity->isNewRevision());
     $this->assertTrue($this->entity->isNewRevision());
@@ -193,7 +261,7 @@ class ContentEntityBaseUnitTest extends UnitTestCase {
    * @covers ::isTranslatable
    */
   public function testIsTranslatable() {
-    $this->entityManager->expects($this->at(0))
+    $this->entityManager->expects($this->any())
       ->method('getBundleInfo')
       ->with($this->entityTypeId)
       ->will($this->returnValue(array(
@@ -201,7 +269,25 @@ class ContentEntityBaseUnitTest extends UnitTestCase {
           'translatable' => TRUE,
         ),
       )));
+    $this->languageManager->expects($this->any())
+      ->method('isMultilingual')
+      ->will($this->returnValue(TRUE));
+    $this->assertTrue($this->entity->language()->id == 'en');
+    $this->assertFalse($this->entity->language()->locked);
     $this->assertTrue($this->entity->isTranslatable());
+
+    $this->assertTrue($this->entityUnd->language()->id == LanguageInterface::LANGCODE_NOT_SPECIFIED);
+    $this->assertTrue($this->entityUnd->language()->locked);
+    $this->assertFalse($this->entityUnd->isTranslatable());
+  }
+
+  /**
+   * @covers ::isTranslatable
+   */
+  public function testIsTranslatableForMonolingual() {
+    $this->languageManager->expects($this->any())
+      ->method('isMultilingual')
+      ->will($this->returnValue(FALSE));
     $this->assertFalse($this->entity->isTranslatable());
   }
 
@@ -212,14 +298,15 @@ class ContentEntityBaseUnitTest extends UnitTestCase {
     // This method is internal, so check for errors on calling it only.
     $storage = $this->getMock('\Drupal\Core\Entity\EntityStorageInterface');
     $record = new \stdClass();
-    $this->entity->preSaveRevision($storage, $record);
+    // Our mocked entity->preSaveRevision() returns NULL, so assert that.
+    $this->assertNull($this->entity->preSaveRevision($storage, $record));
   }
 
   /**
    * @covers ::getString
    */
   public function testGetString() {
-    $label = $this->randomName();
+    $label = $this->randomMachineName();
     /** @var \Drupal\Core\Entity\ContentEntityBase|\PHPUnit_Framework_MockObject_MockObject $entity */
     $entity = $this->getMockBuilder('\Drupal\Core\Entity\ContentEntityBase')
       ->setMethods(array('label'))
@@ -298,9 +385,10 @@ class ContentEntityBaseUnitTest extends UnitTestCase {
    * @covers ::setContext
    */
   public function testSetContext() {
-    $name = $this->randomName();
+    $name = $this->randomMachineName();
     $parent = $this->getMock('\Drupal\Core\TypedData\TypedDataInterface');
-    $this->entity->setContext($name, $parent);
+    // Our mocked entity->setContext() returns NULL, so assert that.
+    $this->assertNull($this->entity->setContext($name, $parent));
   }
 
   /**
@@ -314,8 +402,8 @@ class ContentEntityBaseUnitTest extends UnitTestCase {
    * @covers ::access
    */
   public function testAccess() {
-    $access = $this->getMock('\Drupal\Core\Entity\EntityAccessControllerInterface');
-    $operation = $this->randomName();
+    $access = $this->getMock('\Drupal\Core\Entity\EntityAccessControlHandlerInterface');
+    $operation = $this->randomMachineName();
     $access->expects($this->at(0))
       ->method('access')
       ->with($this->entity, $operation)
@@ -324,7 +412,7 @@ class ContentEntityBaseUnitTest extends UnitTestCase {
       ->method('createAccess')
       ->will($this->returnValue(TRUE));
     $this->entityManager->expects($this->exactly(2))
-      ->method('getAccessController')
+      ->method('getAccessControlHandler')
       ->will($this->returnValue($access));
     $this->assertTrue($this->entity->access($operation));
     $this->assertTrue($this->entity->access('create'));
@@ -337,7 +425,7 @@ class ContentEntityBaseUnitTest extends UnitTestCase {
     // Make a mock with one method that we use as the entity's label callback.
     // We check that it is called, and that the entity's label is the callback's
     // return value.
-    $callback_label = $this->randomName();
+    $callback_label = $this->randomMachineName();
     $callback_container = $this->getMock(get_class());
     $callback_container->expects($this->once())
       ->method(__FUNCTION__)

@@ -11,13 +11,17 @@ use Drupal\Core\Field\FieldItemInterface;
 use Drupal\Core\Field\FieldItemListInterface;
 
 /**
- * Defines a common interface for entity view controller classes.
+ * Defines an interface for entity view builders.
+ *
+ * @ingroup entity_api
  */
 interface EntityViewBuilderInterface {
 
   /**
-   * Build the structured $content property on the entity.
+   * Builds the component fields and properties of a set of entities.
    *
+   * @param &$build
+   *   The renderable array representing the entity content.
    * @param \Drupal\Core\Entity\EntityInterface[] $entities
    *   The entities whose content is being built.
    * @param \Drupal\Core\Entity\Display\EntityViewDisplayInterface[] $displays
@@ -28,11 +32,8 @@ interface EntityViewBuilderInterface {
    * @param string $langcode
    *   (optional) For which language the entity should be build, defaults to
    *   the current content language.
-   *
-   * @return array
-   *   The content array.
    */
-  public function buildContent(array $entities, array $displays, $view_mode, $langcode = NULL);
+  public function buildComponents(array &$build, array $entities, array $displays, $view_mode, $langcode = NULL);
 
   /**
    * Returns the render array for the provided entity.
@@ -97,8 +98,6 @@ interface EntityViewBuilderInterface {
    * isolated field.
    * - Do not use inside node (or any other entity) templates; use
    *   render($content[FIELD_NAME]) instead.
-   * - Do not use to display all fields in an entity; use
-   *   field_attach_prepare_view() and field_attach_view() instead.
    * - The FieldItemInterface::view() method can be used to output a single
    *   formatted field value, without label or wrapping field markup.
    *
@@ -148,5 +147,16 @@ interface EntityViewBuilderInterface {
    * @see \Drupal\Core\Entity\EntityViewBuilderInterface::viewField()
    */
   public function viewFieldItem(FieldItemInterface $item, $display_options = array());
+
+  /**
+   * The cache tag associated with this entity view builder.
+   *
+   * An entity view builder is instantiated on a per-entity type basis, so the
+   * cache tags are also per-entity type.
+   *
+   * @return array
+   *   An array of cache tags.
+   */
+  public function getCacheTag();
 
 }

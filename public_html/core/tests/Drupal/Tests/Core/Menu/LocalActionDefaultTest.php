@@ -13,9 +13,8 @@ use Symfony\Component\HttpFoundation\ParameterBag;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Tests the local action default class.
- *
- * @see \Drupal\Core\Menu\LocalActionDefault
+ * @coversDefaultClass \Drupal\Core\Menu\LocalActionDefault
+ * @group Menu
  */
 class LocalActionDefaultTest extends UnitTestCase {
 
@@ -63,14 +62,6 @@ class LocalActionDefaultTest extends UnitTestCase {
    */
   protected $routeProvider;
 
-  public static function getInfo() {
-    return array(
-      'name' => 'Local actions default plugin.',
-      'description' => 'Tests the local action default class.',
-      'group' => 'Menu',
-    );
-  }
-
   protected function setUp() {
     parent::setUp();
 
@@ -83,7 +74,7 @@ class LocalActionDefaultTest extends UnitTestCase {
    */
   protected function setupLocalActionDefault() {
     $this->localActionDefault = new LocalActionDefault($this->config, $this->pluginId, $this->pluginDefinition, $this->routeProvider);
-    $this->localActionDefault->setTranslationManager($this->stringTranslation);
+    $this->localActionDefault->setStringTranslation($this->stringTranslation);
   }
 
   /**

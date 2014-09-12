@@ -14,19 +14,15 @@ use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 
 /**
- * Tests Drupal\Core\EventSubscriber\PathRootsSubscriber.
- *
- * @group Drupal
- * @group Routing
- *
  * @coversDefaultClass \Drupal\Core\EventSubscriber\PathRootsSubscriber
+ * @group EventSubscriber
  */
 class PathRootsSubscriberTest extends UnitTestCase {
 
   /**
    * The mocked state.
    *
-   * @var \Drupal\Core\KeyValueStore\StateInterface|\PHPUnit_Framework_MockObject_MockObject
+   * @var \Drupal\Core\State\StateInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   protected $state;
 
@@ -40,19 +36,8 @@ class PathRootsSubscriberTest extends UnitTestCase {
   /**
    * {@inheritdoc}
    */
-  public static function getInfo() {
-    return array(
-      'name' => 'Drupal\Core\EventSubscriber\PathRootsSubscriber',
-      'description' => '',
-      'group' => 'Routing'
-    );
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   protected function setUp() {
-    $this->state = $this->getMock('Drupal\Core\KeyValueStore\StateInterface');
+    $this->state = $this->getMock('Drupal\Core\State\StateInterface');
     $this->pathRootsSubscriber = new PathRootsSubscriber($this->state);
   }
 

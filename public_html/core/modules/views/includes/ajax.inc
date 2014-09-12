@@ -5,33 +5,30 @@
  * Handles the server side AJAX interactions of Views.
  */
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\Ajax\HighlightCommand;
 use Drupal\Core\Ajax\OpenModalDialogCommand;
 use Drupal\Core\Ajax\AjaxResponse;
 
 /**
- * @defgroup views_ajax Views AJAX library
- * @{
- * Handles the server side AJAX interactions of Views.
- */
-
-/**
- * Wrapper around drupal_build_form to handle some AJAX stuff automatically.
+ * Wrapper around \Drupal\Core\Form\FormBuilderInterface::buildForm() to handle
+ * some AJAX stuff automatically.
  * This makes some assumptions about the client.
  */
-function views_ajax_form_wrapper($form_id, &$form_state) {
+function views_ajax_form_wrapper($form_class, FormStateInterface &$form_state) {
   // This won't override settings already in.
-  $form_state += array(
-    'rerender' => FALSE,
-    'no_redirect' => !empty($form_state['ajax']),
-    'no_cache' => TRUE,
-    'build_info' => array(
-      'args' => array(),
-    ),
-  );
+  if (!$form_state->has('rerender')) {
+    $form_state->set('rerender', FALSE);
+  }
+  // Do not overwrite if the redirect has been disabled.
+  if (!$form_state->isRedirectDisabled()) {
+    $form_state->disableRedirect(!empty($form_state['ajax']));
+  }
+  $form_state->disableCache();
 
-  $form = drupal_build_form($form_id, $form_state);
+  $form = \Drupal::formBuilder()->buildForm($form_class, $form_state);
   $output = drupal_render($form);
+  drupal_process_attached($form);
 
   // These forms have the title built in, so set the title here:
   if (empty($form_state['ajax']) && !empty($form_state['title'])) {
@@ -67,7 +64,3 @@ function views_ajax_form_wrapper($form_id, &$form_state) {
 
   return (!empty($form_state['title'])) ? array('#title' => $form_state['title'], '#markup' => $output) : $output;
 }
-
-/**
- * @}
- */

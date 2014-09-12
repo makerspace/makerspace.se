@@ -110,7 +110,7 @@ abstract class FileTransfer {
   /**
    * Connects to the server.
    */
-  abstract protected function connect();
+  abstract public function connect();
 
   /**
    * Copies a directory.
@@ -246,14 +246,14 @@ abstract class FileTransfer {
   }
 
   /**
-  * Changes backslashes to slashes, also removes a trailing slash.
-  *
-  * @param string $path
-  *   The path to modify.
-  *
-  * @return string
-  *   The modified path.
-  */
+   * Changes backslashes to slashes, also removes a trailing slash.
+   *
+   * @param string $path
+   *   The path to modify.
+   *
+   * @return string
+   *   The modified path.
+   */
   function sanitizePath($path) {
     $path = str_replace('\\', '/', $path); // Windows path sanitization.
     if (substr($path, -1) == '/') {

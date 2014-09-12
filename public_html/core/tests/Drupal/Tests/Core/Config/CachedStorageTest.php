@@ -6,7 +6,6 @@ use Drupal\Tests\UnitTestCase;
 use Drupal\Core\Config\CachedStorage;
 use Drupal\Core\Cache\MemoryBackend;
 use Drupal\Core\Cache\NullBackend;
-use Drupal\Core\Cache\CacheBackendInterface;
 
 /**
  * Tests the interaction of cache and file storage in CachedStorage.
@@ -15,13 +14,10 @@ use Drupal\Core\Cache\CacheBackendInterface;
  */
 class CachedStorageTest extends UnitTestCase {
 
-  public static function getInfo() {
-    return array(
-      'name' => 'Config cached storage test',
-      'description' => 'Tests the interaction of cache and file storage in CachedStorage.',
-      'group' => 'Configuration'
-    );
-  }
+  /**
+   * @var \Drupal\Core\Cache\CacheFactoryInterface|\PHPUnit_Framework_MockObject_MockObject
+   */
+  protected $cacheFactory;
 
   /**
    * Test listAll static cache.
@@ -30,13 +26,14 @@ class CachedStorageTest extends UnitTestCase {
     $prefix = __FUNCTION__;
     $storage = $this->getMock('Drupal\Core\Config\StorageInterface');
 
-    $response = array("$prefix." . $this->randomName(), "$prefix." . $this->randomName());
+    $response = array("$prefix." . $this->randomMachineName(), "$prefix." . $this->randomMachineName());
     $storage->expects($this->once())
       ->method('listAll')
       ->with($prefix)
       ->will($this->returnValue($response));
 
     $cache = new NullBackend(__FUNCTION__);
+
     $cachedStorage = new CachedStorage($storage, $cache);
     $this->assertEquals($response, $cachedStorage->listAll($prefix));
     $this->assertEquals($response, $cachedStorage->listAll($prefix));
@@ -50,9 +47,10 @@ class CachedStorageTest extends UnitTestCase {
     $storage = $this->getMock('Drupal\Core\Config\StorageInterface');
     $storage->expects($this->never())->method('listAll');
 
-    $response = array("$prefix." . $this->randomName(), "$prefix." . $this->randomName());
+    $response = array("$prefix." . $this->randomMachineName(), "$prefix." . $this->randomMachineName());
     $cache = new MemoryBackend(__FUNCTION__);
     $cache->set('find:' . $prefix, $response);
+
     $cachedStorage = new CachedStorage($storage, $cache);
     $this->assertEquals($response, $cachedStorage->listAll($prefix));
   }
@@ -79,6 +77,7 @@ class CachedStorageTest extends UnitTestCase {
     foreach ($configCacheValues as $key => $value) {
       $cache->set($key, $value);
     }
+
     $cachedStorage = new CachedStorage($storage, $cache);
     $this->assertEquals($configCacheValues, $cachedStorage->readMultiple($configNames));
   }
@@ -116,7 +115,7 @@ class CachedStorageTest extends UnitTestCase {
     $storage = $this->getMock('Drupal\Core\Config\StorageInterface');
     $storage->expects($this->once())
       ->method('readMultiple')
-      ->with(array(2 => $configNames[2], 4 => $configNames[4]))
+      ->with(array($configNames[2], $configNames[4]))
       ->will($this->returnValue($response));
 
     $cachedStorage = new CachedStorage($storage, $cache);
@@ -143,6 +142,7 @@ class CachedStorageTest extends UnitTestCase {
             ->method('read')
             ->with($name)
             ->will($this->returnValue(FALSE));
+
     $cachedStorage = new CachedStorage($storage, $cache);
 
     $this->assertFalse($cachedStorage->read($name));
@@ -163,6 +163,7 @@ class CachedStorageTest extends UnitTestCase {
     $storage = $this->getMock('Drupal\Core\Config\StorageInterface');
     $storage->expects($this->never())
             ->method('read');
+
     $cachedStorage = new CachedStorage($storage, $cache);
     $this->assertFalse($cachedStorage->read($name));
   }

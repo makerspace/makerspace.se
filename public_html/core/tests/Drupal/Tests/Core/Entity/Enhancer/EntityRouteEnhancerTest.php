@@ -13,22 +13,10 @@ use Symfony\Cmf\Component\Routing\RouteObjectInterface;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Tests the entity route enhancer.
- *
- * @group Drupal
+ * @coversDefaultClass \Drupal\Core\Entity\Enhancer\EntityRouteEnhancer
  * @group Entity
- *
- * @see \Drupal\Core\Entity\Enhancer\EntityRouteEnhancer
  */
 class EntityRouteEnhancerTest extends UnitTestCase {
-
-  public static function getInfo() {
-    return array(
-      'name' => 'Entity route enhancer test',
-      'description' => 'Tests the entity route enhancer.',
-      'group' => 'Entity'
-    );
-  }
 
   /**
    * Tests the enhancer method.
@@ -53,7 +41,7 @@ class EntityRouteEnhancerTest extends UnitTestCase {
     $this->assertEquals($new_defaults['_content'][1], 'getContentResult');
     $this->assertEquals($defaults['_controller'], $new_defaults['_controller'], '_controller got overridden.');
 
-    // Set _entity_form and ensure that the form controller is set.
+    // Set _entity_form and ensure that the form is set.
     $defaults = array();
     $defaults['_entity_form'] = 'entity_test.default';
     $new_defaults = $route_enhancer->enhance($defaults, $request);

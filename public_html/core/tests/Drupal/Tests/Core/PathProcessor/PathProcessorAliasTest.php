@@ -12,11 +12,8 @@ use Drupal\Tests\UnitTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Tests the path alias path processor.
- *
- * @group Drupal
- *
- * @see \Drupal\Core\PathProcessor\PathProcessorAlias
+ * @coversDefaultClass \Drupal\Core\PathProcessor\PathProcessorAlias
+ * @group PathProcessor
  */
 class PathProcessorAliasTest extends UnitTestCase {
 
@@ -34,14 +31,6 @@ class PathProcessorAliasTest extends UnitTestCase {
    */
   protected $pathProcessor;
 
-  public static function getInfo() {
-    return array(
-      'name' => t('Path Processor alias'),
-      'description' => t('Tests the path alias path processor.'),
-      'group' => t('Path API'),
-    );
-  }
-
   protected function setUp() {
     $this->aliasManager = $this->getMock('Drupal\Core\Path\AliasManagerInterface');
     $this->pathProcessor = new PathProcessorAlias($this->aliasManager);
@@ -54,7 +43,7 @@ class PathProcessorAliasTest extends UnitTestCase {
    */
   public function testProcessInbound() {
     $this->aliasManager->expects($this->exactly(2))
-      ->method('getSystemPath')
+      ->method('getPathByAlias')
       ->will($this->returnValueMap(array(
         array('urlalias', NULL, 'internal-url'),
         array('url', NULL, 'url'),
@@ -73,7 +62,7 @@ class PathProcessorAliasTest extends UnitTestCase {
    */
   public function testProcessOutbound() {
     $this->aliasManager->expects($this->exactly(2))
-      ->method('getPathAlias')
+      ->method('getAliasByPath')
       ->will($this->returnValueMap(array(
         array('internal-url', NULL, 'urlalias'),
         array('url', NULL, 'url'),

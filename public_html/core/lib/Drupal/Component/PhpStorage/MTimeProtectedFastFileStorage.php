@@ -70,8 +70,8 @@ class MTimeProtectedFastFileStorage extends FileStorage {
 
     // Write the file out to a temporary location. Prepend with a '.' to keep it
     // hidden from listings and web servers.
-    $temporary_path = $this->directory . '/.' . str_replace('/', '#', $name);
-    if (!@file_put_contents($temporary_path, $data)) {
+    $temporary_path = tempnam($this->directory, '.');
+    if (!$temporary_path || !@file_put_contents($temporary_path, $data)) {
       return FALSE;
     }
     // The file will not be chmod() in the future so this is the final
@@ -102,6 +102,8 @@ class MTimeProtectedFastFileStorage extends FileStorage {
       // Reset the file back in the temporary location if this is not the first
       // iteration.
       if ($i > 0) {
+        $this->unlink($temporary_path);
+        $temporary_path = tempnam($this->directory, '.');
         rename($full_path, $temporary_path);
         // Make sure to not loop infinitely on a hopelessly slow filesystem.
         if ($i > 10) {
@@ -138,7 +140,7 @@ class MTimeProtectedFastFileStorage extends FileStorage {
    * @return string
    *   The full path where the file is or should be stored.
    */
-  protected function getFullPath($name, &$directory = NULL, &$directory_mtime = NULL) {
+  public function getFullPath($name, &$directory = NULL, &$directory_mtime = NULL) {
     if (!isset($directory)) {
       $directory = $this->getContainingDirectoryFullPath($name);
     }
@@ -149,9 +151,28 @@ class MTimeProtectedFastFileStorage extends FileStorage {
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function delete($name) {
+    $path = $this->getContainingDirectoryFullPath($name);
+    if (file_exists($path)) {
+      return $this->unlink($path);
+    }
+    return FALSE;
+  }
+
+  /**
    * Returns the full path of the containing directory where the file is or should be stored.
    */
   protected function getContainingDirectoryFullPath($name) {
+    // Remove the .php file extension from the directory name.
+    // Within a single directory, a subdirectory cannot have the same name as a
+    // file. Thus, when switching between MTimeProtectedFastFileStorage and
+    // FileStorage, the subdirectory or the file cannot be created in case the
+    // other file type exists already.
+    if (substr($name, -4) === '.php') {
+      $name = substr($name, 0, -4);
+    }
     return $this->directory . '/' . str_replace('/', '#', $name);
   }
 

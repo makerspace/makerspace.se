@@ -11,24 +11,12 @@ use Drupal\Tests\UnitTestCase;
 use Drupal\Component\Utility\Unicode;
 
 /**
- * Test unicode handling features implemented in Unicode component.
- *
- * @see \Drupal\Component\Utility\Unicode
- *
- * @group Drupal
- * @group Unicode
+ * @coversDefaultClass \Drupal\Component\Utility\Unicode
+ * @group Utility
  */
 class UnicodeTest extends UnitTestCase {
 
-  public static function getInfo() {
-    return array(
-      'name' => 'Unicode handling',
-      'description' => 'Tests Drupal Unicode handling.',
-      'group' => 'System',
-    );
-  }
-
-  public function setUp() {
+  protected function setUp() {
     // Initialize unicode component.
     Unicode::check();
   }
@@ -190,6 +178,70 @@ class UnicodeTest extends UnitTestCase {
       array('åwesome', 'Åwesome'),
       // A multibyte string.
       array('σion', 'Σion'),
+    );
+  }
+
+  /**
+   * Tests Unicode::lcfirst().
+   *
+   * @dataProvider providerLcfirst
+   */
+  public function testLcfirst($text, $expected, $multibyte = FALSE) {
+    $status = $multibyte ? Unicode::STATUS_MULTIBYTE : Unicode::STATUS_SINGLEBYTE;
+    Unicode::setStatus($status);
+    $this->assertEquals($expected, Unicode::lcfirst($text));
+  }
+
+  /**
+   * Data provider for testLcfirst().
+   *
+   * @see testLcfirst()
+   *
+   * @return array
+   *   An array containing a string, its lowercase version and whether it should
+   *   be processed as multibyte.
+   */
+  public function providerLcfirst() {
+    return array(
+      array('tHe QUIcK bRoWn', 'tHe QUIcK bRoWn'),
+      array('FrançAIS is ÜBER-åwesome', 'françAIS is ÜBER-åwesome'),
+      array('Über', 'über'),
+      array('Åwesome', 'åwesome'),
+      // Add a multibyte string.
+      array('ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΣὨ', 'αΒΓΔΕΖΗΘΙΚΛΜΝΞΟΣὨ', TRUE),
+    );
+  }
+
+  /**
+   * Tests Unicode::ucwords().
+   *
+   * @dataProvider providerUcwords
+   */
+  public function testUcwords($text, $expected, $multibyte = FALSE) {
+    $status = $multibyte ? Unicode::STATUS_MULTIBYTE : Unicode::STATUS_SINGLEBYTE;
+    Unicode::setStatus($status);
+    $this->assertEquals($expected, Unicode::ucwords($text));
+  }
+
+  /**
+   * Data provider for testUcwords().
+   *
+   * @see testUcwords()
+   *
+   * @return array
+   *   An array containing a string, its capitalized version and whether it should
+   *   be processed as multibyte.
+   */
+  public function providerUcwords() {
+    return array(
+      array('tHe QUIcK bRoWn', 'THe QUIcK BRoWn'),
+      array('françAIS', 'FrançAIS'),
+      array('über', 'Über'),
+      array('åwesome', 'Åwesome'),
+      // Make sure we don't mangle extra spaces.
+      array('frànçAIS is  über-åwesome', 'FrànçAIS Is  Über-Åwesome'),
+      // Add a multibyte string.
+      array('σion', 'Σion', TRUE),
     );
   }
 
