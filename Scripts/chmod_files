@@ -1,4 +1,0 @@
-chown -R chille:www-data /home/chille/public_html/
-chmod -R 755 /home/chille/public_html
-chmod -R 775 /home/chille/public_html/sites/default/files
-find /home/chille/public_html -type d -exec chmod +s {} \;
