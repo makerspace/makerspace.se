@@ -11,3 +11,17 @@ Import/
 
 # Klara's config
 public_html/sites/default/files/config_kSuyhUttmR-cqh__OrXhQvbbXOv2v_HLHGP-Ie1nBQ95jbiUFDi0X0FTkuAb-olSw66vSQHtpQ
+
+
+
+
+# Ignore configuration files that may contain sensitive information.
+public_html/sites/*/settings*.php
+public_html/sites/*/services*.yml
+
+# Ignore paths that contain user-generated content.
+public_html/sites/*/files
+public_html/sites/*/private
+
+# Ignore SimpleTest multi-site environment.
+sites/simpletest
