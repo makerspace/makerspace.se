@@ -77,7 +77,7 @@ const RESPONSIVE_PRIORITY_LOW = 'priority-low';
  *   Either the name of a theme or a full theme object.
  *
  * @return bool
- *   Boolean TRUE if the theme is enabled or is the site administration theme;
+ *   Boolean TRUE if the theme is installed or is the site administration theme;
  *   FALSE otherwise.
  *
  * @deprecated in Drupal 8.x-dev, will be removed before Drupal 8.0.
@@ -766,42 +766,6 @@ function theme_settings_convert_to_config(array $theme_settings, Config $config)
 }
 
 /**
- * Enables a given list of themes.
- *
- * @param $theme_list
- *   An array of theme names.
- *
- * @return bool
- *   Whether any of the given themes have been enabled.
- *
- * @deprecated in Drupal 8.x-dev, will be removed before Drupal 8.0.
- *   Use \Drupal::service('theme_handler')->enable().
- *
- * @see \Drupal\Core\Extension\ThemeHandler::enable().
- */
-function theme_enable($theme_list) {
-  return \Drupal::service('theme_handler')->enable($theme_list);
-}
-
-/**
- * Disables a given list of themes.
- *
- * @param $theme_list
- *   An array of theme names.
- *
- * @return bool
- *   Whether any of the given themes have been disabled.
- *
- * @deprecated in Drupal 8.x-dev, will be removed before Drupal 8.0.
- *   Use \Drupal::service('theme_handler')->disable().
- *
- * @see \Drupal\Core\Extension\ThemeHandler::disable().
- */
-function theme_disable($theme_list) {
-  return \Drupal::service('theme_handler')->disable($theme_list);
-}
-
-/**
  * @addtogroup themeable
  * @{
  */
@@ -837,11 +801,6 @@ function template_preprocess_time(&$variables) {
       $variables['html'] = FALSE;
     }
   }
-
-  // Add a 'datetime' class.
-  $variables['attributes']['class'][] = 'datetime';
-
-  $variables['attributes'] = new Attribute($variables['attributes']);
 }
 
 /**
@@ -870,7 +829,6 @@ function template_preprocess_datetime_form(&$variables) {
   if (!empty($element['#attributes']['class'])) {
     $variables['attributes']['class'] = (array) $element['#attributes']['class'];
   }
-  $variables['attributes']['class'][] = 'container-inline';
 
   $variables['content'] = $element;
 }
@@ -896,13 +854,12 @@ function template_preprocess_datetime_wrapper(&$variables) {
     $variables['description'] = $element['#description'];
   }
 
-  $title_attributes = array('class' => array('label'));
+  $variables['required'] = FALSE;
   // For required datetime fields a 'form-required' class is appended to the
   // label attributes.
   if (!empty($element['#required'])) {
-    $title_attributes['class'][] = 'form-required';
+    $variables['required'] = TRUE;
   }
-  $variables['title_attributes'] = new Attribute($title_attributes);
   $variables['content'] = $element['#children'];
 }
 
@@ -1122,6 +1079,11 @@ function template_preprocess_image(&$variables) {
 
   foreach (array('width', 'height', 'alt', 'title') as $key) {
     if (isset($variables[$key])) {
+      // If the property has already been defined in the attributes,
+      // do not override, including NULL.
+      if (array_key_exists($key, $variables['attributes'])) {
+        continue;
+      }
       $variables['attributes'][$key] = $variables[$key];
     }
   }
@@ -1788,7 +1750,7 @@ function template_preprocess_html(&$variables) {
  * inside "modules/system/page.html.twig". Look in there for the full list of
  * variables.
  *
- * @see drupal_render_page()
+ * @see DefaultHtmlFragmentRenderer::render()
  */
 function template_preprocess_page(&$variables) {
   $language_interface = \Drupal::languageManager()->getCurrentLanguage();

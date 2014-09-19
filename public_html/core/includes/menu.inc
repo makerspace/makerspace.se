@@ -323,11 +323,6 @@ function template_preprocess_menu_tree(&$variables) {
       'level' => 'h2',
       'attributes' => array(),
     );
-    // @todo Remove backwards compatibility for $heading['class'].
-    //   https://www.drupal.org/node/2310341
-    if (isset($heading['class'])) {
-      $heading['attributes']['class'] = $heading['class'];
-    }
     // Convert the attributes array into an Attribute object.
     $heading['attributes'] = new Attribute($heading['attributes']);
     $heading['text'] = String::checkPlain($heading['text']);
@@ -573,7 +568,7 @@ function menu_local_tasks($level = 0) {
     $data['actions'] = array();
 
     $route_name = \Drupal::routeMatch()->getRouteName();
-    if (!empty($route_name)) {
+    if (!\Drupal::request()->attributes->has('exception') && !empty($route_name)) {
       $manager = \Drupal::service('plugin.manager.menu.local_task');
       $local_tasks = $manager->getTasksBuild($route_name);
       foreach ($local_tasks as $level => $items) {

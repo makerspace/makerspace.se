@@ -83,27 +83,6 @@ function book_theme() {
 }
 
 /**
- * Implements hook_permission().
- */
-function book_permission() {
-  return array(
-    'administer book outlines' => array(
-      'title' => t('Administer book outlines'),
-    ),
-    'create new books' => array(
-      'title' => t('Create new books'),
-    ),
-    'add content to books' => array(
-      'title' => t('Add content and child pages to books'),
-    ),
-    'access printer-friendly version' => array(
-      'title' => t('View printer-friendly books'),
-      'description' => t('View a book page and all of its sub-pages as a single document for ease of printing. Can be performance heavy.'),
-    ),
-  );
-}
-
-/**
  * Implements hook_entity_type_build().
  */
 function book_entity_type_build(array &$entity_types) {
@@ -219,7 +198,7 @@ function book_node_builder($entity_type, NodeInterface $entity, &$form, FormStat
 function book_pick_book_nojs_submit($form, FormStateInterface $form_state) {
   $node = $form_state->getFormObject()->getEntity();
   $node->book = $form_state->getValue('book');
-  $form_state['rebuild'] = TRUE;
+  $form_state->setRebuild();
 }
 
 /**

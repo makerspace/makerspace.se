@@ -82,11 +82,16 @@ label.option {
 }
 
 .form-required:after {
-  color: #e00;
-  /* Use a Unicode symbol to prevent screen readers from announcing the text. */
-  content: " \204E ";
-  line-height: 1;
+  content: '';
   vertical-align: super;
+  display: inline-block;
+  /* Use a background image to prevent screen readers from announcing the text. */
+  background-image: url(../../../misc/icons/ee0000/required.svg);
+  background-repeat: no-repeat;
+  background-size: 6px 6px;
+  width: 6px;
+  height: 6px;
+  margin: 0 0.3em;
 }
 
 abbr.tabledrag-changed,
@@ -490,7 +495,7 @@ ul.tabs {
  * Styles for system messages.
  */
 .messages {
-  background: no-repeat 10px 18px;  /* LTR */
+  background: no-repeat 10px 17px;  /* LTR */
   border: 1px solid;
   border-width: 1px 1px 1px 0;  /* LTR */
   border-radius: 2px;
@@ -500,7 +505,7 @@ ul.tabs {
 }
 [dir="rtl"] .messages {
   border-width: 1px 0 1px 1px;
-  background-position: right 10px top 18px;
+  background-position: right 10px top 17px;
   padding-left: 20px;
   padding-right: 35px;
   text-align: right;
@@ -521,15 +526,11 @@ ul.tabs {
 .messages--status {
   border-color: #c9e1bd #c9e1bd #c9e1bd transparent;  /* LTR */
   background-image: url(../../../misc/icons/73b355/check.svg);
-  background-position: 12px 19px;  /* LTR */
   box-shadow: -8px 0 0 #77b259; /* LTR */
-  margin-left: 8px; /* LTR */
 }
 [dir="rtl"] .messages--status {
-  background-position: right 12px top 19px;
   border-color: #c9e1bd transparent #c9e1bd #c9e1bd;
   box-shadow: 8px 0 0 #77b259;
-  margin-right: 8px;
   margin-left: 0;
 }
 .messages--status,
@@ -566,7 +567,7 @@ table tr.warning {
 }
 [dir="rtl"] .messages--error {
   border-color: #f9c9bf transparent #f9c9bf #f9c9bf;
-  box-shadow: -8px 0 0 #e62600;
+  box-shadow: 8px 0 0 #e62600;
 }
 .messages--error,
 .error {

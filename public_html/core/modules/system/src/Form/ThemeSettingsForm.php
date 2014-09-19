@@ -71,7 +71,7 @@ class ThemeSettingsForm extends ConfigFormBase {
 
     $themes = list_themes();
 
-    // Deny access if the theme is disabled or not found.
+    // Deny access if the theme is not installed or not found.
     if (!empty($theme) && (empty($themes[$theme]) || !$themes[$theme]->status)) {
       throw new NotFoundHttpException();
     }
@@ -383,7 +383,7 @@ class ThemeSettingsForm extends ConfigFormBase {
     $config = $this->config($form_state->getValue('config_key'));
 
     // Exclude unnecessary elements before saving.
-    form_state_values_clean($form_state);
+    $form_state->cleanValues();
     $form_state->unsetValue('var');
     $form_state->unsetValue('config_key');
 

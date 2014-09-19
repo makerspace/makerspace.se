@@ -112,7 +112,7 @@ class FormBuilder implements FormBuilderInterface, FormValidatorInterface, FormS
    *   The form validator.
    * @param \Drupal\Core\Form\FormSubmitterInterface $form_submitter
    *   The form submission processor.
-   * @oaram \Drupal\Core\Form\FormCacheInterface $form_cache
+   * @param \Drupal\Core\Form\FormCacheInterface $form_cache
    *   The form cache.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The module handler.
@@ -972,8 +972,8 @@ class FormBuilder implements FormBuilderInterface, FormValidatorInterface, FormS
 
     // Determine which element (if any) triggered the submission of the form and
     // keep track of all the clickable buttons in the form for
-    // form_state_values_clean(). Enforce the same input processing restrictions
-    // as above.
+    // \Drupal\Core\Form\FormState::cleanValues(). Enforce the same input
+    // processing restrictions as above.
     if ($process_input) {
       // Detect if the element triggered the submission via Ajax.
       if ($this->elementTriggeredScriptedSubmission($element, $form_state)) {
@@ -986,9 +986,9 @@ class FormBuilder implements FormBuilderInterface, FormValidatorInterface, FormS
       // information.
       if (!empty($element['#is_button'])) {
         // All buttons in the form need to be tracked for
-        // form_state_values_clean() and for the self::doBuildForm() code that
-        // handles a form submission containing no button information in
-        // \Drupal::request()->request.
+        // \Drupal\Core\Form\FormState::cleanValues() and for the
+        // self::doBuildForm() code that handles a form submission containing no
+        // button information in \Drupal::request()->request.
         $buttons = $form_state->getButtons();
         $buttons[] = $element;
         $form_state->setButtons($buttons);

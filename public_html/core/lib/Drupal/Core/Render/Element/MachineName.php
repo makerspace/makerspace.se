@@ -133,7 +133,7 @@ class MachineName extends Textfield {
     }
     $element['#attributes'] += array('dir' => 'ltr');
 
-    // The source element defaults to array('name'), but may have been overidden.
+    // The source element defaults to array('name'), but may have been overridden.
     if (empty($element['#machine_name']['source'])) {
       return $element;
     }
@@ -142,7 +142,7 @@ class MachineName extends Textfield {
     // complete form in $form_state. By reference, because we may need to append
     // a #field_suffix that will hold the live preview.
     $key_exists = NULL;
-    $source = NestedArray::getValue($form_state['complete_form'], $element['#machine_name']['source'], $key_exists);
+    $source = NestedArray::getValue($form_state->getCompleteForm(), $element['#machine_name']['source'], $key_exists);
     if (!$key_exists) {
       return $element;
     }
@@ -160,7 +160,7 @@ class MachineName extends Textfield {
       $source['#field_suffix'] = SafeMarkup::set($source['#field_suffix'] . ' <small id="' . $suffix_id . '">&nbsp;</small>');
 
       $parents = array_merge($element['#machine_name']['source'], array('#field_suffix'));
-      NestedArray::setValue($form_state['complete_form'], $parents, $source['#field_suffix']);
+      NestedArray::setValue($form_state->getCompleteForm(), $parents, $source['#field_suffix']);
     }
 
     $js_settings = array(
@@ -193,7 +193,7 @@ class MachineName extends Textfield {
   public static function validateMachineName(&$element, FormStateInterface $form_state, &$complete_form) {
     // Verify that the machine name not only consists of replacement tokens.
     if (preg_match('@^' . $element['#machine_name']['replace'] . '+$@', $element['#value'])) {
-      form_error($element, $form_state, t('The machine-readable name must contain unique characters.'));
+      $form_state->setError($element, t('The machine-readable name must contain unique characters.'));
     }
 
     // Verify that the machine name contains no disallowed characters.
@@ -202,15 +202,15 @@ class MachineName extends Textfield {
         // Since a hyphen is the most common alternative replacement character,
         // a corresponding validation error message is supported here.
         if ($element['#machine_name']['replace'] == '-') {
-          form_error($element, $form_state, t('The machine-readable name must contain only lowercase letters, numbers, and hyphens.'));
+          $form_state->setError($element, t('The machine-readable name must contain only lowercase letters, numbers, and hyphens.'));
         }
         // Otherwise, we assume the default (underscore).
         else {
-          form_error($element, $form_state, t('The machine-readable name must contain only lowercase letters, numbers, and underscores.'));
+          $form_state->setError($element, t('The machine-readable name must contain only lowercase letters, numbers, and underscores.'));
         }
       }
       else {
-        form_error($element, $form_state, $element['#machine_name']['error']);
+        $form_state->setError($element, $element['#machine_name']['error']);
       }
     }
 
@@ -218,7 +218,7 @@ class MachineName extends Textfield {
     if ($element['#default_value'] !== $element['#value']) {
       $function = $element['#machine_name']['exists'];
       if (call_user_func($function, $element['#value'], $element, $form_state)) {
-        form_error($element, $form_state, t('The machine-readable name is already in use. It must be unique.'));
+        $form_state->setError($element, t('The machine-readable name is already in use. It must be unique.'));
       }
     }
   }

@@ -404,46 +404,6 @@ function check_url($uri) {
  */
 
 /**
- * Formats an RSS channel.
- *
- * Arbitrary elements may be added using the $args associative array.
- */
-function format_rss_channel($title, $link, $description, $items, $langcode = NULL, $args = array()) {
-  $langcode = $langcode ? $langcode : \Drupal::languageManager()->getCurrentLanguage(LanguageInterface::TYPE_CONTENT)->id;
-
-  $output = "<channel>\n";
-  $output .= ' <title>' . String::checkPlain($title) . "</title>\n";
-  $output .= ' <link>' . check_url($link) . "</link>\n";
-
-  // The RSS 2.0 "spec" doesn't indicate HTML can be used in the description.
-  // We strip all HTML tags, but need to prevent double encoding from properly
-  // escaped source data (such as &amp becoming &amp;amp;).
-  $output .= ' <description>' . String::checkPlain(decode_entities(strip_tags($description))) . "</description>\n";
-  $output .= ' <language>' . String::checkPlain($langcode) . "</language>\n";
-  $output .= format_xml_elements($args);
-  $output .= $items;
-  $output .= "</channel>\n";
-
-  return $output;
-}
-
-/**
- * Formats a single RSS item.
- *
- * Arbitrary elements may be added using the $args associative array.
- */
-function format_rss_item($title, $link, $description, $args = array()) {
-  $output = "<item>\n";
-  $output .= ' <title>' . String::checkPlain($title) . "</title>\n";
-  $output .= ' <link>' . check_url($link) . "</link>\n";
-  $output .= ' <description>' . String::checkPlain($description) . "</description>\n";
-  $output .= format_xml_elements($args);
-  $output .= "</item>\n";
-
-  return $output;
-}
-
-/**
  * Formats XML elements.
  *
  * Note: It is the caller's responsibility to sanitize any input parameters.
@@ -1012,7 +972,7 @@ function drupal_add_html_head_link($attributes, $header = FALSE) {
  *     The aggregate group number affects load order and the CSS cascade.
  *     Stylesheets in an aggregate with a lower group number will be output to
  *     the page before stylesheets in an aggregate with a higher group number,
- *     so CSS within higher aggregate groups can take precendence over CSS
+ *     so CSS within higher aggregate groups can take precedence over CSS
  *     within lower aggregate groups.
  *   - 'every_page': For optimal front-end performance when aggregation is
  *     enabled, this should be set to TRUE if the stylesheet is present on every
@@ -1058,7 +1018,7 @@ function drupal_add_html_head_link($attributes, $header = FALSE) {
  *     See http://drupal.org/node/1887922
  *   - 'media': The media type for the stylesheet, e.g., all, print, screen.
  *     Defaults to 'all'. It is extremely important to leave this set to 'all'
- *     or it will negatively impact front-end peformance. Instead add a @media
+ *     or it will negatively impact front-end performance. Instead add a @media
  *     block to the included CSS file.
  *   - 'preprocess': If TRUE and CSS aggregation/compression is enabled, the
  *     styles will be aggregated and compressed. Defaults to TRUE.
@@ -2571,28 +2531,6 @@ function drupal_prepare_page($page) {
 }
 
 /**
- * Renders the page, including all theming.
- *
- * @param string|array $page
- *   A string or array representing the content of a page. The array consists of
- *   the following keys:
- *   - #type: Value is always 'page'. This pushes the theming through
- *     the page template (required).
- *   - #show_messages: Suppress drupal_get_message() items. Used by Batch
- *     API (optional).
- *
- * @return string
- *   Returns the rendered string.
- *
- * @see hook_page_alter()
- * @see element_info()
- */
-function drupal_render_page($page) {
-  $page = drupal_prepare_page($page);
-  return drupal_render($page);
-}
-
-/**
  * Renders HTML given a structured array tree.
  *
  * Renderable arrays have two kinds of key/value pairs: properties and children.
@@ -2913,7 +2851,7 @@ function drupal_render(&$elements, $is_recursive_call = FALSE) {
   // property is set, do not call the #theme function to prevent infinite
   // recursion.
   if ($theme_is_implemented && !isset($elements['#render_children'])) {
-    $elements['#children'] = _theme($elements['#theme'], $elements);
+    $elements['#children'] = \Drupal::theme()->render($elements['#theme'], $elements);
 
     // If _theme() returns FALSE this means that the hook in #theme was not
     // found in the registry and so we need to update our flag accordingly. This
@@ -2945,7 +2883,7 @@ function drupal_render(&$elements, $is_recursive_call = FALSE) {
   // Let the theme functions in #theme_wrappers add markup around the rendered
   // children.
   // #states and #attached have to be processed before #theme_wrappers, because
-  // the #type 'page' render array from drupal_render_page() would render the
+  // the #type 'page' render array from drupal_prepare_page() would render the
   // $page and wrap it into the html.html.twig template without the attached
   // assets otherwise.
   // If the internal #render_children property is set, do not call the
@@ -2968,13 +2906,13 @@ function drupal_render(&$elements, $is_recursive_call = FALSE) {
         $wrapper_hook = $value;
       }
 
-      $elements['#children'] = _theme($wrapper_hook, $wrapper_elements);
+      $elements['#children'] = \Drupal::theme()->render($wrapper_hook, $wrapper_elements);
     }
   }
 
   // Filter the outputted content and make any last changes before the
   // content is sent to the browser. The changes are made on $content
-  // which allows the output'ed text to be filtered.
+  // which allows the outputted text to be filtered.
   if (isset($elements['#post_render'])) {
     foreach ($elements['#post_render'] as $callable) {
       if (is_string($callable) && strpos($callable, '::') === FALSE) {

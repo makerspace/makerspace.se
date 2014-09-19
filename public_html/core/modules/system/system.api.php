@@ -374,7 +374,7 @@ function hook_ajax_render_alter(array &$data) {
  *   Nested array of renderable elements that make up the page.
  *
  * @see hook_page_alter()
- * @see drupal_render_page()
+ * @see DefaultHtmlFragmentRenderer::render()
  */
 function hook_page_build(&$page) {
   $path = drupal_get_path('module', 'foo');
@@ -659,7 +659,7 @@ function hook_contextual_links_plugins_alter(array &$contextual_links) {
  *   Nested array of renderable elements that make up the page.
  *
  * @see hook_page_build()
- * @see drupal_render_page()
+ * @see DefaultHtmlFragmentRenderer::render()
  */
 function hook_page_alter(&$page) {
   // Add help text to the user login block.
@@ -697,7 +697,7 @@ function hook_page_alter(&$page) {
  * @param $form_state
  *   The current state of the form. The arguments that
  *   \Drupal::formBuilder()->getForm() was originally called with are available
- *   in the array $form_state['build_info']['args'].
+ *   in the array $form_state->getBuildInfo()['args'].
  * @param $form_id
  *   String representing the name of the form itself. Typically this is the
  *   name of the function that generated the form.
@@ -736,7 +736,7 @@ function hook_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_stat
  * @param $form_state
  *   The current state of the form. The arguments that
  *   \Drupal::formBuilder()->getForm() was originally called with are available
- *   in the array $form_state['build_info']['args'].
+ *   in the array $form_state->getBuildInfo()['args'].
  * @param $form_id
  *   String representing the name of the form itself. Typically this is the
  *   name of the function that generated the form.
@@ -773,7 +773,7 @@ function hook_form_FORM_ID_alter(&$form, \Drupal\Core\Form\FormStateInterface $f
  *
  * To identify the base form ID for a particular form (or to determine whether
  * one exists) check the $form_state. The base form ID is stored under
- * $form_state['build_info']['base_form_id'].
+ * $form_state->getBuildInfo()['base_form_id'].
  *
  * Form alter hooks are called in the following order: hook_form_alter(),
  * hook_form_BASE_FORM_ID_alter(), hook_form_FORM_ID_alter(). See
@@ -979,6 +979,8 @@ function hook_system_info_alter(array &$info, \Drupal\Core\Extension\Extension $
  *     is specific to the permission you are defining.
  *
  * @ingroup user_api
+ * @deprecated in Drupal 8.x-dev, will be removed before Drupal 8.0.
+ *   Use $module.permissions.yml files.
  */
 function hook_permission() {
   return array(
@@ -1393,6 +1395,29 @@ function hook_modules_installed($modules) {
  */
 function hook_module_preuninstall($module) {
   mymodule_cache_clear();
+}
+
+/**
+ * Perform necessary actions when themes are installed.
+ *
+ * @param array $themes
+ *   An array of theme names which are installed.
+ */
+function hook_themes_installed(array $themes) {
+  // Add some state entries depending on the theme.
+  foreach ($themes as $theme) {
+    \Drupal::state()->set('example.' . $theme, 'some-value');
+  }
+}
+
+/**
+ * Perform necessary actions when themes are uninstalled.
+ */
+function hook_themes_uninstalled(array $themes) {
+  // Remove some state entries depending on the theme.
+  foreach ($themes as $theme) {
+    \Drupal::state()->delete('example.' . $theme);
+  }
 }
 
 /**

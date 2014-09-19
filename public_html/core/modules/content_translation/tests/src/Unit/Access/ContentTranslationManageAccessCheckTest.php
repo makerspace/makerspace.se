@@ -8,16 +8,16 @@
 namespace Drupal\Tests\content_translation\Unit\Access;
 
 use Drupal\content_translation\Access\ContentTranslationManageAccessCheck;
-use Drupal\Core\Access\AccessInterface;
+use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Language\Language;
 use Drupal\Tests\UnitTestCase;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Route;
 
 /**
  * Tests for content translation manage check.
  *
  * @coversDefaultClass \Drupal\content_translation\Access\ContentTranslationManageAccessCheck
+ * @group Access
  * @group content_translation
  */
 class ContentTranslationManageAccessCheckTest extends UnitTestCase {
@@ -32,7 +32,7 @@ class ContentTranslationManageAccessCheckTest extends UnitTestCase {
     $translation_handler = $this->getMock('\Drupal\content_translation\ContentTranslationHandlerInterface');
     $translation_handler->expects($this->once())
       ->method('getTranslationAccess')
-      ->will($this->returnValue(TRUE));
+      ->will($this->returnValue(AccessResult::allowed()));
 
     $entity_manager = $this->getMock('Drupal\Core\Entity\EntityManagerInterface');
     $entity_manager->expects($this->once())
@@ -69,14 +69,20 @@ class ContentTranslationManageAccessCheckTest extends UnitTestCase {
       ->method('getTranslationLanguages')
       ->with()
       ->will($this->returnValue(array()));
+    $entity->expects($this->once())
+      ->method('getCacheTag')
+      ->will($this->returnValue(array('node' => 1337)));
 
     // Set the route requirements.
     $route = new Route('test_route');
     $route->setRequirement('_access_content_translation_manage', 'create');
 
-    // Set the request attributes.
-    $request = Request::create('node/1');
-    $request->attributes->set('node', $entity);
+    // Set up the route match.
+    $route_match = $this->getMock('Drupal\Core\Routing\RouteMatchInterface');
+    $route_match->expects($this->once())
+      ->method('getParameter')
+      ->with('node')
+      ->will($this->returnValue($entity));
 
     // Set the mock account.
     $account = $this->getMock('Drupal\Core\Session\AccountInterface');
@@ -88,7 +94,7 @@ class ContentTranslationManageAccessCheckTest extends UnitTestCase {
     $language = 'en';
     $entity_type_id = 'node';
 
-    $this->assertEquals($check->access($route, $request, $account, $source, $target, $language, $entity_type_id), AccessInterface::ALLOW, "The access check matches");
+    $this->assertTrue($check->access($route, $route_match, $account, $source, $target, $language, $entity_type_id)->isAllowed(), "The access check matches");
   }
 
 }

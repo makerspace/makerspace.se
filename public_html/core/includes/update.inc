@@ -10,14 +10,8 @@
 
 use Drupal\Component\Graph\Graph;
 use Drupal\Component\Utility\String;
-use Drupal\Core\Config\FileStorage;
-use Drupal\Core\Config\ConfigException;
-use Drupal\Core\DrupalKernel;
-use Drupal\Core\Page\DefaultHtmlPageRenderer;
+use Drupal\Core\Entity\EntityStorageException;
 use Drupal\Core\Utility\Error;
-use Drupal\Component\Uuid\Uuid;
-use Drupal\Component\Utility\NestedArray;
-use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Disables any extensions that are incompatible with the current core version.
@@ -29,9 +23,6 @@ function update_fix_compatibility() {
     foreach ($extension_config->get($type) as $name => $weight) {
       if (update_check_incompatibility($name, $type)) {
         $extension_config->clear("$type.$name");
-        if ($type === 'theme') {
-          $extension_config->set("disabled.theme.$name", 0);
-        }
         $save = TRUE;
       }
     }
@@ -258,6 +249,33 @@ function update_do_one($module, $number, $dependency_map, &$context) {
 }
 
 /**
+ * Performs entity definition updates, which can trigger schema updates.
+ *
+ * @param $module
+ *   The module whose update will be run.
+ * @param $number
+ *   The update number to run.
+ * @param $context
+ *   The batch context array.
+ */
+function update_entity_definitions($module, $number, &$context) {
+  try {
+    \Drupal::service('entity.definition_update_manager')->applyUpdates();
+  }
+  catch (EntityStorageException $e) {
+    watchdog_exception('update', $e);
+    $variables = Error::decodeException($e);
+    unset($variables['backtrace']);
+    // The exception message is run through
+    // \Drupal\Component\Utility\String::checkPlain() by
+    // \Drupal\Core\Utility\Error::decodeException().
+    $ret['#abort'] = array('success' => FALSE, 'query' => t('%type: !message in %function (line %line of %file).', $variables));
+    $context['results'][$module][$number] = $ret;
+    $context['results']['#abort'][] = 'update_entity_definitions';
+  }
+}
+
+/**
  * Returns a list of all the pending database updates.
  *
  * @return
@@ -294,7 +312,7 @@ function update_get_update_list() {
     // Otherwise, get the list of updates defined by this module.
     $updates = drupal_get_schema_versions($module);
     if ($updates !== FALSE) {
-      // \Drupal::moduleHandler()->invoke() returns NULL for nonexisting hooks,
+      // \Drupal::moduleHandler()->invoke() returns NULL for non-existing hooks,
       // so if no updates are removed, it will == 0.
       $last_removed = \Drupal::moduleHandler()->invoke($module, 'update_last_removed');
       if ($schema_version < $last_removed) {

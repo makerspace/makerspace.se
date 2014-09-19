@@ -8,14 +8,18 @@
 namespace Drupal\Core\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityBase;
+use Drupal\Core\Config\Entity\ThirdPartySettingsTrait;
 use Drupal\Core\Field\FieldDefinitionInterface;
 use Drupal\Core\Entity\Display\EntityDisplayInterface;
 use Drupal\field\Entity\FieldInstanceConfig;
+use Drupal\field\FieldInstanceConfigInterface;
 
 /**
  * Provides a common base class for entity view and form displays.
  */
 abstract class EntityDisplayBase extends ConfigEntityBase implements EntityDisplayInterface {
+
+  use ThirdPartySettingsTrait;
 
   /**
    * Unique ID for the config entity.
@@ -376,6 +380,34 @@ abstract class EntityDisplayBase extends ConfigEntityBase implements EntityDispl
     // The display only cares about fields that specify display options.
     // Discard base fields that are not rendered through formatters / widgets.
     return $definition->getDisplayOptions($this->displayContext);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function onDependencyRemoval(array $dependencies) {
+    $changed = FALSE;
+    foreach ($dependencies['entity'] as $entity) {
+      if ($entity instanceof FieldInstanceConfigInterface) {
+        // Remove components for fields that are being deleted.
+        $this->removeComponent($entity->getName());
+        unset($this->hidden[$entity->getName()]);
+        $changed = TRUE;
+      }
+    }
+    foreach ($this->getComponents() as $name => $component) {
+      if (isset($component['type']) && $definition = $this->pluginManager->getDefinition($component['type'], FALSE)) {
+        if (in_array($definition['provider'], $dependencies['module'])) {
+          // Revert to the defaults if the plugin that supplies the widget or
+          // formatter depends on a module that is being uninstalled.
+          $this->setComponent($name);
+          $changed = TRUE;
+        }
+      }
+    }
+    if ($changed) {
+      $this->save();
+    }
   }
 
 }

@@ -196,6 +196,11 @@ services:
     factory_method: get
     factory_service: logger.factory
     arguments: ['system']
+  logger.channel.php:
+    class: Drupal\Core\Logger\LoggerChannel
+    factory_method: get
+    factory_service: logger.factory
+    arguments: ['php']
   logger.channel.image:
     class: Drupal\Core\Logger\LoggerChannel
     factory_method: get
@@ -278,13 +283,21 @@ services:
     arguments: ['%container.modules%', '@cache.bootstrap']
   theme_handler:
     class: Drupal\Core\Extension\ThemeHandler
-    arguments: ['@config.factory', '@module_handler', '@state', '@info_parser', '@logger.channel.default', '@asset.css.collection_optimizer', '@config.installer', '@router.builder']
+    arguments: ['@config.factory', '@module_handler', '@state', '@info_parser', '@logger.channel.default', '@asset.css.collection_optimizer', '@config.installer', '@config.manager', '@router.builder']
   entity.manager:
     class: Drupal\Core\Entity\EntityManager
-    arguments: ['@container.namespaces', '@module_handler', '@cache.discovery', '@language_manager', '@string_translation', '@class_resolver', '@typed_data_manager']
+    arguments: ['@container.namespaces', '@module_handler', '@cache.discovery', '@language_manager', '@string_translation', '@class_resolver', '@typed_data_manager', '@entity.definitions.installed']
     parent: container.trait
     tags:
       - { name: plugin_manager_cache_clear }
+  entity.definitions.installed:
+    class: Drupal\Core\KeyValueStore\KeyValueStoreInterface
+    factory_method: get
+    factory_service: keyvalue
+    arguments: ['entity.definitions.installed']
+  entity.definition_update_manager:
+    class: Drupal\Core\Entity\EntityDefinitionUpdateManager
+    arguments: ['@entity.manager']
   entity.form_builder:
     class: Drupal\Core\Entity\EntityFormBuilder
     arguments: ['@entity.manager', '@form_builder']
@@ -660,11 +673,11 @@ services:
   csrf_token:
     class: Drupal\Core\Access\CsrfTokenGenerator
     arguments: ['@private_key', '@session_manager.metadata_bag']
-  access_arguments_resolver:
-    class: Drupal\Core\Access\AccessArgumentsResolver
+  access_arguments_resolver_factory:
+    class: Drupal\Core\Access\AccessArgumentsResolverFactory
   access_manager:
     class: Drupal\Core\Access\AccessManager
-    arguments: ['@router.route_provider', '@url_generator', '@paramconverter_manager', '@access_arguments_resolver', '@request_stack', '@current_user']
+    arguments: ['@router.route_provider', '@paramconverter_manager', '@access_arguments_resolver_factory', '@current_user']
     calls:
       - [setContainer, ['@service_container']]
   access_route_subscriber:
@@ -691,13 +704,13 @@ services:
       - { name: access_check, applies_to: _access_theme }
   access_check.custom:
     class: Drupal\Core\Access\CustomAccessCheck
-    arguments: ['@controller_resolver', '@access_arguments_resolver']
+    arguments: ['@controller_resolver', '@access_arguments_resolver_factory']
     tags:
       - { name: access_check, applies_to: _custom_access }
   access_check.csrf:
     class: Drupal\Core\Access\CsrfAccessCheck
     tags:
-      - { name: access_check, applies_to: _csrf_token }
+      - { name: access_check, applies_to: _csrf_token, needs_incoming_request: TRUE }
     arguments: ['@csrf_token']
   maintenance_mode:
     class: Drupal\Core\Site\MaintenanceMode
@@ -736,16 +749,44 @@ services:
     tags:
       - { name: event_subscriber }
     arguments: ['@config.manager', '@config.storage', '@config.storage.snapshot']
-  exception_controller:
-    class: Drupal\Core\Controller\ExceptionController
-    arguments: ['@content_negotiation', '@title_resolver', '@html_page_renderer', '@html_fragment_renderer', '@string_translation', '@url_generator', '@logger.factory']
-    calls:
-      - [setContainer, ['@service_container']]
-  exception_listener:
-    class: Drupal\Core\EventSubscriber\ExceptionListener
+  exception.default_json:
+    class: Drupal\Core\EventSubscriber\ExceptionJsonSubscriber
     tags:
       - { name: event_subscriber }
-    arguments: [['@exception_controller', execute]]
+  exception.default_html:
+    class: Drupal\Core\EventSubscriber\DefaultExceptionHtmlSubscriber
+    tags:
+      - { name: event_subscriber }
+    arguments: ['@html_fragment_renderer', '@html_page_renderer']
+  exception.default:
+    class: Drupal\Core\EventSubscriber\DefaultExceptionSubscriber
+    tags:
+      - { name: event_subscriber }
+    arguments: ['@html_fragment_renderer', '@html_page_renderer', '@config.factory']
+  exception.logger:
+    class: Drupal\Core\EventSubscriber\ExceptionLoggingSubscriber
+    tags:
+      - { name: event_subscriber }
+    arguments: ['@logger.factory']
+  exception.custom_page_json:
+    class: Drupal\Core\EventSubscriber\ExceptionJsonSubscriber
+    tags:
+      - { name: event_subscriber }
+    arguments: ['@config.factory', '@path.alias_manager', '@http_kernel']
+  exception.custom_page_html:
+    class: Drupal\Core\EventSubscriber\CustomPageExceptionHtmlSubscriber
+    tags:
+      - { name: event_subscriber }
+    arguments: ['@config.factory', '@path.alias_manager', '@http_kernel', '@logger.channel.php']
+  exception.fast_404_html:
+    class: Drupal\Core\EventSubscriber\Fast404ExceptionHtmlSubscriber
+    tags:
+      - { name: event_subscriber }
+    arguments: ['@config.factory', '@http_kernel']
+  exception.test_site:
+    class: Drupal\Core\EventSubscriber\ExceptionTestSiteSubscriber
+    tags:
+      - { name: event_subscriber }
   route_processor_manager:
     class: Drupal\Core\RouteProcessor\RouteProcessorManager
     tags:

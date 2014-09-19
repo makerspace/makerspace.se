@@ -13,10 +13,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Stores information about the state of a form.
- *
- * @todo Remove usage of \ArrayAccess in https://www.drupal.org/node/2310255.
  */
-class FormState implements FormStateInterface, \ArrayAccess {
+class FormState implements FormStateInterface {
 
   /**
    * Tracks if any errors have been set on any form.
@@ -810,61 +808,6 @@ class FormState implements FormStateInterface, \ArrayAccess {
 
   /**
    * {@inheritdoc}
-   *
-   * @deprecated in Drupal 8.0.x, might be removed before Drupal 8.0.0.
-   */
-  public function offsetExists($offset) {
-    return isset($this->{$offset}) || isset($this->storage[$offset]);
-  }
-
-  /**
-   * {@inheritdoc}
-   *
-   * @deprecated in Drupal 8.0.x, might be removed before Drupal 8.0.0.
-   */
-  public function &offsetGet($offset) {
-    if (property_exists($this, $offset)) {
-      $value = &$this->{$offset};
-    }
-    else {
-      if (!isset($this->storage[$offset])) {
-        $this->storage[$offset] = NULL;
-      }
-      $value = &$this->get($offset);
-    }
-    return $value;
-  }
-
-  /**
-   * {@inheritdoc}
-   *
-   * @deprecated in Drupal 8.0.x, might be removed before Drupal 8.0.0.
-   */
-  public function offsetSet($offset, $value) {
-    if (property_exists($this, $offset)) {
-      $this->{$offset} = $value;
-    }
-    else {
-      $this->set($offset, $value);
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   *
-   * @deprecated in Drupal 8.0.x, might be removed before Drupal 8.0.0.
-   */
-  public function offsetUnset($offset) {
-    if (property_exists($this, $offset)) {
-      $this->{$offset} = NULL;
-    }
-    else {
-      unset($this->storage[$offset]);
-    }
-  }
-
-  /**
-   * {@inheritdoc}
    */
   public function &get($property) {
     $value = &NestedArray::getValue($this->storage, (array) $property);
@@ -1183,6 +1126,50 @@ class FormState implements FormStateInterface, \ArrayAccess {
    */
   public function getFormObject() {
     return $this->getBuildInfo()['callback_object'];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function cleanValues() {
+    // Remove internal Form API values.
+    $this
+      ->unsetValue('form_id')
+      ->unsetValue('form_token')
+      ->unsetValue('form_build_id')
+      ->unsetValue('op');
+
+    // Remove button values.
+    // form_builder() collects all button elements in a form. We remove the button
+    // value separately for each button element.
+    foreach ($this->getButtons() as $button) {
+      // Remove this button's value from the submitted form values by finding
+      // the value corresponding to this button.
+      // We iterate over the #parents of this button and move a reference to
+      // each parent in self::getValues(). For example, if #parents is:
+      //   array('foo', 'bar', 'baz')
+      // then the corresponding self::getValues() part will look like this:
+      // array(
+      //   'foo' => array(
+      //     'bar' => array(
+      //       'baz' => 'button_value',
+      //     ),
+      //   ),
+      // )
+      // We start by (re)moving 'baz' to $last_parent, so we are able unset it
+      // at the end of the iteration. Initially, $values will contain a
+      // reference to self::getValues(), but in the iteration we move the
+      // reference to self::getValue('foo'), and finally to
+      // self::getValue(array('foo', 'bar')), which is the level where we
+      // can unset 'baz' (that is stored in $last_parent).
+      $parents = $button['#parents'];
+      $last_parent = array_pop($parents);
+      $key_exists = NULL;
+      $values = &NestedArray::getValue($this->getValues(), $parents, $key_exists);
+      if ($key_exists && is_array($values)) {
+        unset($values[$last_parent]);
+      }
+    }
   }
 
   /**

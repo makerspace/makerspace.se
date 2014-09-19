@@ -64,6 +64,13 @@ class ThemeHandlerTest extends UnitTestCase {
   protected $configInstaller;
 
   /**
+   * The mocked config manager.
+   *
+   * @var \Drupal\Core\Config\ConfigManagerInterface|\PHPUnit_Framework_MockObject_MockObject
+   */
+  protected $configManager;
+
+  /**
    * The extension discovery.
    *
    * @var \Drupal\Core\Extension\ExtensionDiscovery|\PHPUnit_Framework_MockObject_MockObject
@@ -101,6 +108,7 @@ class ThemeHandlerTest extends UnitTestCase {
     $this->state = new State(new KeyValueMemoryFactory());
     $this->infoParser = $this->getMock('Drupal\Core\Extension\InfoParserInterface');
     $this->configInstaller = $this->getMock('Drupal\Core\Config\ConfigInstallerInterface');
+    $this->configManager = $this->getMock('Drupal\Core\Config\ConfigManagerInterface');
     $this->routeBuilder = $this->getMockBuilder('Drupal\Core\Routing\RouteBuilder')
       ->disableOriginalConstructor()
       ->getMock();
@@ -111,7 +119,7 @@ class ThemeHandlerTest extends UnitTestCase {
       ->disableOriginalConstructor()
       ->getMock();
     $logger = $this->getMock('Psr\Log\LoggerInterface');
-    $this->themeHandler = new TestThemeHandler($this->configFactory, $this->moduleHandler, $this->state, $this->infoParser, $logger, $this->cssCollectionOptimizer, $this->configInstaller, $this->routeBuilder, $this->extensionDiscovery);
+    $this->themeHandler = new TestThemeHandler($this->configFactory, $this->moduleHandler, $this->state, $this->infoParser, $logger, $this->cssCollectionOptimizer, $this->configInstaller, $this->configManager, $this->routeBuilder, $this->extensionDiscovery);
 
     $cache_backend = $this->getMock('Drupal\Core\Cache\CacheBackendInterface');
     $this->getContainerWithCacheBins($cache_backend);
@@ -177,7 +185,7 @@ class ThemeHandlerTest extends UnitTestCase {
         'css/components/buttons.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/buttons.css',
         'css/components/buttons.theme.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/buttons.theme.css',
         'css/components/comments.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/comments.css',
-        'css/components/console.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/console.css',
+        'css/components/messages.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/messages.css',
         'css/components/dropbutton.component.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/dropbutton.component.css',
         'css/components/entity-meta.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/entity-meta.css',
         'css/components/field-ui.css' => DRUPAL_ROOT . '/core/themes/seven/css/components/field-ui.css',

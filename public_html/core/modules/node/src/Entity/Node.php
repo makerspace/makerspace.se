@@ -147,14 +147,14 @@ class Node extends ContentEntityBase implements NodeInterface {
   /**
    * {@inheritdoc}
    */
-  public function access($operation = 'view', AccountInterface $account = NULL) {
+  public function access($operation = 'view', AccountInterface $account = NULL, $return_as_object = FALSE) {
     if ($operation == 'create') {
-      return parent::access($operation, $account);
+      return parent::access($operation, $account, $return_as_object);
     }
 
     return \Drupal::entityManager()
       ->getAccessControlHandler($this->entityTypeId)
-      ->access($this, $operation, $this->prepareLangcode(), $account);
+      ->access($this, $operation, $this->prepareLangcode(), $account, $return_as_object);
   }
 
   /**
@@ -366,7 +366,7 @@ class Node extends ContentEntityBase implements NodeInterface {
         'weight' => -5,
       ))
       ->setDisplayOptions('form', array(
-        'type' => 'string',
+        'type' => 'string_textfield',
         'weight' => -5,
       ))
       ->setDisplayConfigurable('form', TRUE);

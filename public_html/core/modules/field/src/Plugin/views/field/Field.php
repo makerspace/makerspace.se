@@ -214,7 +214,7 @@ class Field extends FieldPluginBase {
   public function access(AccountInterface $account) {
     $base_table = $this->get_base_table();
     $access_control_handler = $this->entityManager->getAccessControlHandler($this->definition['entity_tables'][$base_table]);
-    return $access_control_handler->fieldAccess('view', $this->getFieldDefinition(), $account);
+    return $access_control_handler->fieldAccess('view', $this->getFieldDefinition(), $account, NULL, TRUE);
   }
 
   /**
@@ -676,7 +676,7 @@ class Field extends FieldPluginBase {
 
   public function submitGroupByForm(&$form, FormStateInterface $form_state) {
     parent::submitGroupByForm($form, $form_state);
-    $item = &$form_state['handler']->options;
+    $item = &$form_state->get('handler')->options;
 
     // Add settings for "field API" fields.
     $item['group_column'] = $form_state->getValue(array('options', 'group_column'));

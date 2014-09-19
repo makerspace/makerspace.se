@@ -11,6 +11,7 @@ use Drupal\block\BlockInterface;
 use Drupal\block\Event\BlockConditionContextEvent;
 use Drupal\block\Event\BlockEvents;
 use Drupal\Component\Plugin\ContextAwarePluginInterface;
+use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Condition\ConditionAccessResolverTrait;
 use Drupal\Core\Condition\ConditionPluginBag;
 use Drupal\Core\Form\FormState;
@@ -165,10 +166,22 @@ abstract class BlockBase extends ContextAwarePluginBase implements BlockPluginIn
         $this->contextHandler()->applyContextMapping($condition, $contexts, $mappings[$condition_id]);
       }
     }
+    // This should not be hardcoded to an uncacheable access check result, but
+    // in order to fix that, we need condition plugins to return cache contexts,
+    // otherwise it will be impossible to determine by which cache contexts the
+    // result should be varied.
+    $access = AccessResult::create()->setCacheable(FALSE);
     if ($this->resolveConditions($conditions, 'and', $contexts, $mappings) === FALSE) {
-      return FALSE;
+      $access->forbid();
+      return $access;
     }
-    return $this->blockAccess($account);
+    if ($this->blockAccess($account)) {
+      $access->allow();
+    }
+    else {
+      $access->forbid();
+    }
+    return $access;
   }
 
   /**
@@ -342,7 +355,7 @@ abstract class BlockBase extends ContextAwarePluginBase implements BlockPluginIn
    * {@inheritdoc}
    *
    * Most block plugins should not override this method. To add validation
-   * for a specific block type, override BlockBase::blockValdiate().
+   * for a specific block type, override BlockBase::blockValidate().
    *
    * @see \Drupal\Core\Block\BlockBase::blockValidate()
    */
@@ -360,7 +373,7 @@ abstract class BlockBase extends ContextAwarePluginBase implements BlockPluginIn
         ->setValues($form_state->getValue(['visibility', $condition_id]));
       $condition->validateConfigurationForm($form, $condition_values);
       // Update the original form values.
-      $form_state->setValue(array('visibility', $condition_id), $condition_values['values']);
+      $form_state->setValue(['visibility', $condition_id], $condition_values->getValues());
     }
 
     $this->blockValidate($form, $form_state);
@@ -392,7 +405,7 @@ abstract class BlockBase extends ContextAwarePluginBase implements BlockPluginIn
           ->setValues($form_state->getValue(['visibility', $condition_id]));
         $condition->submitConfigurationForm($form, $condition_values);
         // Update the original form values.
-        $form_state->setValue(array('visibility', $condition_id), $condition_values['values']);
+        $form_state->setValue(['visibility', $condition_id], $condition_values->getValues());
       }
       $this->blockSubmit($form, $form_state);
     }

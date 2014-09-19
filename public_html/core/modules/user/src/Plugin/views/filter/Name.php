@@ -47,7 +47,7 @@ class Name extends InOperator {
     );
 
     $user_input = $form_state->getUserInput();
-    if (!empty($form_state['exposed']) && !isset($user_input[$this->options['expose']['identifier']])) {
+    if ($form_state->get('exposed') && !isset($user_input[$this->options['expose']['identifier']])) {
       $user_input[$this->options['expose']['identifier']] = $default_value;
       $form_state->setUserInput($user_input);
     }
@@ -135,7 +135,7 @@ class Name extends InOperator {
     }
 
     if ($missing) {
-      form_error($form, $form_state, format_plural(count($missing), 'Unable to find user: @users', 'Unable to find users: @users', array('@users' => implode(', ', array_keys($missing)))));
+      $form_state->setError($form, format_plural(count($missing), 'Unable to find user: @users', 'Unable to find users: @users', array('@users' => implode(', ', array_keys($missing)))));
     }
 
     return $uids;

@@ -9,8 +9,8 @@ namespace Drupal\system\Tests\Entity;
 
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\simpletest\WebTestBase;
-use Drupal\Core\Language\Language;
 
 /**
  * Tests entity translation form.
@@ -36,12 +36,12 @@ class EntityTranslationFormTest extends WebTestBase {
     // Create test languages.
     $this->langcodes = array();
     for ($i = 0; $i < 2; ++$i) {
-      $language = new Language(array(
+      $language = ConfigurableLanguage::create(array(
         'id' => 'l' . $i,
-        'name' => $this->randomString(),
+        'label' => $this->randomString(),
       ));
-      $this->langcodes[$i] = $language->id;
-      language_save($language);
+      $this->langcodes[$i] = $language->id();
+      $language->save();
     }
   }
 
@@ -73,8 +73,8 @@ class EntityTranslationFormTest extends WebTestBase {
 
     // Explicitly set form langcode.
     $langcode = $this->langcodes[0];
-    $form_state['langcode'] = $langcode;
-    \Drupal::service('entity.form_builder')->getForm($node, 'default', $form_state);
+    $form_state_additions['langcode'] = $langcode;
+    \Drupal::service('entity.form_builder')->getForm($node, 'default', $form_state_additions);
     $form_langcode = \Drupal::state()->get('entity_test.form_langcode');
     $this->assertTrue($langcode == $form_langcode, 'Form language is the same as the language parameter.');
 

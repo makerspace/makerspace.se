@@ -7,12 +7,13 @@
 
 namespace Drupal\content_translation\Access;
 
+use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Entity\EntityManagerInterface;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Routing\Access\AccessInterface;
+use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Session\AccountInterface;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Route;
 
 /**
@@ -52,8 +53,8 @@ class ContentTranslationManageAccessCheck implements AccessInterface {
    *
    * @param \Symfony\Component\Routing\Route $route
    *   The route to check against.
-   * @param \Symfony\Component\HttpFoundation\Request $request
-   *   The request object.
+   * @param \Drupal\Core\Routing\RouteMatchInterface $route_match
+   *   The parametrized route.
    * @param \Drupal\Core\Session\AccountInterface $account
    *   The currently logged in account.
    * @param string $source
@@ -66,12 +67,12 @@ class ContentTranslationManageAccessCheck implements AccessInterface {
    * @param string $entity_type_id
    *   (optional) The entity type ID.
    *
-   * @return string
-   *   A \Drupal\Core\Access\AccessInterface constant value.
+   * @return \Drupal\Core\Access\AccessResultInterface
+   *   The access result.
    */
-  public function access(Route $route, Request $request, AccountInterface $account, $source = NULL, $target = NULL, $language = NULL, $entity_type_id = NULL) {
+  public function access(Route $route, RouteMatchInterface $route_match, AccountInterface $account, $source = NULL, $target = NULL, $language = NULL, $entity_type_id = NULL) {
     /* @var \Drupal\Core\Entity\ContentEntityInterface $entity */
-    if ($entity = $request->attributes->get($entity_type_id)) {
+    if ($entity = $route_match->getParameter($entity_type_id)) {
 
       $operation = $route->getRequirement('_access_content_translation_manage');
 
@@ -86,24 +87,26 @@ class ContentTranslationManageAccessCheck implements AccessInterface {
         case 'create':
           $source_language = $this->languageManager->getLanguage($source) ?: $entity->language();
           $target_language = $this->languageManager->getLanguage($target) ?: $this->languageManager->getCurrentLanguage(LanguageInterface::TYPE_CONTENT);
-          return ($source_language->getId() != $target_language->getId()
+          $is_new_translation = ($source_language->getId() != $target_language->getId()
             && isset($languages[$source_language->getId()])
             && isset($languages[$target_language->getId()])
-            && !isset($translations[$target_language->getId()])
-            && $handler->getTranslationAccess($entity, $operation))
-            ? static::ALLOW : static::DENY;
+            && !isset($translations[$target_language->getId()]));
+          return AccessResult::allowedIf($is_new_translation)->cachePerRole()->cacheUntilEntityChanges($entity)
+            ->andIf($handler->getTranslationAccess($entity, $operation));
 
         case 'update':
         case 'delete':
           $language = $this->languageManager->getLanguage($language) ?: $this->languageManager->getCurrentLanguage(LanguageInterface::TYPE_CONTENT);
-          return isset($languages[$language->getId()])
+          $has_translation = isset($languages[$language->getId()])
             && $language->getId() != $entity->getUntranslated()->language()->getId()
-            && isset($translations[$language->getId()])
-            && $handler->getTranslationAccess($entity, $operation)
-            ? static::ALLOW : static::DENY;
+            && isset($translations[$language->getId()]);
+          return AccessResult::allowedIf($has_translation)->cachePerRole()->cacheUntilEntityChanges($entity)
+            ->andIf($handler->getTranslationAccess($entity, $operation));
       }
     }
-    return static::DENY;
+
+    // No opinion.
+    return AccessResult::create();
   }
 
 }

@@ -19,6 +19,7 @@ use Drupal\Core\Site\Settings;
 use Drupal\Core\StringTranslation\Translator\FileTranslation;
 use Drupal\Core\Extension\ExtensionDiscovery;
 use Drupal\Core\DependencyInjection\ContainerBuilder;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -814,7 +815,7 @@ function install_get_form($form_id, array &$install_state) {
     $form = $form_builder->buildForm($form_id, $form_state);
     // If the form submission was not successful, the form needs to be rendered,
     // which means the task is not complete yet.
-    if (empty($form_state['executed'])) {
+    if (!$form_state->isExecuted()) {
       $install_state['task_not_complete'] = TRUE;
       return $form;
     }
@@ -1195,7 +1196,7 @@ function install_select_language(&$install_state) {
     }
     // If we are performing a non-interactive installation. If only one language
     // (English) is available, assume the user knows what he is doing. Otherwise
-    // thow an error.
+    // throw an error.
     else {
       if (count($files) == 1) {
         $install_state['parameters']['langcode'] = current(array_keys($files));
@@ -1209,7 +1210,7 @@ function install_select_language(&$install_state) {
 }
 
 /**
- * Download a translation file for the selected langaguage.
+ * Download a translation file for the selected language.
  *
  * @param array $install_state
  *   An array of information about the current installation state.
@@ -1226,7 +1227,7 @@ function install_download_translation(&$install_state) {
     return $output;
   }
 
-  // The download was successful, reload the page in the new lanagage.
+  // The download was successful, reload the page in the new language.
   install_goto(install_redirect_url($install_state));
 }
 
@@ -1452,7 +1453,7 @@ function install_load_profile(&$install_state) {
  *   An array of information about the current installation state.
  */
 function install_bootstrap_full() {
-  \Drupal::service('session_manager')->startLazy();
+  \Drupal::service('session_manager')->start();
 }
 
 /**
@@ -1511,7 +1512,7 @@ function install_profile_modules(&$install_state) {
  * Installs themes.
  *
  * This does not use a batch, since installing themes is faster than modules and
- * because an installation profile typically enables 1-3 themes only (default
+ * because an installation profile typically installs 1-3 themes only (default
  * theme, base theme, admin theme).
  *
  * @param $install_state
@@ -1520,15 +1521,15 @@ function install_profile_modules(&$install_state) {
 function install_profile_themes(&$install_state) {
   $theme_handler = \Drupal::service('theme_handler');
 
-  // ThemeHandler::enable() resets the current list of themes. The theme used in
-  // the installer is not necessarily in the list of themes to install, so
+  // ThemeHandler::install() resets the current list of themes. The theme used
+  // in the installer is not necessarily in the list of themes to install, so
   // retain the current list.
   // @see _drupal_maintenance_theme()
   $current_themes = $theme_handler->listInfo();
 
   // Install the themes specified by the installation profile.
   $themes = $install_state['profile_info']['themes'];
-  $theme_handler->enable($themes);
+  $theme_handler->install($themes);
 
   foreach ($current_themes as $theme) {
     $theme_handler->addTheme($theme);
@@ -1548,30 +1549,14 @@ function install_import_translations(&$install_state) {
   include_once __DIR__ . '/../modules/locale/locale.bulk.inc';
 
   $langcode = $install_state['parameters']['langcode'];
-  $standard_languages = LanguageManager::getStandardLanguageList();
-  if (!isset($standard_languages[$langcode])) {
-    // Drupal does not know about this language, so we prefill its values with
-    // our best guess. The user will be able to edit afterwards.
-    $language = new Language(array(
-      'id' => $langcode,
-      'name' => $langcode,
-      'default' => TRUE,
-    ));
-    language_save($language);
-  }
-  else {
-    // A known predefined language, details will be filled in properly.
-    $language = new Language(array(
-      'id' => $langcode,
-      'default' => TRUE,
-    ));
-    language_save($language);
-  }
+  $language = ConfigurableLanguage::createFromLangcode($langcode);
+  $language->set('default', TRUE);
+  $language->save();
 
   // If a non-English language was selected, remove English and import the
   // translations.
   if ($langcode != 'en') {
-    language_delete('en');
+    entity_delete_multiple('configurable_language', array('en'));
 
     // Set up a batch to import translations for the newly added language.
     _install_prepare_import($langcode);

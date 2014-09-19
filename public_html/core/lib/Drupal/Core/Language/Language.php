@@ -7,8 +7,6 @@
 
 namespace Drupal\Core\Language;
 
-use Drupal\Component\Utility\SortArray;
-
 /**
  * An object containing the information for an interface language.
  *
@@ -26,7 +24,7 @@ class Language implements LanguageInterface {
     'name' => 'English',
     'direction' => self::DIRECTION_LTR,
     'weight' => 0,
-    'locked' => 0,
+    'locked' => FALSE,
     'default' => TRUE,
   );
 
@@ -68,16 +66,6 @@ class Language implements LanguageInterface {
    * @var bool
    */
   public $default = FALSE;
-
-  /**
-   * The language negotiation method used when a language was detected.
-   *
-   * The method ID, for example
-   * \Drupal\language\LanguageNegotiatorInterface::METHOD_ID.
-   *
-   * @var string
-   */
-  public $method_id;
 
   /**
    * Locked indicates a language used by the system, not an actual language.
@@ -126,15 +114,6 @@ class Language implements LanguageInterface {
   /**
    * {@inheritdoc}
    */
-  public function setName($name) {
-    $this->name = $name;
-
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function getId() {
     return $this->id;
   }
@@ -149,15 +128,6 @@ class Language implements LanguageInterface {
   /**
    * {@inheritdoc}
    */
-  public function setDirection($direction) {
-    $this->direction = $direction;
-
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function getWeight() {
     return $this->weight;
   }
@@ -165,42 +135,8 @@ class Language implements LanguageInterface {
   /**
    * {@inheritdoc}
    */
-  public function setWeight($weight) {
-    $this->weight = $weight;
-
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function isDefault() {
     return $this->default;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function setDefault($default) {
-    $this->default = $default;
-
-    return $this;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getNegotiationMethodId() {
-    return $this->method_id;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function setNegotiationMethodId($method_id) {
-    $this->method_id = $method_id;
-
-    return $this;
   }
 
   /**

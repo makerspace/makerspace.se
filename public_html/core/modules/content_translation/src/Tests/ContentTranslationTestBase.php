@@ -8,7 +8,7 @@
 namespace Drupal\content_translation\Tests;
 
 use Drupal\Core\Entity\Sql\SqlContentEntityStorage;
-use Drupal\Core\Language\Language;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\simpletest\WebTestBase;
 
 /**
@@ -101,7 +101,7 @@ abstract class ContentTranslationTestBase extends WebTestBase {
   protected function setupLanguages() {
     $this->langcodes = array('it', 'fr');
     foreach ($this->langcodes as $langcode) {
-      language_save(new Language(array('id' => $langcode)));
+      ConfigurableLanguage::createFromLangcode($langcode)->save();
     }
     array_unshift($this->langcodes, \Drupal::languageManager()->getDefaultLanguage()->id);
   }
@@ -180,7 +180,7 @@ abstract class ContentTranslationTestBase extends WebTestBase {
       }
       entity_create('field_storage_config', array(
         'name' => $this->fieldName,
-        'type' => 'text',
+        'type' => 'string',
         'entity_type' => $this->entityTypeId,
         'cardinality' => 1,
         'translatable' => TRUE,
@@ -193,7 +193,7 @@ abstract class ContentTranslationTestBase extends WebTestBase {
       ))->save();
       entity_get_form_display($this->entityTypeId, $this->bundle, 'default')
         ->setComponent($this->fieldName, array(
-          'type' => 'text_textfield',
+          'type' => 'string_textfield',
           'weight' => 0,
         ))
         ->save();

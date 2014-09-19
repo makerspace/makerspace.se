@@ -39,23 +39,6 @@ function contact_help($route_name, RouteMatchInterface $route_match) {
 }
 
 /**
- * Implements hook_permission().
- */
-function contact_permission() {
-  return array(
-    'administer contact forms' => array(
-      'title' => t('Administer contact forms and contact form settings'),
-    ),
-    'access site-wide contact form' => array(
-      'title' => t('Use the site-wide contact form'),
-    ),
-    'access user contact forms' => array(
-      'title' => t("Use users' personal contact forms"),
-    ),
-  );
-}
-
-/**
  * Implements hook_entity_type_alter().
  */
 function contact_entity_type_alter(array &$entity_types) {
@@ -209,7 +192,7 @@ function contact_form_user_admin_settings_alter(&$form, FormStateInterface $form
   );
   $form['contact']['contact_default_status'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Enable the personal contact form by default for new users.'),
+    '#title' => t('Enable the personal contact form by default for new users'),
     '#description' => t('Changing this setting will not affect existing users.'),
     '#default_value' => \Drupal::config('contact.settings')->get('user_default_enabled'),
   );

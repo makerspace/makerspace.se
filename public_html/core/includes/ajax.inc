@@ -101,7 +101,7 @@ use Drupal\Core\Render\Element;
  * @code
  * $format_value = \Drupal\Component\Utility\NestedArray::getValue(
  *   $form_state->getValues(),
- *   $form_state['triggering_element']['#array_parents']);
+ *   $form_state->getTriggeringElement()['#array_parents']);
  * @endcode
  *
  * Once you have processed the input, you have your choice of returning HTML
@@ -128,7 +128,7 @@ use Drupal\Core\Render\Element;
  * \Drupal\Core\Ajax\CommandInterface. Available commands provide the ability
  * to pop up alerts, manipulate text and markup in various ways, redirect
  * to a new URL, and the generic \Drupal\Core\Ajax\InvokeCommand, which
- * invokes an arbitrary jQuery commnd.
+ * invokes an arbitrary jQuery command.
  *
  * As noted above, status messages are prepended automatically if you use the
  * 'wrapper' method and return HTML markup. This is not the case if you return

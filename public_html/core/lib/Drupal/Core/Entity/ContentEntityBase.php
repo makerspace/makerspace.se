@@ -22,17 +22,17 @@ use Drupal\Core\TypedData\TypedDataInterface;
 abstract class ContentEntityBase extends Entity implements \IteratorAggregate, ContentEntityInterface {
 
   /**
-   * Status code indentifying a removed translation.
+   * Status code identifying a removed translation.
    */
   const TRANSLATION_REMOVED = 0;
 
   /**
-   * Status code indentifying an existing translation.
+   * Status code identifying an existing translation.
    */
   const TRANSLATION_EXISTING = 1;
 
   /**
-   * Status code indentifying a newly created translation.
+   * Status code identifying a newly created translation.
    */
   const TRANSLATION_CREATED = 2;
 
@@ -95,7 +95,7 @@ abstract class ContentEntityBase extends Entity implements \IteratorAggregate, C
    * An array of entity translation metadata.
    *
    * An associative array keyed by translation language code. Every value is an
-   * array containg the translation status and the translation object, if it has
+   * array containing the translation status and the translation object, if it has
    * already been instantiated.
    *
    * @var array
@@ -549,15 +549,15 @@ abstract class ContentEntityBase extends Entity implements \IteratorAggregate, C
   /**
    * {@inheritdoc}
    */
-  public function access($operation, AccountInterface $account = NULL) {
+  public function access($operation, AccountInterface $account = NULL, $return_as_object = FALSE) {
     if ($operation == 'create') {
       return $this->entityManager()
         ->getAccessControlHandler($this->entityTypeId)
-        ->createAccess($this->bundle(), $account);
+        ->createAccess($this->bundle(), $account, [], $return_as_object);
     }
     return $this->entityManager()
       ->getAccessControlHandler($this->entityTypeId)
-      ->access($this, $operation, $this->activeLangcode, $account);
+      ->access($this, $operation, $this->activeLangcode, $account, $return_as_object);
   }
 
   /**

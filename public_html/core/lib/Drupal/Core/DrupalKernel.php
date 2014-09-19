@@ -381,7 +381,7 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
     if (!$this->sitePath) {
       throw new \Exception('Kernel does not have site path set before calling boot()');
     }
-    // Intialize the container.
+    // Initialize the container.
     $this->initializeContainer();
 
     // Ensure mt_rand() is reseeded to prevent random values from one page load
@@ -672,16 +672,13 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
    */
   protected function initializeContainer($rebuild = FALSE) {
     $this->containerNeedsDumping = FALSE;
-    $session_manager_state = 0;
+    $session_manager_started = FALSE;
     if (isset($this->container)) {
       // If there is a session manager, close and save the session.
       if ($this->container->initialized('session_manager')) {
         $session_manager = $this->container->get('session_manager');
-        if ($session_manager->isStartedLazy()) {
-          $session_manager_state |= 0x1;
-        }
         if ($session_manager->isStarted()) {
-          $session_manager_state |= 0x2;
+          $session_manager_started = TRUE;
           $session_manager->save();
         }
         unset($session_manager);
@@ -712,10 +709,7 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
     $this->attachSynthetic($container);
 
     $this->container = $container;
-    if ($session_manager_state & 0x1) {
-      $this->container->get('session_manager')->startLazy();
-    }
-    if ($session_manager_state & 0x2) {
+    if ($session_manager_started) {
       $this->container->get('session_manager')->start();
     }
     \Drupal::setContainer($this->container);
@@ -1016,13 +1010,22 @@ class DrupalKernel implements DrupalKernelInterface, TerminableInterface {
 
     // Get a list of namespaces and put it onto the container.
     $namespaces = $this->getModuleNamespacesPsr4($this->getModuleFileNames());
-    // Add all components in \Drupal\Core and \Drupal\Component that have a
-    // Plugin directory.
+    // Add all components in \Drupal\Core and \Drupal\Component that have one of
+    // the following directories:
+    // - Element
+    // - Entity
+    // - Plugin
     foreach (array('Core', 'Component') as $parent_directory) {
       $path = DRUPAL_ROOT . '/core/lib/Drupal/' . $parent_directory;
       $parent_namespace = 'Drupal\\' . $parent_directory;
       foreach (new \DirectoryIterator($path) as $component) {
-        if (!$component->isDot() && $component->isDir() && is_dir($component->getPathname() . '/Plugin')) {
+        /** @var $component \DirectoryIterator */
+        $pathname = $component->getPathname();
+        if (!$component->isDot() && $component->isDir() && (
+          is_dir($pathname . '/Plugin') ||
+          is_dir($pathname . '/Entity') ||
+          is_dir($pathname . '/Element')
+        )) {
           $namespaces[$parent_namespace . '\\' . $component->getFilename()] = $path . '/' . $component->getFilename();
         }
       }

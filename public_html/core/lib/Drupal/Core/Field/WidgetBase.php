@@ -21,6 +21,8 @@ use Symfony\Component\Validator\ConstraintViolationListInterface;
  */
 abstract class WidgetBase extends PluginSettingsBase implements WidgetInterface {
 
+  use AllowedTagsXssTrait;
+
   /**
    * The field definition.
    *
@@ -82,7 +84,7 @@ abstract class WidgetBase extends PluginSettingsBase implements WidgetInterface 
       $delta = isset($get_delta) ? $get_delta : 0;
       $element = array(
         '#title' => String::checkPlain($this->fieldDefinition->getLabel()),
-        '#description' => field_filter_xss(\Drupal::token()->replace($this->fieldDefinition->getDescription())),
+        '#description' => $this->fieldFilterXss(\Drupal::token()->replace($this->fieldDefinition->getDescription())),
       );
       $element = $this->formSingleElement($items, $delta, $element, $form, $form_state);
 
@@ -106,8 +108,8 @@ abstract class WidgetBase extends PluginSettingsBase implements WidgetInterface 
       $elements = $this->formMultipleElements($items, $form, $form_state);
     }
 
-    // Populate the 'array_parents' information in $form_state['field'] after
-    // the form is built, so that we catch changes in the form structure
+    // Populate the 'array_parents' information in $form_state->get('field')
+    // after the form is built, so that we catch changes in the form structure
     // performed in alter() hooks.
     $elements['#after_build'][] = array(get_class($this), 'afterBuild');
     $elements['#field_name'] = $field_name;
@@ -161,7 +163,7 @@ abstract class WidgetBase extends PluginSettingsBase implements WidgetInterface 
     }
 
     $title = String::checkPlain($this->fieldDefinition->getLabel());
-    $description = field_filter_xss(\Drupal::token()->replace($this->fieldDefinition->getDescription()));
+    $description = $this->fieldFilterXss(\Drupal::token()->replace($this->fieldDefinition->getDescription()));
 
     $elements = array();
 
@@ -207,8 +209,7 @@ abstract class WidgetBase extends PluginSettingsBase implements WidgetInterface 
       );
 
       // Add 'add more' button, if not working with a programmed form.
-      if ($cardinality == FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED && empty($form_state['programmed'])) {
-
+      if ($cardinality == FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED && !$form_state->isProgrammed()) {
         $id_prefix = implode('-', array_merge($parents, array($field_name)));
         $wrapper_id = drupal_html_id($id_prefix . '-add-more-wrapper');
         $elements['#prefix'] = '<div id="' . $wrapper_id . '">';
@@ -254,7 +255,7 @@ abstract class WidgetBase extends PluginSettingsBase implements WidgetInterface 
    * Submission handler for the "Add another item" button.
    */
   public static function addMoreSubmit(array $form, FormStateInterface $form_state) {
-    $button = $form_state['triggering_element'];
+    $button = $form_state->getTriggeringElement();
 
     // Go one level up in the form, to the widgets container.
     $element = NestedArray::getValue($form, array_slice($button['#array_parents'], 0, -1));
@@ -266,7 +267,7 @@ abstract class WidgetBase extends PluginSettingsBase implements WidgetInterface 
     $field_state['items_count']++;
     static::setWidgetState($parents, $field_name, $form_state, $field_state);
 
-    $form_state['rebuild'] = TRUE;
+    $form_state->setRebuild();
   }
 
   /**
@@ -276,7 +277,7 @@ abstract class WidgetBase extends PluginSettingsBase implements WidgetInterface 
    * by the form submission.
    */
   public static function addMoreAjax(array $form, FormStateInterface $form_state) {
-    $button = $form_state['triggering_element'];
+    $button = $form_state->getTriggeringElement();
 
     // Go one level up in the form, to the widgets container.
     $element = NestedArray::getValue($form, array_slice($button['#array_parents'], 0, -1));
@@ -343,7 +344,7 @@ abstract class WidgetBase extends PluginSettingsBase implements WidgetInterface 
         unset($values['add_more']);
 
         // The original delta, before drag-and-drop reordering, is needed to
-        // route errors to the corect form element.
+        // route errors to the correct form element.
         foreach ($values as $delta => &$value) {
           $value['_original_delta'] = $delta;
         }
@@ -439,14 +440,14 @@ abstract class WidgetBase extends PluginSettingsBase implements WidgetInterface 
    * {@inheritdoc}
    */
   public static function getWidgetState(array $parents, $field_name, FormStateInterface $form_state) {
-    return NestedArray::getValue($form_state['storage'], static::getWidgetStateParents($parents, $field_name));
+    return NestedArray::getValue($form_state->getStorage(), static::getWidgetStateParents($parents, $field_name));
   }
 
   /**
    * {@inheritdoc}
    */
   public static function setWidgetState(array $parents, $field_name, FormStateInterface $form_state, array $field_state) {
-    NestedArray::setValue($form_state['storage'], static::getWidgetStateParents($parents, $field_name), $field_state);
+    NestedArray::setValue($form_state->getStorage(), static::getWidgetStateParents($parents, $field_name), $field_state);
   }
 
   /**
@@ -462,7 +463,7 @@ abstract class WidgetBase extends PluginSettingsBase implements WidgetInterface 
    */
   protected static function getWidgetStateParents(array $parents, $field_name) {
     // Field processing data is placed at
-    // $form_state['field']['#parents'][...$parents...]['#fields'][$field_name],
+    // $form_state->get(['field', '#parents', ...$parents..., '#fields', $field_name]),
     // to avoid clashes between field names and $parents parts.
     return array_merge(array('field', '#parents'), $parents, array('#fields', $field_name));
   }
@@ -537,6 +538,5 @@ abstract class WidgetBase extends PluginSettingsBase implements WidgetInterface 
     // By default, widgets are available for all fields.
     return TRUE;
   }
-
 
 }

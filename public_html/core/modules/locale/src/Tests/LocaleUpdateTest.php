@@ -8,7 +8,6 @@
 namespace Drupal\locale\Tests;
 
 use Drupal\Core\Language\LanguageInterface;
-use Drupal\simpletest\WebTestBase;
 
 /**
  * Tests for updating the interface translations of projects.
@@ -16,13 +15,6 @@ use Drupal\simpletest\WebTestBase;
  * @group locale
  */
 class LocaleUpdateTest extends LocaleUpdateBase {
-
-  /**
-   * Modules to enable.
-   *
-   * @var array
-   */
-  public static $modules = array('update', 'locale', 'locale_test');
 
   /**
    * {@inheritdoc}
@@ -411,7 +403,7 @@ class LocaleUpdateTest extends LocaleUpdateBase {
     $edit = array(
       'predefined_langcode' => 'custom',
       'langcode' => $langcode,
-      'name' => $name,
+      'label' => $name,
       'direction' => LanguageInterface::DIRECTION_LTR,
     );
     $this->drupalPostForm('admin/config/regional/language/add', $edit, t('Add custom language'));

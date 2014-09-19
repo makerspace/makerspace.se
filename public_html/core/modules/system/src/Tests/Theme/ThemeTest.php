@@ -27,7 +27,7 @@ class ThemeTest extends WebTestBase {
 
   protected function setUp() {
     parent::setUp();
-    theme_enable(array('test_theme'));
+    \Drupal::service('theme_handler')->install(array('test_theme'));
   }
 
   /**
@@ -56,18 +56,18 @@ class ThemeTest extends WebTestBase {
    * Test that _theme() returns expected data types.
    */
   function testThemeDataTypes() {
-    // theme_test_false is an implemented theme hook so _theme() should return a
-    // string, even though the theme function itself can return anything.
+    // theme_test_false is an implemented theme hook so \Drupal::theme() service should
+    // return a string, even though the theme function itself can return anything.
     $foos = array('null' => NULL, 'false' => FALSE, 'integer' => 1, 'string' => 'foo');
     foreach ($foos as $type => $example) {
-      $output = _theme('theme_test_foo', array('foo' => $example));
-      $this->assertTrue(is_string($output), format_string('_theme() returns a string for data type !type.', array('!type' => $type)));
+      $output = \Drupal::theme()->render('theme_test_foo', array('foo' => $example));
+      $this->assertTrue(is_string($output), format_string('\Drupal::theme() returns a string for data type !type.', array('!type' => $type)));
     }
 
-    // suggestionnotimplemented is not an implemented theme hook so _theme()
+    // suggestionnotimplemented is not an implemented theme hook so \Drupal::theme() service
     // should return FALSE instead of a string.
-    $output = _theme(array('suggestionnotimplemented'));
-    $this->assertIdentical($output, FALSE, '_theme() returns FALSE when a hook suggestion is not implemented.');
+    $output = \Drupal::theme()->render(array('suggestionnotimplemented'), array());
+    $this->assertIdentical($output, FALSE, '\Drupal::theme() returns FALSE when a hook suggestion is not implemented.');
   }
 
   /**
@@ -199,11 +199,12 @@ class ThemeTest extends WebTestBase {
    */
   function testListThemes() {
     $theme_handler = $this->container->get('theme_handler');
-    $theme_handler->enable(array('test_subtheme'));
+    $theme_handler->install(array('test_subtheme'));
     $themes = $theme_handler->listInfo();
 
-    // Check if drupal_theme_access() retrieves enabled themes properly from list_themes().
-    $this->assertTrue(drupal_theme_access('test_theme'), 'Enabled theme detected');
+    // Check if drupal_theme_access() retrieves installed themes properly from
+    // list_themes().
+    $this->assertTrue(drupal_theme_access('test_theme'), 'Installed theme detected');
 
     // Check for base theme and subtheme lists.
     $base_theme_list = array('test_basetheme' => 'Theme test base theme');
@@ -221,7 +222,7 @@ class ThemeTest extends WebTestBase {
    * Test the theme_get_setting() function.
    */
   function testThemeGetSetting() {
-    $this->container->get('theme_handler')->enable(array('test_subtheme'));
+    $this->container->get('theme_handler')->install(array('test_subtheme'));
     \Drupal::theme()->setActiveTheme(\Drupal::service('theme.initialization')->initTheme('test_theme'));
     $this->assertIdentical(theme_get_setting('theme_test_setting'), 'default value', 'theme_get_setting() uses the default theme automatically.');
     $this->assertNotEqual(theme_get_setting('subtheme_override', 'test_basetheme'), theme_get_setting('subtheme_override', 'test_subtheme'), 'Base theme\'s default settings values can be overridden by subtheme.');
