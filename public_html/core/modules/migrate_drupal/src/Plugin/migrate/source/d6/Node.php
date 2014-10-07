@@ -50,10 +50,15 @@ class Node extends DrupalSqlBase implements SourceEntityInterface {
         'title',
         'body',
         'teaser',
-        'format',
+        'log',
         'timestamp',
+        'format',
       ));
     $query->innerJoin('node', 'n', static::JOIN);
+
+    if (isset($this->configuration['node_type'])) {
+      $query->condition('type', $this->configuration['node_type']);
+    }
 
     return $query;
   }
@@ -76,7 +81,6 @@ class Node extends DrupalSqlBase implements SourceEntityInterface {
       'promote' => $this->t('Promoted to front page'),
       'sticky' => $this->t('Sticky at top of lists'),
       'revision' => $this->t('Create new revision'),
-      'log' => $this->t('Revision Log message'),
       'language' => $this->t('Language (fr, en, ...)'),
       'tnid' => $this->t('The translation set id for this node'),
       'timestamp' => $this->t('The timestamp the latest revision of this node was created.'),

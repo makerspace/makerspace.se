@@ -164,7 +164,7 @@ abstract class HandlerBase extends PluginBase implements ViewsHandlerInterface {
     $options['field'] = array('default' => '');
     $options['relationship'] = array('default' => 'none');
     $options['group_type'] = array('default' => 'group');
-    $options['admin_label'] = array('default' => '', 'translatable' => TRUE);
+    $options['admin_label'] = array('default' => '');
     $options['dependencies'] = array('default' => array());
 
     return $options;
@@ -282,7 +282,7 @@ abstract class HandlerBase extends PluginBase implements ViewsHandlerInterface {
 
     $form['admin_label'] = array(
       '#type' => 'details',
-      '#title' => t('Administrative title'),
+      '#title' =>$this->t('Administrative title'),
       '#weight' => 150,
     );
     $form['admin_label']['admin_label'] = array(
@@ -297,7 +297,7 @@ abstract class HandlerBase extends PluginBase implements ViewsHandlerInterface {
     // belongs in "Administrative title" fieldset at the bottom of the form.
     $form['more'] = array(
       '#type' => 'details',
-      '#title' => t('More'),
+      '#title' => $this->t('More'),
       '#weight' => 200,
     );
     // Allow to alter the default values brought into the form.

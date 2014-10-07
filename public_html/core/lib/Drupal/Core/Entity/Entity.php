@@ -9,15 +9,13 @@ namespace Drupal\Core\Entity;
 
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Component\Utility\String;
 use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Config\Entity\Exception\ConfigEntityIdLengthException;
-use Drupal\Core\Entity\Exception\AmbiguousEntityClassException;
-use Drupal\Core\Entity\Exception\NoCorrespondingEntityClassException;
 use Drupal\Core\Entity\Exception\UndefinedLinkTemplateException;
 use Drupal\Core\Language\Language;
 use Drupal\Core\Language\LanguageInterface;
+use Drupal\Core\Link;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
 
@@ -25,7 +23,10 @@ use Drupal\Core\Url;
  * Defines a base entity class.
  */
 abstract class Entity implements EntityInterface {
-  use DependencySerializationTrait;
+
+  use DependencySerializationTrait {
+    __sleep as traitSleep;
+  }
 
   /**
    * The entity type.
@@ -40,6 +41,13 @@ abstract class Entity implements EntityInterface {
    * @var bool
    */
   protected $enforceIsNew;
+
+  /**
+   * A typed data object wrapping this entity.
+   *
+   * @var \Drupal\Core\TypedData\ComplexDataInterface
+   */
+  protected $typedData;
 
   /**
    * Constructs an Entity object.
@@ -147,7 +155,7 @@ abstract class Entity implements EntityInterface {
   /**
    * {@inheritdoc}
    */
-  public function urlInfo($rel = 'canonical') {
+  public function urlInfo($rel = 'canonical', array $options = []) {
     if ($this->isNew()) {
       throw new EntityMalformedException(sprintf('The "%s" entity type has not been saved, and cannot have a URI.', $this->getEntityTypeId()));
     }
@@ -184,13 +192,14 @@ abstract class Entity implements EntityInterface {
       }
     }
 
-    // Pass the entity data to url() so that alter functions do not need to
+    // Pass the entity data to _url() so that alter functions do not need to
     // look up this entity again.
     $uri
       ->setOption('entity_type', $this->getEntityTypeId())
       ->setOption('entity', $this);
-
-    return $uri;
+    $uri_options = $uri->getOptions();
+    $uri_options += $options;
+    return $uri->setOptions($uri_options);
   }
 
   /**
@@ -219,6 +228,19 @@ abstract class Entity implements EntityInterface {
    */
   protected function linkTemplates() {
     return $this->getEntityType()->getLinkTemplates();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function link($text = NULL, $rel = 'canonical', array $options = []) {
+    if (is_null($text)) {
+      $text = $this->label();
+    }
+    $url = $this->urlInfo($rel);
+    $options += $url->getOptions();
+    $url->setOptions($options);
+    return (new Link($text, $url))->toString();
   }
 
   /**
@@ -358,7 +380,6 @@ abstract class Entity implements EntityInterface {
    * {@inheritdoc}
    */
   public function postSave(EntityStorageInterface $storage, $update = TRUE) {
-    $this->onSaveOrDelete();
     $this->invalidateTagsOnSave($update);
   }
 
@@ -384,7 +405,7 @@ abstract class Entity implements EntityInterface {
    * {@inheritdoc}
    */
   public static function postDelete(EntityStorageInterface $storage, array $entities) {
-    self::invalidateTagsOnDelete($entities);
+    self::invalidateTagsOnDelete($storage->getEntityType(), $entities);
   }
 
   /**
@@ -404,15 +425,8 @@ abstract class Entity implements EntityInterface {
    * {@inheritdoc}
    */
   public function getCacheTag() {
-    return array($this->entityTypeId => array($this->id()));
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getListCacheTags() {
     // @todo Add bundle-specific listing cache tag? https://drupal.org/node/2145751
-    return array($this->entityTypeId . 's' => TRUE);
+    return [$this->entityTypeId . ':' . $this->id()];
   }
 
   /**
@@ -439,26 +453,6 @@ abstract class Entity implements EntityInterface {
     return $entity_manager->getStorage($entity_manager->getEntityTypeFromClass(get_called_class()))->create($values);
   }
 
-
-  /**
-   * Acts on an entity after it was saved or deleted.
-   */
-  protected function onSaveOrDelete() {
-    $referenced_entities = array(
-      $this->getEntityTypeId() => array($this->id() => $this),
-    );
-
-    foreach ($this->referencedEntities() as $referenced_entity) {
-      $referenced_entities[$referenced_entity->getEntityTypeId()][$referenced_entity->id()] = $referenced_entity;
-    }
-
-    foreach ($referenced_entities as $entity_type => $entities) {
-      if ($this->entityManager()->hasHandler($entity_type, 'view_builder')) {
-        $this->entityManager()->getViewBuilder($entity_type)->resetCache($entities);
-      }
-    }
-  }
-
   /**
    * Invalidates an entity's cache tags upon save.
    *
@@ -470,10 +464,10 @@ abstract class Entity implements EntityInterface {
     // updated entity may start to appear in a listing because it now meets that
     // listing's filtering requirements. A newly created entity may start to
     // appear in listings because it did not exist before.)
-    $tags = $this->getListCacheTags();
+    $tags = $this->getEntityType()->getListCacheTags();
     if ($update) {
       // An existing entity was updated, also invalidate its unique cache tag.
-      $tags = NestedArray::mergeDeep($tags, $this->getCacheTag());
+      $tags = Cache::mergeTags($tags, $this->getCacheTag());
       $this->onUpdateBundleEntity();
     }
     Cache::invalidateTags($tags);
@@ -482,19 +476,20 @@ abstract class Entity implements EntityInterface {
   /**
    * Invalidates an entity's cache tags upon delete.
    *
+   * @param \Drupal\Core\Entity\EntityTypeInterface $entity_type
+   *   The entity type definition.
    * @param \Drupal\Core\Entity\EntityInterface[] $entities
    *   An array of entities.
    */
-  protected static function invalidateTagsOnDelete(array $entities) {
-    $tags = array();
+  protected static function invalidateTagsOnDelete(EntityTypeInterface $entity_type, array $entities) {
+    $tags = $entity_type->getListCacheTags();
     foreach ($entities as $entity) {
       // An entity was deleted: invalidate its own cache tag, but also its list
       // cache tags. (A deleted entity may cause changes in a paged list on
       // other pages than the one it's on. The one it's on is handled by its own
       // cache tag, but subsequent list pages would not be invalidated, hence we
       // must invalidate its list cache tags as well.)
-      $tags = NestedArray::mergeDeepArray(array($tags, $entity->getCacheTag(), $entity->getListCacheTags()));
-      $entity->onSaveOrDelete();
+      $tags = Cache::mergeTags($tags, $entity->getCacheTag());
     }
     Cache::invalidateTags($tags);
   }
@@ -545,6 +540,25 @@ abstract class Entity implements EntityInterface {
    */
   public function toArray() {
     return array();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getTypedData() {
+    if (!isset($this->typedData)) {
+      $class = \Drupal::typedDataManager()->getDefinition('entity')['class'];
+      $this->typedData = $class::createFromEntity($this);
+    }
+    return $this->typedData;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function __sleep() {
+    $this->typedData = NULL;
+    return $this->traitSleep();
   }
 
 }

@@ -50,14 +50,14 @@ class ContentTranslationSyncImageTest extends ContentTranslationTestBase {
     $this->cardinality = 3;
 
     entity_create('field_storage_config', array(
-      'name' => $this->fieldName,
+      'field_name' => $this->fieldName,
       'entity_type' => $this->entityTypeId,
       'type' => 'image',
       'cardinality' => $this->cardinality,
       'translatable' => TRUE,
     ))->save();
 
-    entity_create('field_instance_config', array(
+    entity_create('field_config', array(
       'entity_type' => $this->entityTypeId,
       'field_name' => $this->fieldName,
       'bundle' => $this->entityTypeId,
@@ -89,11 +89,11 @@ class ContentTranslationSyncImageTest extends ContentTranslationTestBase {
     // Check that the alt and title fields are enabled for the image field.
     $this->drupalLogin($this->editor);
     $this->drupalGet('entity_test_mul/structure/' . $this->entityTypeId . '/fields/' . $this->entityTypeId . '.' . $this->entityTypeId . '.' . $this->fieldName);
-    $this->assertFieldChecked('edit-instance-third-party-settings-content-translation-translation-sync-alt');
-    $this->assertFieldChecked('edit-instance-third-party-settings-content-translation-translation-sync-title');
+    $this->assertFieldChecked('edit-field-third-party-settings-content-translation-translation-sync-alt');
+    $this->assertFieldChecked('edit-field-third-party-settings-content-translation-translation-sync-title');
     $edit = array(
-      'instance[third_party_settings][content_translation][translation_sync][alt]' => FALSE,
-      'instance[third_party_settings][content_translation][translation_sync][title]' => FALSE,
+      'field[third_party_settings][content_translation][translation_sync][alt]' => FALSE,
+      'field[third_party_settings][content_translation][translation_sync][title]' => FALSE,
     );
     $this->drupalPostForm(NULL, $edit, t('Save settings'));
 
@@ -107,7 +107,7 @@ class ContentTranslationSyncImageTest extends ContentTranslationTestBase {
       'settings[entity_test_mul][entity_test_mul][columns][field_test_et_ui_image][alt]' => TRUE,
       'settings[entity_test_mul][entity_test_mul][columns][field_test_et_ui_image][title]' => TRUE,
     );
-    $this->drupalPostForm('admin/config/regional/content-language', $edit, t('Save'));
+    $this->drupalPostForm('admin/config/regional/content-language', $edit, t('Save configuration'));
     $errors = $this->xpath('//div[contains(@class, "messages--error")]');
     $this->assertFalse($errors, 'Settings correctly stored.');
     $this->assertFieldChecked('edit-settings-entity-test-mul-entity-test-mul-columns-field-test-et-ui-image-alt');

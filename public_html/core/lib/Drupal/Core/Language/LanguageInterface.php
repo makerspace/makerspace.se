@@ -52,6 +52,11 @@ interface LanguageInterface {
   const LANGCODE_DEFAULT = 'x-default';
 
   /**
+   * Language code referring to site's default language.
+   */
+  const LANGCODE_SITE_DEFAULT = 'site_default';
+
+  /**
    * The language state when referring to configurable languages.
    */
   const STATE_CONFIGURABLE = 1;
@@ -136,5 +141,13 @@ interface LanguageInterface {
    *   Whether the language is the default language.
    */
   public function isDefault();
+
+  /**
+   * Returns whether this language is locked.
+   *
+   * @return bool
+   *   Whether the language is locked or not.
+   */
+  public function isLocked();
 
 }

@@ -278,9 +278,9 @@ class BreadcrumbTest extends MenuTestBase {
       // untranslated menu links automatically generated from menu router items
       // ('taxonomy/term/%') should never be translated and appear in any menu
       // other than the breadcrumb trail.
-      $elements = $this->xpath('//div[@id=:menu]/descendant::a[@href=:href]', array(
+      $elements = $this->xpath('//nav[@id=:menu]/descendant::a[@href=:href]', array(
         ':menu' => 'block-bartik-tools',
-        ':href' => url($link_path),
+        ':href' => _url($link_path),
       ));
       $this->assertTrue(count($elements) == 1, "Link to {$link_path} appears only once.");
 
@@ -362,6 +362,11 @@ class BreadcrumbTest extends MenuTestBase {
     $trail += array('admin/reports' => t('Reports'));
     $this->assertBreadcrumb('admin/reports/dblog', $trail, t('Recent log messages'));
     $this->assertNoResponse(403);
+
+    // Ensure that the breadcrumb is safe against XSS.
+    $this->drupalGet('menu-test/breadcrumb1/breadcrumb2/breadcrumb3');
+    $this->assertRaw('<script>alert(12);</script>');
+    $this->assertRaw(String::checkPlain('<script>alert(123);</script>'));
   }
 
 }

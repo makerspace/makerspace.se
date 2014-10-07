@@ -116,7 +116,7 @@ class SystemController extends ControllerBase {
   public function overview($link_id) {
     // Check for status report errors.
     if ($this->systemManager->checkRequirements() && $this->currentUser()->hasPermission('administer site configuration')) {
-      drupal_set_message($this->t('One or more problems were detected with your Drupal installation. Check the <a href="@status">status report</a> for more information.', array('@status' => url('admin/reports/status'))), 'error');
+      drupal_set_message($this->t('One or more problems were detected with your Drupal installation. Check the <a href="@status">status report</a> for more information.', array('@status' => $this->url('system.status'))), 'error');
     }
     // Load all menu links below it.
     $parameters = new MenuTreeParameters();
@@ -200,6 +200,7 @@ class SystemController extends ControllerBase {
         continue;
       }
       $theme->is_default = ($theme->getName() == $theme_default);
+      $theme->is_admin = ($theme->getName() == $admin_theme || ($theme->is_default && $admin_theme == '0'));
 
       // Identify theme screenshot.
       $theme->screenshot = NULL;
@@ -284,13 +285,10 @@ class SystemController extends ControllerBase {
 
       // Add notes to default and administration theme.
       $theme->notes = array();
-      $theme->classes = array();
       if ($theme->is_default) {
-        $theme->classes[] = 'theme-default';
         $theme->notes[] = $this->t('default theme');
       }
-      if ($theme->getName() == $admin_theme || ($theme->is_default && $admin_theme == '0')) {
-        $theme->classes[] = 'theme-admin';
+      if ($theme->is_admin) {
         $theme->notes[] = $this->t('admin theme');
       }
 

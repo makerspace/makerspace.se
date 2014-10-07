@@ -66,9 +66,11 @@ class CommentDefaultFormatterCacheTagsTest extends EntityUnitTestBase {
       ->view($commented_entity);
     drupal_render($build);
     $expected_cache_tags = array(
-      'entity_test_view' => TRUE,
-      'entity_test' => array($commented_entity->id()),
+      'entity_test_view',
+      'entity_test:'  . $commented_entity->id(),
+      'comment_list',
     );
+    sort($expected_cache_tags);
     $this->assertEqual($build['#cache']['tags'], $expected_cache_tags, 'The test entity has the expected cache tags before it has comments.');
 
     // Create a comment on that entity. Comment loading requires that the uid
@@ -95,22 +97,22 @@ class CommentDefaultFormatterCacheTagsTest extends EntityUnitTestBase {
     //   https://drupal.org/node/597236 lands, it's a temporary work-around.
     $commented_entity = entity_load('entity_test', $commented_entity->id(), TRUE);
 
-    // Verify cache tags on the rendered entity before it has comments.
+    // Verify cache tags on the rendered entity when it has comments.
     $build = \Drupal::entityManager()
       ->getViewBuilder('entity_test')
       ->view($commented_entity);
     drupal_render($build);
     $expected_cache_tags = array(
-      'entity_test_view' => TRUE,
-      'entity_test' => array($commented_entity->id()),
-      'comment_view' => TRUE,
-      'comment' => array(1 => $comment->id()),
-      'filter_format' => array(
-        'plain_text' => 'plain_text',
-      ),
-      'user_view' => TRUE,
-      'user' => array(2 => 2),
+      'entity_test_view',
+      'entity_test:' . $commented_entity->id(),
+      'comment_list',
+      'comment_view',
+      'comment:' . $comment->id(),
+      'filter_format:plain_text',
+      'user_view',
+      'user:2',
     );
+    sort($expected_cache_tags);
     $this->assertEqual($build['#cache']['tags'], $expected_cache_tags, 'The test entity has the expected cache tags when it has comments.');
   }
 

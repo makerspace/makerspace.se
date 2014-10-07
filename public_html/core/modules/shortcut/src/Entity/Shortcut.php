@@ -14,6 +14,7 @@ use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\Core\Url;
 use Drupal\shortcut\ShortcutInterface;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Defines the shortcut entity class.
@@ -45,8 +46,8 @@ use Drupal\shortcut\ShortcutInterface;
  *     "delete-form" = "entity.shortcut.delete_form",
  *     "edit-form" = "entity.shortcut.canonical",
  *   },
- *   bundle_entity_type = "shortcut_set",
- *   field_ui_base_route = "entity.shortcut.canonical",
+ *   list_cache_tags = { "shortcut_set_list" },
+ *   bundle_entity_type = "shortcut_set"
  * )
  */
 class Shortcut extends ContentEntityBase implements ShortcutInterface {
@@ -135,7 +136,15 @@ class Shortcut extends ContentEntityBase implements ShortcutInterface {
   public function preSave(EntityStorageInterface $storage) {
     parent::preSave($storage);
 
-    $url = Url::createFromPath($this->path->value);
+    // @todo fix PathValidatorInterface::getUrlIfValid() so we can use it
+    //   here. The problem is that we need an exception, not a FALSE
+    //   return value. https://www.drupal.org/node/2346695
+    if ($this->path->value == '<front>') {
+      $url = new Url($this->path->value);
+    }
+    else {
+      $url = Url::createFromRequest(Request::create("/{$this->path->value}"));
+    }
     $this->setRouteName($url->getRouteName());
     $this->setRouteParams($url->getRouteParameters());
   }
@@ -225,13 +234,6 @@ class Shortcut extends ContentEntityBase implements ShortcutInterface {
    */
   public function getCacheTag() {
     return $this->shortcut_set->entity->getCacheTag();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getListCacheTags() {
-    return $this->shortcut_set->entity->getListCacheTags();
   }
 
 }

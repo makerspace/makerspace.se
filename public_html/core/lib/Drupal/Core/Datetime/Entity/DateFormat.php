@@ -25,6 +25,7 @@ use Drupal\Core\Datetime\DateFormatInterface;
  *     "label" = "label"
  *   },
  *   admin_permission = "administer site configuration",
+ *   list_cache_tags = { "rendered" }
  * )
  */
 class DateFormat extends ConfigEntityBase implements DateFormatInterface {
@@ -95,14 +96,7 @@ class DateFormat extends ConfigEntityBase implements DateFormatInterface {
    * {@inheritdoc}
    */
   public function getCacheTag() {
-    return array('rendered' => TRUE);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getListCacheTags() {
-    return array('rendered' => TRUE);
+    return ['rendered'];
   }
 
 }

@@ -20,11 +20,11 @@ class ImageFieldValidateTest extends ImageFieldTestBase {
     $field_name = strtolower($this->randomMachineName());
     $min_resolution = 50;
     $max_resolution = 100;
-    $instance_settings = array(
+    $field_settings = array(
       'max_resolution' => $max_resolution . 'x' . $max_resolution,
       'min_resolution' => $min_resolution . 'x' . $min_resolution,
     );
-    $this->createImageField($field_name, 'article', array(), $instance_settings);
+    $this->createImageField($field_name, 'article', array(), $field_settings);
 
     // We want a test image that is too small, and a test image that is too
     // big, so cycle through test image files until we have what we need.
@@ -54,18 +54,18 @@ class ImageFieldValidateTest extends ImageFieldTestBase {
    */
   function testRequiredAttributes() {
     $field_name = strtolower($this->randomMachineName());
-    $instance_settings = array(
+    $field_settings = array(
       'alt_field' => 1,
       'alt_field_required' => 1,
       'title_field' => 1,
       'title_field_required' => 1,
     );
-    $this->createImageField($field_name, 'article', array(), $instance_settings);
+    $this->createImageField($field_name, 'article', array(), $field_settings);
     $images = $this->drupalGetTestFiles('image');
     // Let's just use the first image.
     $image = $images[0];
     $this->uploadNodeImage($image, $field_name, 'article');
-    $this->assertText(t('The field Alternate text is required'), 'Node save failed when alt text required was set and alt text was left empty.');
+    $this->assertText(t('The field Alternative text is required'), 'Node save failed when alt text required was set and alt text was left empty.');
     $this->assertText(t('The field Title is required'), 'Node save failed when title text required was set and title text was left empty.');
   }
 }

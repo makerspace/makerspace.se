@@ -182,13 +182,13 @@ class EntityManagerTest extends UnitTestCase {
     $this->setUpEntityManager();
     $this->cache->expects($this->at(0))
       ->method('deleteTags')
-      ->with(array('entity_types' => TRUE));
+      ->with(array('entity_types'));
     $this->cache->expects($this->at(1))
       ->method('deleteTags')
-      ->with(array('entity_bundles' => TRUE));
+      ->with(array('entity_bundles'));
     $this->cache->expects($this->at(2))
       ->method('deleteTags')
-      ->with(array('entity_field_info' => TRUE));
+      ->with(array('entity_field_info'));
 
     $this->entityManager->clearCachedDefinitions();
   }
@@ -716,7 +716,7 @@ class EntityManagerTest extends UnitTestCase {
       ->will($this->returnValue(array()));
     $entity_type->expects($this->any())
       ->method('isSubclassOf')
-      ->with($this->equalTo('\Drupal\Core\Entity\ContentEntityInterface'))
+      ->with($this->equalTo('\Drupal\Core\Entity\FieldableEntityInterface'))
       ->will($this->returnValue(TRUE));
     $field_definition = $this->getMockBuilder('Drupal\Core\Field\BaseFieldDefinition')
       ->disableOriginalConstructor()
@@ -760,7 +760,7 @@ class EntityManagerTest extends UnitTestCase {
     $this->setUpEntityManager();
     $this->cache->expects($this->once())
       ->method('deleteTags')
-      ->with(array('entity_field_info' => TRUE));
+      ->with(array('entity_field_info'));
     $this->typedDataManager->expects($this->once())
       ->method('clearCachedDefinitions');
 
@@ -776,7 +776,7 @@ class EntityManagerTest extends UnitTestCase {
     $this->setUpEntityManager();
     $this->cache->expects($this->once())
       ->method('deleteTags')
-      ->with(array('entity_bundles' => TRUE));
+      ->with(array('entity_bundles'));
 
     $this->entityManager->clearCachedBundles();
   }
@@ -862,13 +862,13 @@ class EntityManagerTest extends UnitTestCase {
       ->with("entity_bundle_info:en");
     $this->cache->expects($this->at(4))
       ->method('deleteTags')
-      ->with(array('entity_types' => TRUE));
+      ->with(array('entity_types'));
     $this->cache->expects($this->at(5))
       ->method('deleteTags')
-      ->with(array('entity_bundles' => TRUE));
+      ->with(array('entity_bundles'));
     $this->cache->expects($this->at(6))
       ->method('deleteTags')
-      ->with(array('entity_field_info' => TRUE));
+      ->with(array('entity_field_info'));
     $this->cache->expects($this->at(7))
       ->method('get')
       ->with("entity_bundle_info:en", FALSE)
@@ -1039,7 +1039,7 @@ class EntityManagerTest extends UnitTestCase {
       ->will($this->returnValue('test_entity_type'));
     $entity_type->expects($this->any())
       ->method('isSubclassOf')
-      ->with('\Drupal\Core\Entity\ContentEntityInterface')
+      ->with('\Drupal\Core\Entity\FieldableEntityInterface')
       ->will($this->returnValue(TRUE));
 
     // Set up the module handler to return two bundles for the fieldable entity
@@ -1098,7 +1098,7 @@ class EntityManagerTest extends UnitTestCase {
     $non_content_entity_type = $this->getMock('Drupal\Core\Entity\EntityTypeInterface');
     $entity_type->expects($this->any())
       ->method('isSubclassOf')
-      ->with('\Drupal\Core\Entity\ContentEntityInterface')
+      ->with('\Drupal\Core\Entity\FieldableEntityInterface')
       ->will($this->returnValue(FALSE));
 
     // Mock the base field definition override.
@@ -1182,7 +1182,7 @@ class EntityManagerTest extends UnitTestCase {
       ->will($this->returnValue('test_entity_type'));
     $entity_type->expects($this->any())
       ->method('isSubclassOf')
-      ->with('\Drupal\Core\Entity\ContentEntityInterface')
+      ->with('\Drupal\Core\Entity\FieldableEntityInterface')
       ->will($this->returnValue(TRUE));
 
     // Set up the module handler to return two bundles for the fieldable entity

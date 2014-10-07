@@ -9,10 +9,10 @@ namespace Drupal\field\Tests\String;
 
 use Drupal\Component\Utility\String;
 use Drupal\Component\Utility\Unicode;
-use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
+use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\entity_test\Entity\EntityTest;
-use Drupal\field\Entity\FieldInstanceConfig;
+use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\simpletest\KernelTestBase;
 
@@ -65,13 +65,13 @@ class StringFormatterTest extends KernelTestBase {
     $this->fieldName = Unicode::strtolower($this->randomMachineName());
 
     $field_storage = FieldStorageConfig::create(array(
-      'name' => $this->fieldName,
+      'field_name' => $this->fieldName,
       'entity_type' => $this->entityType,
       'type' => 'string',
     ));
     $field_storage->save();
 
-    $instance = FieldInstanceConfig::create(array(
+    $instance = FieldConfig::create(array(
       'field_storage' => $field_storage,
       'bundle' => $this->bundle,
       'label' => $this->randomMachineName(),
@@ -89,7 +89,7 @@ class StringFormatterTest extends KernelTestBase {
   /**
    * Renders fields of a given entity with a given display.
    *
-   * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+   * @param \Drupal\Core\Entity\FieldableEntityInterface $entity
    *   The entity object with attached fields to render.
    * @param \Drupal\Core\Entity\Display\EntityViewDisplayInterface $display
    *   The display to render the fields in.
@@ -97,7 +97,7 @@ class StringFormatterTest extends KernelTestBase {
    * @return string
    *   The rendered entity fields.
    */
-  protected function renderEntityFields(ContentEntityInterface $entity, EntityViewDisplayInterface $display) {
+  protected function renderEntityFields(FieldableEntityInterface $entity, EntityViewDisplayInterface $display) {
     $content = $display->build($entity);
     $content = $this->render($content);
     return $content;

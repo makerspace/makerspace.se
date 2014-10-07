@@ -9,6 +9,7 @@ namespace Drupal\node\Tests\Views;
 
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\language\Entity\ConfigurableLanguage;
+use Drupal\views\Plugin\views\PluginBase;
 
 /**
  * Tests node language fields, filters, and sorting.
@@ -53,9 +54,9 @@ class NodeLanguageTest extends NodeTestBase {
 
     // Make the body field translatable. The title is already translatable by
     // definition.
-    $field = FieldStorageConfig::loadByName('node', 'body');
-    $field->translatable = TRUE;
-    $field->save();
+    $field_storage = FieldStorageConfig::loadByName('node', 'body');
+    $field_storage->translatable = TRUE;
+    $field_storage->save();
 
     // Set up node titles. They should not include the words "French",
     // "English", or "Spanish", as there is a language field in the view
@@ -180,7 +181,7 @@ class NodeLanguageTest extends NodeTestBase {
     // filter is set to the site default language instead. This should just
     // show the English nodes, no matter what the content language is.
     $config = \Drupal::config('views.view.frontpage');
-    $config->set('display.default.display_options.filters.langcode.value', array('***LANGUAGE_site_default***' => '***LANGUAGE_site_default***'));
+    $config->set('display.default.display_options.filters.langcode.value', array(PluginBase::VIEWS_QUERY_LANGUAGE_SITE_DEFAULT => PluginBase::VIEWS_QUERY_LANGUAGE_SITE_DEFAULT));
     $config->save();
     foreach ($this->node_titles as $langcode => $titles) {
       $this->drupalGet(($langcode == 'en' ? '' : "$langcode/") . 'node');

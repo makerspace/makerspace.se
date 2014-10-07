@@ -28,6 +28,8 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  *     "http://drupal.org/link-relations/create" = "/entity/{entity_type}"
  *   }
  * )
+ *
+ * @see \Drupal\rest\Plugin\Derivative\EntityDerivative
  */
 class EntityResource extends ResourceBase {
 
@@ -96,7 +98,7 @@ class EntityResource extends ResourceBase {
       $entity->save();
       $this->logger->notice('Created entity %type with ID %id.', array('%type' => $entity->getEntityTypeId(), '%id' => $entity->id()));
 
-      $url = url(strtr($this->pluginId, ':', '/') . '/' . $entity->id(), array('absolute' => TRUE));
+      $url = _url(strtr($this->pluginId, ':', '/') . '/' . $entity->id(), array('absolute' => TRUE));
       // 201 Created responses have an empty body.
       return new ResourceResponse(NULL, 201, array('Location' => $url));
     }

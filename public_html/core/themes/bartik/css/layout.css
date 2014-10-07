@@ -32,10 +32,9 @@ body,
 [dir="rtl"] .region-header {
   float: left;
 }
-#secondary-menu {
+.region-secondary-menu .block-menu {
   width: 100%;
   margin: 0 auto;
-  overflow: hidden;
 }
 #main-wrapper {
   min-height: 300px;

@@ -7,8 +7,11 @@
 
 namespace Drupal\comment\Tests;
 
+use Drupal\comment\CommentManagerInterface;
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\field\Entity\FieldConfig;
 use Drupal\system\Tests\Entity\EntityWithUriCacheTagsTestBase;
+use Drupal\user\Entity\Role;
 
 /**
  * Tests the Comment entity's cache tags.
@@ -30,7 +33,7 @@ class CommentCacheTagsTest extends EntityWithUriCacheTagsTestBase {
 
     // Give anonymous users permission to view comments, so that we can verify
     // the cache tags of cached versions of comment pages.
-    $user_role = entity_load('user_role', DRUPAL_ANONYMOUS_RID);
+    $user_role = Role::load(DRUPAL_ANONYMOUS_RID);
     $user_role->grantPermission('access comments');
     $user_role->save();
   }
@@ -44,7 +47,12 @@ class CommentCacheTagsTest extends EntityWithUriCacheTagsTestBase {
     entity_test_create_bundle($bundle, NULL, 'entity_test');
 
     // Create a comment field on this bundle.
-    \Drupal::service('comment.manager')->addDefaultField('entity_test', 'bar');
+    \Drupal::service('comment.manager')->addDefaultField('entity_test', 'bar', 'comment');
+
+    // Display comments in a flat list; threaded comments are not render cached.
+    $field = FieldConfig::loadByName('entity_test', 'bar', 'comment');
+    $field->settings['default_mode'] = CommentManagerInterface::COMMENT_MODE_FLAT;
+    $field->save();
 
     // Create a "Camelids" test entity.
     $entity_test = entity_create('entity_test', array(
@@ -77,7 +85,11 @@ class CommentCacheTagsTest extends EntityWithUriCacheTagsTestBase {
    */
   protected function getAdditionalCacheTagsForEntity(EntityInterface $entity) {
     /** @var \Drupal\comment\CommentInterface $entity */
-    return array('filter_format:plain_text', 'user:' . $entity->getOwnerId(), 'user_view:1');
+    return array(
+      'filter_format:plain_text',
+      'user:' . $entity->getOwnerId(),
+      'user_view',
+    );
   }
 
 }

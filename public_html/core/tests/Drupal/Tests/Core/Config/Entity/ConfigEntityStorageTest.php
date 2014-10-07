@@ -121,7 +121,9 @@ class ConfigEntityStorageTest extends UnitTestCase {
     $this->entityType->expects($this->any())
       ->method('getClass')
       ->will($this->returnValue(get_class($this->getMockEntity())));
-
+    $this->entityType->expects($this->any())
+      ->method('getListCacheTags')
+      ->willReturn(array('test_entity_type_list'));
 
     $this->moduleHandler = $this->getMock('Drupal\Core\Extension\ModuleHandlerInterface');
 
@@ -241,7 +243,7 @@ class ConfigEntityStorageTest extends UnitTestCase {
     $this->cacheBackend->expects($this->once())
       ->method('invalidateTags')
       ->with(array(
-        $this->entityTypeId . 's' => TRUE, // List cache tag.
+        $this->entityTypeId . '_list', // List cache tag.
       ));
 
     $this->configFactory->expects($this->exactly(2))
@@ -300,8 +302,8 @@ class ConfigEntityStorageTest extends UnitTestCase {
     $this->cacheBackend->expects($this->once())
       ->method('invalidateTags')
       ->with(array(
-        $this->entityTypeId . 's' => TRUE, // List cache tag.
-        $this->entityTypeId => array('foo'), // Own cache tag.
+        $this->entityTypeId . ':foo', // Own cache tag.
+        $this->entityTypeId . '_list', // List cache tag.
       ));
 
     $this->configFactory->expects($this->exactly(2))
@@ -360,8 +362,8 @@ class ConfigEntityStorageTest extends UnitTestCase {
     $this->cacheBackend->expects($this->once())
       ->method('invalidateTags')
       ->with(array(
-        $this->entityTypeId . 's' => TRUE, // List cache tag.
-        $this->entityTypeId => array('bar'), // Own cache tag.
+        $this->entityTypeId .':bar', // Own cache tag.
+        $this->entityTypeId . '_list', // List cache tag.
       ));
 
     $this->configFactory->expects($this->once())
@@ -493,7 +495,7 @@ class ConfigEntityStorageTest extends UnitTestCase {
     $this->cacheBackend->expects($this->once())
       ->method('invalidateTags')
       ->with(array(
-        $this->entityTypeId . 's' => TRUE, // List cache tag.
+        $this->entityTypeId . '_list', // List cache tag.
       ));
 
     $this->configFactory->expects($this->once())
@@ -726,8 +728,9 @@ class ConfigEntityStorageTest extends UnitTestCase {
     $this->cacheBackend->expects($this->once())
       ->method('invalidateTags')
       ->with(array(
-        $this->entityTypeId . 's' => TRUE, // List cache tag.
-        $this->entityTypeId => array('foo', 'bar'), // Own cache tag.
+        $this->entityTypeId . ':bar', // Own cache tag.
+        $this->entityTypeId . ':foo', // Own cache tag.
+        $this->entityTypeId . '_list', // List cache tag.
       ));
 
     $this->configFactory->expects($this->exactly(2))
@@ -789,7 +792,6 @@ class ConfigEntityStorageTest extends UnitTestCase {
    * @return \Drupal\Core\Entity\EntityInterface|\PHPUnit_Framework_MockObject_MockObject
    */
   public function getMockEntity(array $values = array(), $methods = array()) {
-    $methods[] = 'onSaveOrDelete';
     $methods[] = 'onUpdateBundleEntity';
     return $this->getMockForAbstractClass('Drupal\Core\Config\Entity\ConfigEntityBase', array($values, 'test_entity_type'), '', TRUE, TRUE, TRUE, $methods);
   }

@@ -12,8 +12,11 @@ a,
   text-decoration: none;
 }
 a:hover,
-.link:hover {
+.link:hover,
+a:focus,
+.link:focus {
   text-decoration: underline;
+  outline: 0;
 }
 hr {
   margin: 0;
@@ -111,7 +114,8 @@ ul {
   margin: 0.25em 0 0.25em 1.5em; /* LTR */
 }
 [dir="rtl"] ul {
-  margin: 0.25em 1.5em 0.25em 0;
+  margin-left: 0;
+  margin-right: 1.5em;
 }
 ol {
   list-style-type: decimal;
@@ -119,7 +123,8 @@ ol {
   padding: 0;
 }
 [dir="rtl"] ol {
-  margin: 0.25em 2em 0.25em 0;
+  margin-left: 0;
+  margin-right: 2em;
 }
 quote,
 code {

@@ -39,7 +39,7 @@ class TaxonomyTermReferenceRdfaTest extends FieldRdfaTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = array('taxonomy', 'options', 'text', 'filter');
+  public static $modules = array('taxonomy', 'text', 'filter');
 
   protected function setUp() {
     parent::setUp();
@@ -54,7 +54,7 @@ class TaxonomyTermReferenceRdfaTest extends FieldRdfaTestBase {
     $vocabulary->save();
 
     entity_create('field_storage_config', array(
-      'name' => $this->fieldName,
+      'field_name' => $this->fieldName,
       'entity_type' => 'entity_test',
       'type' => 'taxonomy_term_reference',
       'cardinality' => FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED,
@@ -67,7 +67,7 @@ class TaxonomyTermReferenceRdfaTest extends FieldRdfaTestBase {
         ),
       ),
     ))->save();
-    entity_create('field_instance_config', array(
+    entity_create('field_config', array(
       'entity_type' => 'entity_test',
       'field_name' => $this->fieldName,
       'bundle' => 'entity_test',

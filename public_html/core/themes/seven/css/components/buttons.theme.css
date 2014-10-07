@@ -28,8 +28,8 @@
           transition: all 0.1s;
   -webkit-font-smoothing: antialiased;  /* 3 */
 }
-.button:focus,
-.button:hover {
+.button:hover,
+.button:focus {
   background-color: #f9f8f6;
   background-image: -webkit-linear-gradient(top, #fcfcfa, #e9e9dd);
   background-image:   linear-gradient(to bottom, #fcfcfa, #e9e9dd);
@@ -37,14 +37,15 @@
   text-decoration: none;
   outline: none;
 }
+.button:hover {
+  box-shadow: 0 1px 2px hsla(0, 0%, 0%, 0.125);
+}
 .button:focus {
   border: 1px solid #3AB2FF;
   box-shadow: 0 0 0.5em 0.1em hsla(203, 100%, 60%, 0.7);
 }
-.button:hover {
-  box-shadow: 0 1px 2px hsla(0, 0%, 0%, 0.125);
-}
 .button:active {
+  border: 1px solid #a6a6a6;
   background-color: #dfdfd9;
   background-image: -webkit-linear-gradient(top, #f6f6f3, #e7e7df);
   background-image:   linear-gradient(to bottom, #f6f6f3, #e7e7df);
@@ -63,8 +64,8 @@
   font-weight: 700;
   -webkit-font-smoothing: antialiased;
 }
-.button--primary:focus,
-.button--primary:hover {
+.button--primary:hover,
+.button--primary:focus {
   background-color: #2369a6;
   background-image: -webkit-linear-gradient(top, #0c97ed, #1f86c7);
   background-image:   linear-gradient(to bottom, #0c97ed, #1f86c7);
@@ -128,8 +129,8 @@
   color: #0074bd;
   text-decoration: none;
 }
-.link:focus,
-.link:hover {
+.link:hover,
+.link:focus {
   color: #008ee6;
   text-decoration: underline;
 }
@@ -154,8 +155,8 @@
   font-weight: 400;
   text-decoration: underline;
 }
-.button--danger:focus,
 .button--danger:hover,
+.button--danger:focus,
 .button--danger:active {
   color: #ff2a00;
   text-decoration: underline;

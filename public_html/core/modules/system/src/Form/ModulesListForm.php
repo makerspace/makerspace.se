@@ -210,6 +210,12 @@ class ModulesListForm extends FormBase {
       );
     }
 
+    // If testing modules are shown, collapse the corresponding package by
+    // default.
+    if (isset($form['modules']['Testing'])) {
+      $form['modules']['Testing']['#open'] = FALSE;
+    }
+
     // Lastly, sort all packages by title.
     uasort($form['modules'], array('\Drupal\Component\Utility\SortArray', 'sortByTitleProperty'));
 
@@ -505,7 +511,6 @@ class ModulesListForm extends FormBase {
     // Gets module list after install process, flushes caches and displays a
     // message if there are changes.
     if ($before != $this->moduleHandler->getModuleList()) {
-      drupal_flush_all_caches();
       drupal_set_message(t('The configuration options have been saved.'));
     }
   }

@@ -46,14 +46,14 @@ class EntityReferenceRdfaTest extends FieldRdfaTestBase {
   /**
    * {@inheritdoc}
    */
-  public static $modules = array('entity', 'entity_reference', 'options', 'text', 'filter');
+  public static $modules = array('entity', 'entity_reference', 'text', 'filter');
 
   protected function setUp() {
     parent::setUp();
 
     $this->installEntitySchema('entity_test_rev');
 
-    entity_reference_create_instance($this->entityType, $this->bundle, $this->fieldName, 'Field test', $this->entityType);
+    entity_reference_create_field($this->entityType, $this->bundle, $this->fieldName, 'Field test', $this->entityType);
 
     // Add the mapping.
     $mapping = rdf_get_mapping('entity_test', 'entity_test');

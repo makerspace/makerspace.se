@@ -165,12 +165,12 @@ function comment_tokens($type, $tokens, array $data = array(), array $options = 
         // Comment related URLs.
         case 'url':
           $url_options['fragment']  = 'comment-' . $comment->id();
-          $replacements[$original] = url('comment/' . $comment->id(), $url_options);
+          $replacements[$original] = $comment->url('canonical', $url_options);
           break;
 
         case 'edit-url':
           $url_options['fragment'] = NULL;
-          $replacements[$original] = url('comment/' . $comment->id() . '/edit', $url_options);
+          $replacements[$original] = $comment->url('edit-form', $url_options);
           break;
 
         // @todo Remove 'name' token in favour of 'author'. See
@@ -247,7 +247,7 @@ function comment_tokens($type, $tokens, array $data = array(), array $options = 
   }
   elseif (($type == 'entity' & !empty($data['entity'])) ||
     ($type == 'node' & !empty($data['node']))) {
-    /** @var $entity \Drupal\Core\Entity\ContentEntityInterface */
+    /** @var $entity \Drupal\Core\Entity\FieldableEntityInterface */
     $entity = !empty($data['entity']) ? $data['entity'] : $data['node'];
 
     foreach ($tokens as $name => $original) {

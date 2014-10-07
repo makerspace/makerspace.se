@@ -7,10 +7,10 @@
 
 namespace Drupal\Core\Field;
 
+use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Language\LanguageInterface;
-use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\TypedData\DataDefinitionInterface;
 use Drupal\Core\TypedData\Plugin\DataType\ItemList;
@@ -57,7 +57,9 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
    * {@inheritdoc}
    */
   public function getEntity() {
-    return $this->getParent();
+    // The "parent" is the TypedData object for the entity, we need to unwrap
+    // the actual entity.
+    return $this->getParent()->getValue();
   }
 
   /**
@@ -316,7 +318,7 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
    * {@inheritdoc}
    */
   public function defaultValuesForm(array &$form, FormStateInterface $form_state) {
-    if (empty($this->getFieldDefinition()->default_value_function)) {
+    if (empty($this->getFieldDefinition()->default_value_callback)) {
       // Place the input in a separate place in the submitted values tree.
       $widget = $this->defaultValueWidget($form_state);
 
@@ -355,7 +357,7 @@ class FieldItemList extends ItemList implements FieldItemListInterface {
   /**
    * {@inheritdoc}
    */
-  public static function processDefaultValue($default_value, ContentEntityInterface $entity, FieldDefinitionInterface $definition) {
+  public static function processDefaultValue($default_value, FieldableEntityInterface $entity, FieldDefinitionInterface $definition) {
     return $default_value;
   }
 

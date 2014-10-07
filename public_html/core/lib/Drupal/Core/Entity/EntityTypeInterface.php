@@ -396,14 +396,6 @@ interface EntityTypeInterface {
   public function getPermissionGranularity();
 
   /**
-   * Indicates whether fields can be attached to entities of this type.
-   *
-   * @return bool
-   *   Returns TRUE if the entity type can has fields, otherwise FALSE.
-   */
-  public function isFieldable();
-
-  /**
    * Returns link templates using the URI template syntax.
    *
    * Links are an array of standard link relations to the URI template that
@@ -637,4 +629,13 @@ interface EntityTypeInterface {
    */
   public function setUriCallback($callback);
 
+  /**
+   * The list cache tags associated with this entity type.
+   *
+   * Enables code listing entities of this type to ensure that newly created
+   * entities show up immediately.
+   *
+   * @return string[]
+   */
+  public function getListCacheTags();
 }

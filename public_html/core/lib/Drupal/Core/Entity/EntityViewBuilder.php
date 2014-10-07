@@ -7,7 +7,6 @@
 
 namespace Drupal\Core\Entity;
 
-use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
 use Drupal\Core\Field\FieldItemInterface;
@@ -160,7 +159,7 @@ class EntityViewBuilder extends EntityHandlerBase implements EntityHandlerInterf
       '#langcode' => $langcode,
       // Collect cache defaults for this entity.
       '#cache' => array(
-        'tags' => NestedArray::mergeDeep($this->getCacheTag(), $entity->getCacheTag()),
+        'tags' => Cache::mergeTags($this->getCacheTag(), $entity->getCacheTag()),
       ),
     );
 
@@ -248,7 +247,7 @@ class EntityViewBuilder extends EntityHandlerBase implements EntityHandlerInterf
     foreach ($children as $key) {
       if (isset($build_list[$key][$entity_type_key])) {
         $entity = $build_list[$key][$entity_type_key];
-        if ($entity instanceof ContentEntityInterface) {
+        if ($entity instanceof FieldableEntityInterface) {
           $view_modes[$build_list[$key]['#view_mode']][$key] = $entity;
         }
       }
@@ -343,18 +342,27 @@ class EntityViewBuilder extends EntityHandlerBase implements EntityHandlerInterf
    * {@inheritdoc}
    */
   public function getCacheTag() {
-    return array($this->entityTypeId . '_view' => TRUE);
+    return array($this->entityTypeId . '_view');
   }
 
   /**
    * {@inheritdoc}
    */
   public function resetCache(array $entities = NULL) {
+    // If no set of specific entities is provided, invalidate the entity view
+    // builder's cache tag. This will invalidate all entities rendered by this
+    // view builder.
+    // Otherwise, if a set of specific entities is provided, invalidate those
+    // specific entities only, plus their list cache tags, because any lists in
+    // which these entities are rendered, must be invalidated as well. However,
+    // even in this case, we might invalidate more cache items than necessary.
+    // When we have a way to invalidate only those cache items that have both
+    // the individual entity's cache tag and the view builder's cache tag, we'll
+    // be able to optimize this further.
     if (isset($entities)) {
-      // Always invalidate the ENTITY_TYPE_list tag.
-      $tags = array($this->entityTypeId . '_list' => TRUE);
+      $tags = [];
       foreach ($entities as $entity) {
-        $tags = NestedArray::mergeDeep($tags, $entity->getCacheTag());
+        $tags = Cache::mergeTags($tags, $entity->getCacheTag(), $entity->getEntityType()->getListCacheTags());
       }
       Cache::invalidateTags($tags);
     }

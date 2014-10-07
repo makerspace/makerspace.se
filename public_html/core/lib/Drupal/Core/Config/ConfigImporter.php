@@ -530,7 +530,6 @@ class ConfigImporter {
     // We have extensions to process.
     if ($this->totalExtensionsToProcess > 0) {
       $sync_steps[] = 'processExtensions';
-      $sync_steps[] = 'flush';
     }
     $sync_steps[] = 'processConfigurations';
 
@@ -538,20 +537,6 @@ class ConfigImporter {
     $this->moduleHandler->alter('config_import_steps', $sync_steps, $this);
     $sync_steps[] = 'finish';
     return $sync_steps;
-  }
-
-  /**
-   * Flushes Drupal's caches.
-   */
-  public function flush(array &$context) {
-    // Rebuild the container and flush Drupal's caches. If the container is not
-    // rebuilt first the entity types are not discovered correctly due to using
-    // an entity manager that has the incorrect container namespaces injected.
-    \Drupal::service('kernel')->rebuildContainer(TRUE);
-    drupal_flush_all_caches();
-    $this->reInjectMe();
-    $context['message'] = $this->t('Flushed all caches.');
-    $context['finished'] = 1;
   }
 
   /**
@@ -822,7 +807,7 @@ class ConfigImporter {
         // result of a secondary configuration write. Change the operation
         // into an update. This is the desired behavior since renames often
         // have to occur together. For example, renaming a node type must
-        // also result in renaming its field instances and entity displays.
+        // also result in renaming its fields and entity displays.
         $this->storageComparer->moveRenameToUpdate($name);
         return FALSE;
       }

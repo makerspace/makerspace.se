@@ -7,6 +7,7 @@
 
 namespace Drupal\taxonomy\Tests;
 
+use Drupal\Core\Language\LanguageInterface;
 use Drupal\language\Entity\ConfigurableLanguage;
 
 /**
@@ -95,11 +96,9 @@ class TermLanguageTest extends TaxonomyTestBase {
 
     // Change the default language of the site and check if the default terms
     // language is still correctly selected.
-    $new_default = ConfigurableLanguage::load('cc');
-    $new_default->set('default', TRUE);
-    $new_default->save();
+    \Drupal::config('system.site')->set('langcode', 'cc')->save();
     $edit = array(
-      'default_language[langcode]' => 'site_default',
+      'default_language[langcode]' => LanguageInterface::LANGCODE_SITE_DEFAULT,
       'default_language[language_show]' => TRUE,
     );
     $this->drupalPostForm('admin/structure/taxonomy/manage/' . $this->vocabulary->id(), $edit, t('Save'));

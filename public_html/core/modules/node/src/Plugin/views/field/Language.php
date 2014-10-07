@@ -22,7 +22,7 @@ class Language extends Node {
 
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['native_language'] = array('default' => FALSE, 'bool' => TRUE);
+    $options['native_language'] = array('default' => FALSE);
 
     return $options;
   }
@@ -30,10 +30,10 @@ class Language extends Node {
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
     $form['native_language'] = array(
-      '#title' => t('Native language'),
+      '#title' => $this->t('Native language'),
       '#type' => 'checkbox',
       '#default_value' => $this->options['native_language'],
-      '#description' => t('If enabled, the native name of the language will be displayed'),
+      '#description' => $this->t('If enabled, the native name of the language will be displayed'),
     );
   }
 

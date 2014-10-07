@@ -733,7 +733,7 @@ function update_language_list($flags = LanguageInterface::STATE_CONFIGURABLE) {
       // No language module, so use the default language only.
       $languages = array($default->id => $default);
       // Add the special languages, they will be filtered later if needed.
-      $languages += \Drupal::languageManager()->getDefaultLockedLanguages($default->weight);
+      $languages += \Drupal::languageManager()->getDefaultLockedLanguages($default->getWeight());
     }
   }
 
@@ -747,13 +747,13 @@ function update_language_list($flags = LanguageInterface::STATE_CONFIGURABLE) {
     $default = isset($default) ? $default : \Drupal::languageManager()->getDefaultLanguage();
     // Rename the default language.
     $default->name = t("Site's default language (@lang_name)", array('@lang_name' => $default->name));
-    $filtered_languages['site_default'] = $default;
+    $filtered_languages[LanguageInterface::LANGCODE_SITE_DEFAULT] = $default;
   }
 
   foreach ($languages as $langcode => $language) {
-    if (($language->locked && !($flags & LanguageInterface::STATE_LOCKED)) || (!$language->locked && !($flags & LanguageInterface::STATE_CONFIGURABLE))) {
+    if (($language->isLocked() && !($flags & LanguageInterface::STATE_LOCKED)) || (!$language->isLocked() && !($flags & LanguageInterface::STATE_CONFIGURABLE))) {
       continue;
-     }
+    }
     $filtered_languages[$langcode] = $language;
   }
 

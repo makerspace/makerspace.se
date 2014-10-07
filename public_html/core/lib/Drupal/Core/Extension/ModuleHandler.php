@@ -810,8 +810,9 @@ class ModuleHandler implements ModuleHandlerInterface {
         // Now install the module's schema if necessary.
         drupal_install_schema($module);
 
-        // Clear plugin manager caches.
+        // Clear plugin manager caches and flag router to rebuild if requested.
         \Drupal::getContainer()->get('plugin.cache_clearer')->clearCachedDefinitions();
+        \Drupal::service('router.builder')->setRebuildNeeded();
 
         // Set the schema version to the number of the last update provided by
         // the module, or the minimum core schema version.
@@ -857,6 +858,15 @@ class ModuleHandler implements ModuleHandlerInterface {
 
         // Record the fact that it was installed.
         $modules_installed[] = $module;
+
+        // file_get_stream_wrappers() needs to re-register Drupal's stream
+        // wrappers in case a module-provided stream wrapper is used later in
+        // the same request. In particular, this happens when installing Drupal
+        // via Drush, as the 'translations' stream wrapper is provided by
+        // Interface Translation module and is later used to import
+        // translations.
+        drupal_static_reset('file_get_stream_wrappers');
+        file_get_stream_wrappers();
 
         // Update the theme registry to include it.
         drupal_theme_rebuild();
@@ -939,12 +949,12 @@ class ModuleHandler implements ModuleHandlerInterface {
     $entity_manager = \Drupal::entityManager();
     foreach ($module_list as $module) {
 
-      // Clean up all entity bundles (including field instances) of every entity
-      // type provided by the module that is being uninstalled.
+      // Clean up all entity bundles (including fields) of every entity type
+      // provided by the module that is being uninstalled.
       foreach ($entity_manager->getDefinitions() as $entity_type_id => $entity_type) {
         if ($entity_type->getProvider() == $module) {
           foreach (array_keys($entity_manager->getBundleInfo($entity_type_id)) as $bundle) {
-            $entity_manager->onBundleDelete($entity_type_id, $bundle);
+            $entity_manager->onBundleDelete($bundle, $entity_type_id);
           }
         }
       }
@@ -990,7 +1000,9 @@ class ModuleHandler implements ModuleHandlerInterface {
       // its statically cached list.
       drupal_static_reset('system_rebuild_module_data');
 
+      // Clear plugin manager caches and flag router to rebuild if requested.
       \Drupal::getContainer()->get('plugin.cache_clearer')->clearCachedDefinitions();
+      \Drupal::service('router.builder')->setRebuildNeeded();
 
       // Update the kernel to exclude the uninstalled modules.
       \Drupal::service('kernel')->updateModules($module_filenames, $module_filenames);
@@ -1012,8 +1024,6 @@ class ModuleHandler implements ModuleHandlerInterface {
 
     // Let other modules react.
     $this->invokeAll('modules_uninstalled', array($module_list));
-
-    drupal_flush_all_caches();
 
     return TRUE;
   }

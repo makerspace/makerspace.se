@@ -27,10 +27,10 @@ class TextWithSummaryItem extends TextItemBase {
   /**
    * {@inheritdoc}
    */
-  public static function defaultInstanceSettings() {
+  public static function defaultFieldSettings() {
     return array(
       'display_summary' => 0,
-    ) + parent::defaultInstanceSettings();
+    ) + parent::defaultFieldSettings();
   }
 
   /**
@@ -40,11 +40,11 @@ class TextWithSummaryItem extends TextItemBase {
     $properties = parent::propertyDefinitions($field_definition);
 
     $properties['summary'] = DataDefinition::create('string')
-      ->setLabel(t('Summary text value'));
+      ->setLabel(t('Summary'));
 
     $properties['summary_processed'] = DataDefinition::create('string')
-      ->setLabel(t('Processed summary text'))
-      ->setDescription(t('The summary text value with the text format applied.'))
+      ->setLabel(t('Processed summary'))
+      ->setDescription(t('The summary text with the text format applied.'))
       ->setComputed(TRUE)
       ->setClass('\Drupal\text\TextProcessed')
       ->setSetting('text source', 'summary');
@@ -91,7 +91,7 @@ class TextWithSummaryItem extends TextItemBase {
   /**
    * {@inheritdoc}
    */
-  public function instanceSettingsForm(array $form, FormStateInterface $form_state) {
+  public function fieldSettingsForm(array $form, FormStateInterface $form_state) {
     $element = array();
     $settings = $this->getSettings();
 

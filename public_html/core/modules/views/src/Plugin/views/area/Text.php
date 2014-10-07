@@ -23,7 +23,7 @@ class Text extends TokenizeAreaPluginBase {
    */
   protected function defineOptions() {
     $options = parent::defineOptions();
-    $options['content'] = array('default' => '', 'translatable' => TRUE, 'format_key' => 'format');
+    $options['content'] = array('default' => '', 'format_key' => 'format');
     $options['format'] = array('default' => NULL);
     return $options;
   }
@@ -35,7 +35,7 @@ class Text extends TokenizeAreaPluginBase {
     parent::buildOptionsForm($form, $form_state);
 
     $form['content'] = array(
-      '#title' => t('Content'),
+      '#title' => $this->t('Content'),
       '#type' => 'text_format',
       '#default_value' => $this->options['content'],
       '#rows' => 6,

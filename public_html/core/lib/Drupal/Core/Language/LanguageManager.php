@@ -28,7 +28,7 @@ class LanguageManager implements LanguageManagerInterface {
   /**
    * An array of all the available languages keyed by language code.
    *
-   * @var array
+   * @var \Drupal\Core\Language\LanguageInterface[]
    */
   protected $languages;
 
@@ -135,7 +135,7 @@ class LanguageManager implements LanguageManagerInterface {
       $default = $this->getDefaultLanguage();
       $this->languages = array($default->id => $default);
       // Add the special languages, they will be filtered later if needed.
-      $this->languages += $this->getDefaultLockedLanguages($default->weight);
+      $this->languages += $this->getDefaultLockedLanguages($default->getWeight());
     }
 
     // Filter the full list of languages based on the value of the $all flag. By
@@ -150,11 +150,11 @@ class LanguageManager implements LanguageManagerInterface {
       // if we're acting on a global object, so clone the object first.
       $default = clone $default;
       $default->name = $this->t("Site's default language (@lang_name)", array('@lang_name' => $default->name));
-      $filtered_languages['site_default'] = $default;
+      $filtered_languages[LanguageInterface::LANGCODE_SITE_DEFAULT] = $default;
     }
 
     foreach ($this->languages as $id => $language) {
-      if (($language->locked && ($flags & LanguageInterface::STATE_LOCKED)) || (!$language->locked && ($flags & LanguageInterface::STATE_CONFIGURABLE))) {
+      if (($language->isLocked() && ($flags & LanguageInterface::STATE_LOCKED)) || (!$language->isLocked() && ($flags & LanguageInterface::STATE_CONFIGURABLE))) {
         $filtered_languages[$id] = $language;
       }
     }
@@ -226,7 +226,7 @@ class LanguageManager implements LanguageManagerInterface {
    */
   public function isLanguageLocked($langcode) {
     $language = $this->getLanguage($langcode);
-    return ($language ? $language->locked : FALSE);
+    return ($language ? $language->isLocked() : FALSE);
   }
 
   /**

@@ -131,15 +131,6 @@ class EntityForm extends FormBase implements EntityFormInterface {
     // Add a process callback.
     $form['#process'][] = '::processForm';
 
-    if (!isset($form['langcode'])) {
-      // If the form did not specify otherwise, default to keeping the existing
-      // language of the entity or defaulting to the site default language for
-      // new entities.
-      $form['langcode'] = array(
-        '#type' => 'value',
-        '#value' => !$entity->isNew() ? $entity->language()->id : language_default()->id,
-      );
-    }
     return $form;
   }
 
@@ -198,8 +189,8 @@ class EntityForm extends FormBase implements EntityFormInterface {
    */
   protected function actions(array $form, FormStateInterface $form_state) {
     // @todo Consider renaming the action key from submit to save. The impacts
-      //   are hard to predict. For example, see
-      //   language_configuration_element_process().
+    //   are hard to predict. For example, see
+    //   \Drupal\language\Element\LanguageConfiguration::processLanguageConfiguration().
     $actions['submit'] = array(
       '#type' => 'submit',
       '#value' => $this->t('Save'),
@@ -232,7 +223,6 @@ class EntityForm extends FormBase implements EntityFormInterface {
    * {@inheritdoc}
    */
   public function validate(array $form, FormStateInterface $form_state) {
-    $this->updateFormLangcode($form_state);
     // @todo Remove this.
     // Execute legacy global validation handlers.
     $form_state->setValidateHandlers([]);
@@ -267,34 +257,6 @@ class EntityForm extends FormBase implements EntityFormInterface {
    */
   public function save(array $form, FormStateInterface $form_state) {
     return $this->entity->save();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function getFormLangcode(FormStateInterface $form_state) {
-    return $this->entity->language()->id;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function isDefaultFormLangcode(FormStateInterface $form_state) {
-    // The entity is not translatable, this is always the default language.
-    return TRUE;
-  }
-
-  /**
-   * Updates the form language to reflect any change to the entity language.
-   *
-   * @param \Drupal\Core\Form\FormStateInterface $form_state
-   *   The current state of the form.
-   */
-  protected function updateFormLangcode(FormStateInterface $form_state) {
-    // Update the form language as it might have changed.
-    if ($form_state->hasValue('langcode') && $this->isDefaultFormLangcode($form_state)) {
-      $form_state->set('langcode', $form_state->getValue('langcode'));
-    }
   }
 
   /**

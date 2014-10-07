@@ -101,14 +101,6 @@ class EntityType implements EntityTypeInterface {
    * @var string
    */
   protected $permission_granularity = 'entity_type';
-
-  /**
-   * Indicates whether fields can be attached to entities of this type.
-   *
-   * @var bool
-   */
-  protected $fieldable = FALSE;
-
   /**
    * Link templates using the URI template syntax.
    *
@@ -211,6 +203,13 @@ class EntityType implements EntityTypeInterface {
   protected $field_ui_base_route;
 
   /**
+   * The list cache tags for this entity type.
+   *
+   * @var array
+   */
+  protected $list_cache_tags = array();
+
+  /**
    * Constructs a new EntityType.
    *
    * @param array $definition
@@ -242,6 +241,12 @@ class EntityType implements EntityTypeInterface {
     $this->handlers += array(
       'access' => 'Drupal\Core\Entity\EntityAccessControlHandler',
     );
+
+    // Ensure a default list cache tag is set.
+    if (empty($this->list_cache_tags)) {
+      $this->list_cache_tags = [$definition['id'] . '_list'];
+    }
+
   }
 
   /**
@@ -503,13 +508,6 @@ class EntityType implements EntityTypeInterface {
   /**
    * {@inheritdoc}
    */
-  public function isFieldable() {
-    return $this->fieldable;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function getLinkTemplates() {
     return $this->links;
   }
@@ -673,6 +671,13 @@ class EntityType implements EntityTypeInterface {
    */
   public function getGroupLabel() {
     return !empty($this->group_label) ? (string) $this->group_label : $this->t('Other', array(), array('context' => 'Entity type group'));
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getListCacheTags() {
+    return $this->list_cache_tags;
   }
 
 }

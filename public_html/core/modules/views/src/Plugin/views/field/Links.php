@@ -30,7 +30,7 @@ abstract class Links extends FieldPluginBase {
     $options = parent::defineOptions();
 
     $options['fields'] = array('default' => array());
-    $options['destination'] = array('default' => TRUE, 'bool' => TRUE);
+    $options['destination'] = array('default' => TRUE);
 
     return $options;
   }
@@ -44,15 +44,15 @@ abstract class Links extends FieldPluginBase {
     $field_options = $this->getPreviousFieldLabels();
     $form['fields'] = array(
       '#type' => 'checkboxes',
-      '#title' => t('Fields'),
-      '#description' => t('Fields to be included as links.'),
+      '#title' => $this->t('Fields'),
+      '#description' => $this->t('Fields to be included as links.'),
       '#options' => $field_options,
       '#default_value' => $this->options['fields'],
     );
     $form['destination'] = array(
       '#type' => 'checkbox',
-      '#title' => t('Include destination'),
-      '#description' => t('Include a "destination" parameter in the link to return the user to the original view upon completing the link action.'),
+      '#title' => $this->t('Include destination'),
+      '#description' => $this->t('Include a "destination" parameter in the link to return the user to the original view upon completing the link action.'),
       '#default_value' => $this->options['destination'],
     );
   }

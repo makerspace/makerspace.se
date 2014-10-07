@@ -15,8 +15,8 @@ use Drupal\Core\Plugin\DefaultPluginManager;
 use Drupal\Core\TypedData\Validation\MetadataFactory;
 use Drupal\Core\Validation\ConstraintManager;
 use Drupal\Core\Validation\DrupalTranslator;
-use Symfony\Component\Validator\ValidatorInterface;
 use Symfony\Component\Validator\Validation;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
  * Manages data type plugins.
@@ -95,7 +95,7 @@ class TypedDataManager extends DefaultPluginManager {
     if (!isset($class)) {
       throw new PluginException(sprintf('The plugin (%s) did not specify an instance class.', $data_type));
     }
-    return new $class($data_definition, $configuration['name'], $configuration['parent']);
+    return $class::createInstance($data_definition, $configuration['name'], $configuration['parent']);
   }
 
   /**
@@ -298,7 +298,7 @@ class TypedDataManager extends DefaultPluginManager {
   /**
    * Sets the validator for validating typed data.
    *
-   * @param \Symfony\Component\Validator\ValidatorInterface $validator
+   * @param \Symfony\Component\Validator\Validator\ValidatorInterface $validator
    *   The validator object to set.
    */
   public function setValidator(ValidatorInterface $validator) {
@@ -308,7 +308,7 @@ class TypedDataManager extends DefaultPluginManager {
   /**
    * Gets the validator for validating typed data.
    *
-   * @return \Symfony\Component\Validator\ValidatorInterface
+   * @return \Symfony\Component\Validator\Validator\ValidatorInterface
    *   The validator object.
    */
   public function getValidator() {
@@ -316,6 +316,7 @@ class TypedDataManager extends DefaultPluginManager {
       $this->validator = Validation::createValidatorBuilder()
         ->setMetadataFactory(new MetadataFactory())
         ->setTranslator(new DrupalTranslator())
+        ->setApiVersion(Validation::API_VERSION_2_4)
         ->getValidator();
     }
     return $this->validator;
@@ -377,7 +378,7 @@ class TypedDataManager extends DefaultPluginManager {
       $constraints['NotNull'] = array();
     }
     // Check if the class provides allowed values.
-    if (is_subclass_of($definition->getClass(),'Drupal\Core\TypedData\AllowedValuesInterface')) {
+    if (is_subclass_of($definition->getClass(),'Drupal\Core\TypedData\OptionsProviderInterface')) {
       $constraints['AllowedValues'] = array();
     }
     // Add any constraints about referenced data.

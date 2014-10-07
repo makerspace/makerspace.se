@@ -6,6 +6,7 @@
  */
 
 use Drupal\Core\Language\LanguageInterface;
+use Drupal\views\Plugin\views\PluginBase;
 
 /**
  * @defgroup views_overview Views overview
@@ -579,7 +580,7 @@ function hook_views_query_substitutions(ViewExecutable $view) {
     '***CURRENT_VERSION***' => \Drupal::VERSION,
     '***CURRENT_TIME***' => REQUEST_TIME,
     '***LANGUAGE_language_content***' => \Drupal::languageManager()->getCurrentLanguage(LanguageInterface::TYPE_CONTENT)->id,
-    '***LANGUAGE_site_default***' => \Drupal::languageManager()->getDefaultLanguage()->id,
+    PluginBase::VIEWS_QUERY_LANGUAGE_SITE_DEFAULT => \Drupal::languageManager()->getDefaultLanguage()->id,
   );
 }
 
@@ -868,7 +869,7 @@ function hook_views_ui_display_top_links_alter(array &$links, ViewExecutable $vi
  * @see views_invalidate_cache()
  */
 function hook_views_invalidate_cache() {
-  \Drupal\Core\Cache\Cache::invalidateTags(array('views' => TRUE));
+  \Drupal\Core\Cache\Cache::invalidateTags(array('views'));
 }
 
 /**
